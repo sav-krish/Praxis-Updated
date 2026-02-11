@@ -219,41 +219,41 @@ export function SessionLobby({
   }, {} as Record<string, Participant[]>);
 
   return (
-    <div className="max-w-6xl mx-auto">
+    <div className="max-w-6xl mx-auto px-0 sm:px-4">
       {/* Header */}
-      <div className="flex items-center justify-between mb-6">
-        <div className="flex items-center gap-4">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between mb-4 sm:mb-6">
+        <div className="flex items-center gap-3 min-w-0">
           <Link href="/dashboard">
-            <Button variant="ghost" size="icon">
+            <Button variant="ghost" size="icon" className="shrink-0 min-h-[44px] min-w-[44px]">
               <ArrowLeft className="h-5 w-5" />
             </Button>
           </Link>
-          <div>
-            <div className="flex items-center gap-2">
-              <h1 className="text-2xl font-bold">{simulation.title}</h1>
-              <Badge variant={session.status === "lobby" ? "secondary" : session.status === "running" ? "default" : "outline"}>
+          <div className="min-w-0">
+            <div className="flex flex-wrap items-center gap-2">
+              <h1 className="text-xl sm:text-2xl font-bold truncate">{simulation.title}</h1>
+              <Badge variant={session.status === "lobby" ? "secondary" : session.status === "running" ? "default" : "outline"} className="shrink-0">
                 {session.status === "lobby" ? "Lobby" : session.status === "running" ? "Running" : "Complete"}
               </Badge>
             </div>
-            <p className="text-muted-foreground">Session Controls</p>
+            <p className="text-muted-foreground text-xs sm:text-sm">Session Controls</p>
           </div>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex gap-2 shrink-0">
           {session.status === "lobby" && (
-            <Button onClick={startSimulation} disabled={loading || participants.length === 0}>
+            <Button onClick={startSimulation} disabled={loading || participants.length === 0} className="min-h-[44px] flex-1 sm:flex-none">
               {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Play className="mr-2 h-4 w-4" />}
               Start Simulation
             </Button>
           )}
           {session.status === "running" && (
-            <Button variant="destructive" onClick={endSimulation} disabled={loading}>
+            <Button variant="destructive" onClick={endSimulation} disabled={loading} className="min-h-[44px] flex-1 sm:flex-none">
               {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <StopCircle className="mr-2 h-4 w-4" />}
               End Session
             </Button>
           )}
           {session.status === "complete" && (
-            <Link href={`/reports/${simulation.id}?session=${session.id}`}>
-              <Button>
+            <Link href={`/reports/${simulation.id}?session=${session.id}`} className="flex-1 sm:flex-none">
+              <Button className="w-full min-h-[44px]">
                 <BarChart3 className="mr-2 h-4 w-4" />
                 View Results
               </Button>
@@ -262,42 +262,42 @@ export function SessionLobby({
         </div>
       </div>
 
-      <div className="grid lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
         {/* Left: Join Info */}
-        <div className="space-y-6">
+        <div className="space-y-4 sm:space-y-6">
           <Card>
-            <CardHeader>
-              <CardTitle>Join Code</CardTitle>
-              <CardDescription>Share this code with your students</CardDescription>
+            <CardHeader className="px-4 sm:px-6">
+              <CardTitle className="text-lg sm:text-xl">Join Code</CardTitle>
+              <CardDescription className="text-sm">Share this code with your students</CardDescription>
             </CardHeader>
-            <CardContent>
-              <div className="flex items-center justify-center gap-4 mb-6">
-                <div className="text-5xl font-mono font-bold tracking-wider">
+            <CardContent className="px-4 sm:px-6">
+              <div className="flex items-center justify-center gap-3 sm:gap-4 mb-4 sm:mb-6">
+                <div className="text-3xl sm:text-4xl md:text-5xl font-mono font-bold tracking-wider">
                   {session.join_code}
                 </div>
-                <Button variant="outline" size="icon" onClick={copyJoinCode}>
+                <Button variant="outline" size="icon" onClick={copyJoinCode} className="shrink-0 min-h-[44px] min-w-[44px]">
                   {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
                 </Button>
               </div>
               <div className="flex justify-center">
-                <div className="bg-white p-4 rounded-lg">
-                  <QRCodeSVG value={joinUrl} size={180} />
+                <div className="bg-white p-3 sm:p-4 rounded-lg inline-block">
+                  <QRCodeSVG value={joinUrl} size={160} />
                 </div>
               </div>
-              <p className="text-center text-sm text-muted-foreground mt-4">
+              <p className="text-center text-xs sm:text-sm text-muted-foreground mt-3 sm:mt-4 break-all px-2">
                 Students can scan this QR code or go to <br />
-                <span className="font-mono">{joinUrl}</span>
+                <span className="font-mono text-xs sm:text-sm">{joinUrl}</span>
               </p>
             </CardContent>
           </Card>
 
           {session.status === "running" && (
             <Card>
-              <CardHeader>
-                <CardTitle>Progress</CardTitle>
-                <CardDescription>Submission status for each decision</CardDescription>
+              <CardHeader className="px-4 sm:px-6">
+                <CardTitle className="text-lg sm:text-xl">Progress</CardTitle>
+                <CardDescription className="text-sm">Submission status for each decision</CardDescription>
               </CardHeader>
-              <CardContent className="space-y-4">
+              <CardContent className="space-y-4 px-4 sm:px-6">
                 {decisions.map((decision, index) => {
                   const count = getSubmissionCount(decision.id);
                   const percentage = totalGroups > 0 ? (count / totalGroups) * 100 : 0;
@@ -323,9 +323,9 @@ export function SessionLobby({
 
         {/* Right: Participants */}
         <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Users className="h-5 w-5" />
+          <CardHeader className="px-4 sm:px-6">
+            <CardTitle className="flex items-center gap-2 text-lg sm:text-xl">
+              <Users className="h-5 w-5 shrink-0" />
               Participants
               <Badge variant="secondary">{participants.length}</Badge>
             </CardTitle>
@@ -335,7 +335,7 @@ export function SessionLobby({
                 : "Individual mode"}
             </CardDescription>
           </CardHeader>
-          <CardContent>
+          <CardContent className="px-4 sm:px-6">
             {participants.length === 0 ? (
               <div className="text-center py-8 text-muted-foreground">
                 <Users className="h-12 w-12 mx-auto mb-2 opacity-50" />

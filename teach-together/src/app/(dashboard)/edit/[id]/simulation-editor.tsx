@@ -146,50 +146,50 @@ export function SimulationEditor({
   };
 
   return (
-    <div className="max-w-5xl mx-auto">
+    <div className="max-w-5xl mx-auto px-0 sm:px-4">
       {/* Header */}
-      <div className="flex items-center justify-between mb-6">
-        <div className="flex items-center gap-4">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between mb-4 sm:mb-6">
+        <div className="flex items-center gap-3 min-w-0">
           <Link href="/dashboard">
-            <Button variant="ghost" size="icon">
+            <Button variant="ghost" size="icon" className="shrink-0 min-h-[44px] min-w-[44px]">
               <ArrowLeft className="h-5 w-5" />
             </Button>
           </Link>
-          <div>
-            <h1 className="text-2xl font-bold">Edit Simulation</h1>
-            <p className="text-muted-foreground">{simulation.title}</p>
+          <div className="min-w-0">
+            <h1 className="text-xl sm:text-2xl font-bold truncate">Edit Simulation</h1>
+            <p className="text-muted-foreground text-sm truncate">{simulation.title}</p>
           </div>
         </div>
-        <div className="flex items-center gap-2">
-          <Button variant="outline" onClick={handleSave} disabled={saving}>
+        <div className="flex gap-2 flex-wrap">
+          <Button variant="outline" onClick={handleSave} disabled={saving} className="min-h-[44px] flex-1 sm:flex-none">
             {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
             Save
           </Button>
-          <Link href={`/session/${simulation.id}/new`}>
-            <Button>
-              <Play className="mr-2 h-4 w-4" />
+          <Link href={`/session/${simulation.id}/new`} className="flex-1 sm:flex-none">
+            <Button className="w-full min-h-[44px]">
+              <Play className="mr-2 h-4 w-4 shrink-0" />
               Start Session
             </Button>
           </Link>
         </div>
       </div>
 
-      <Tabs defaultValue="background" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-4">
-          <TabsTrigger value="background" className="flex items-center gap-2">
-            <FileText className="h-4 w-4" />
+      <Tabs defaultValue="background" className="space-y-4 sm:space-y-6">
+        <TabsList className="grid w-full grid-cols-2 sm:grid-cols-4 h-auto gap-1 p-1">
+          <TabsTrigger value="background" className="flex items-center gap-1.5 sm:gap-2 min-h-[44px] text-xs sm:text-sm py-2">
+            <FileText className="h-3.5 w-3.5 sm:h-4 sm:w-4 shrink-0" />
             Background
           </TabsTrigger>
-          <TabsTrigger value="decisions" className="flex items-center gap-2">
-            <CircleDot className="h-4 w-4" />
+          <TabsTrigger value="decisions" className="flex items-center gap-1.5 sm:gap-2 min-h-[44px] text-xs sm:text-sm py-2">
+            <CircleDot className="h-3.5 w-3.5 sm:h-4 sm:w-4 shrink-0" />
             Decisions
           </TabsTrigger>
-          <TabsTrigger value="reflection" className="flex items-center gap-2">
-            <MessageSquare className="h-4 w-4" />
+          <TabsTrigger value="reflection" className="flex items-center gap-1.5 sm:gap-2 min-h-[44px] text-xs sm:text-sm py-2">
+            <MessageSquare className="h-3.5 w-3.5 sm:h-4 sm:w-4 shrink-0" />
             Reflection
           </TabsTrigger>
-          <TabsTrigger value="settings" className="flex items-center gap-2">
-            <Settings className="h-4 w-4" />
+          <TabsTrigger value="settings" className="flex items-center gap-1.5 sm:gap-2 min-h-[44px] text-xs sm:text-sm py-2">
+            <Settings className="h-3.5 w-3.5 sm:h-4 sm:w-4 shrink-0" />
             Settings
           </TabsTrigger>
         </TabsList>
@@ -427,15 +427,15 @@ export function SimulationEditor({
       </Tabs>
 
       {/* Bottom Save Bar */}
-      <div className="sticky bottom-0 bg-background border-t py-4 mt-8 -mx-4 px-4">
-        <div className="max-w-5xl mx-auto flex items-center justify-end gap-2">
-          <Button variant="outline" onClick={handleSave} disabled={saving}>
+      <div className="sticky bottom-0 bg-background border-t py-4 mt-6 sm:mt-8 -mx-3 sm:-mx-4 px-3 sm:px-4 safe-area-inset-bottom">
+        <div className="max-w-5xl mx-auto flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-end gap-2">
+          <Button variant="outline" onClick={handleSave} disabled={saving} className="min-h-[48px] w-full sm:w-auto">
             {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
             Save Changes
           </Button>
-          <Link href={`/session/${simulation.id}/new`}>
-            <Button>
-              <Play className="mr-2 h-4 w-4" />
+          <Link href={`/session/${simulation.id}/new`} className="w-full sm:w-auto">
+            <Button className="w-full min-h-[48px]">
+              <Play className="mr-2 h-4 w-4 shrink-0" />
               Start Live Session
             </Button>
           </Link>

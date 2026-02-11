@@ -10,7 +10,7 @@ import {
   DropdownMenuTrigger 
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { BookOpen, LogOut, User } from "lucide-react";
+import { BookOpen, LogOut, User, Plus } from "lucide-react";
 
 async function signOut() {
   "use server";
@@ -38,16 +38,20 @@ export default async function DashboardLayout({
   return (
     <div className="min-h-screen bg-muted/30">
       {/* Header */}
-      <header className="bg-background border-b sticky top-0 z-50">
-        <div className="container mx-auto px-4 h-16 flex items-center justify-between">
-          <Link href="/dashboard" className="flex items-center gap-2">
-            <BookOpen className="h-6 w-6 text-primary" />
-            <span className="text-xl font-bold">Teach Together</span>
+      <header className="bg-background border-b sticky top-0 z-50 safe-area-inset-top">
+        <div className="container mx-auto px-3 sm:px-4 min-h-14 sm:h-16 flex items-center justify-between gap-2">
+          <Link href="/dashboard" className="flex items-center gap-2 min-w-0">
+            <BookOpen className="h-5 w-5 sm:h-6 sm:w-6 text-primary shrink-0" />
+            <span className="text-lg sm:text-xl font-bold truncate">Teach Together</span>
           </Link>
           
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2 sm:gap-4 shrink-0">
             <Link href="/create">
-              <Button>+ New Simulation</Button>
+              <Button className="min-h-[44px] px-3 sm:px-4 text-sm sm:text-base">
+                <Plus className="h-4 w-4 mr-1.5 sm:mr-2 shrink-0" />
+                <span className="sm:inline">New Simulation</span>
+                <span className="sm:hidden">New</span>
+              </Button>
             </Link>
             
             <DropdownMenu>
@@ -90,7 +94,7 @@ export default async function DashboardLayout({
       </header>
 
       {/* Main content */}
-      <main className="container mx-auto px-4 py-8">
+      <main className="container mx-auto px-3 sm:px-4 py-4 sm:py-8">
         {children}
       </main>
     </div>

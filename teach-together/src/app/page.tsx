@@ -6,44 +6,44 @@ export default function Home() {
   return (
     <div className="min-h-screen bg-gradient-to-b from-background to-muted">
       {/* Header */}
-      <header className="container mx-auto px-4 py-6">
-        <nav className="flex items-center justify-between">
+      <header className="container mx-auto px-4 py-4 sm:py-6">
+        <nav className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-center gap-2">
-            <BookOpen className="h-8 w-8 text-primary" />
-            <span className="text-2xl font-bold">Teach Together</span>
+            <BookOpen className="h-7 w-7 sm:h-8 sm:w-8 text-primary shrink-0" />
+            <span className="text-xl sm:text-2xl font-bold truncate">Teach Together</span>
           </div>
-          <div className="flex items-center gap-4">
-            <Link href="/join">
-              <Button variant="ghost">Join Session</Button>
+          <div className="flex flex-wrap gap-2 sm:gap-4">
+            <Link href="/join" className="min-h-[44px] flex items-center">
+              <Button variant="ghost" className="min-h-[44px]">Join Session</Button>
             </Link>
-            <Link href="/login">
-              <Button variant="outline">Login</Button>
+            <Link href="/login" className="min-h-[44px] flex items-center">
+              <Button variant="outline" className="min-h-[44px]">Login</Button>
             </Link>
-            <Link href="/signup">
-              <Button>Get Started</Button>
+            <Link href="/signup" className="min-h-[44px] flex items-center">
+              <Button className="min-h-[44px]">Get Started</Button>
             </Link>
           </div>
         </nav>
       </header>
 
       {/* Hero Section */}
-      <main className="container mx-auto px-4 py-20">
+      <main className="container mx-auto px-4 py-10 sm:py-20">
         <div className="text-center max-w-3xl mx-auto">
-          <h1 className="text-5xl font-bold tracking-tight mb-6">
+          <h1 className="text-3xl sm:text-4xl md:text-5xl font-bold tracking-tight mb-4 sm:mb-6">
             Interactive Classroom Simulations
           </h1>
-          <p className="text-xl text-muted-foreground mb-8">
+          <p className="text-base sm:text-lg md:text-xl text-muted-foreground mb-6 sm:mb-8">
             Create engaging decision-based exercises for your students. 
             No student accounts required - just share a code and start learning together.
           </p>
-          <div className="flex gap-4 justify-center">
-            <Link href="/signup">
-              <Button size="lg" className="text-lg px-8">
+          <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 justify-center">
+            <Link href="/signup" className="w-full sm:w-auto">
+              <Button size="lg" className="w-full sm:w-auto text-base sm:text-lg px-6 sm:px-8 min-h-[48px]">
                 Create Your First Simulation
               </Button>
             </Link>
-            <Link href="/join">
-              <Button size="lg" variant="outline" className="text-lg px-8">
+            <Link href="/join" className="w-full sm:w-auto">
+              <Button size="lg" variant="outline" className="w-full sm:w-auto text-base sm:text-lg px-6 sm:px-8 min-h-[48px]">
                 Join a Session
               </Button>
             </Link>
@@ -51,7 +51,7 @@ export default function Home() {
         </div>
 
         {/* Features */}
-        <div className="grid md:grid-cols-3 gap-8 mt-24">
+        <div className="grid sm:grid-cols-2 md:grid-cols-3 gap-6 sm:gap-8 mt-16 sm:mt-24">
           <div className="bg-card rounded-xl p-6 border shadow-sm">
             <div className="h-12 w-12 rounded-lg bg-primary/10 flex items-center justify-center mb-4">
               <Zap className="h-6 w-6 text-primary" />
@@ -84,9 +84,9 @@ export default function Home() {
         </div>
 
         {/* How it works */}
-        <div className="mt-24 text-center">
-          <h2 className="text-3xl font-bold mb-12">How It Works</h2>
-          <div className="grid md:grid-cols-4 gap-8">
+        <div className="mt-16 sm:mt-24 text-center">
+          <h2 className="text-2xl sm:text-3xl font-bold mb-8 sm:mb-12">How It Works</h2>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-6 sm:gap-8">
             <div>
               <div className="h-12 w-12 rounded-full bg-primary text-primary-foreground flex items-center justify-center mx-auto mb-4 text-xl font-bold">
                 1
@@ -128,10 +128,10 @@ export default function Home() {
       </main>
 
       {/* Footer */}
-      <footer className="container mx-auto px-4 py-8 mt-20 border-t">
-        <div className="flex items-center justify-between text-sm text-muted-foreground">
+      <footer className="container mx-auto px-4 py-6 sm:py-8 mt-16 sm:mt-20 border-t">
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-3 text-sm text-muted-foreground text-center sm:text-left">
           <div className="flex items-center gap-2">
-            <BookOpen className="h-5 w-5" />
+            <BookOpen className="h-5 w-5 shrink-0" />
             <span>Teach Together</span>
           </div>
           <p>Built for educators, by educators</p>

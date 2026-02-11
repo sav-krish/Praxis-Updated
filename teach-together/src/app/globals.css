@@ -124,3 +124,11 @@
     @apply bg-background text-foreground;
   }
 }
+
+/* Safe area insets for notched devices (e.g. iPhone) */
+.safe-area-inset-top {
+  padding-top: env(safe-area-inset-top, 0);
+}
+.safe-area-inset-bottom {
+  padding-bottom: env(safe-area-inset-bottom, 0);
+}

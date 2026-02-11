@@ -117,8 +117,8 @@ function JoinForm() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-muted/50 px-4">
-      <Card className="w-full max-w-md">
+    <div className="min-h-screen flex items-center justify-center bg-muted/50 px-4 py-6">
+      <Card className="w-full max-w-md max-h-[calc(100dvh-3rem)] overflow-auto">
         <CardHeader className="text-center">
           <div className="flex items-center justify-center gap-2 mb-4">
             <BookOpen className="h-8 w-8 text-primary" />
@@ -165,7 +165,7 @@ function JoinForm() {
           <CardContent className="pt-0">
             <Button 
               type="submit" 
-              className="w-full" 
+              className="w-full min-h-[48px]" 
               disabled={loading || !session || !name.trim()}
             >
               {loading ? (

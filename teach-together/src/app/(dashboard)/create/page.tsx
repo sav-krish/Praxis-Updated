@@ -283,10 +283,10 @@ export default function CreateSimulationPage() {
   };
 
   return (
-    <div className="max-w-3xl mx-auto">
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold">Create New Simulation</h1>
-        <p className="text-muted-foreground mt-1">
+    <div className="max-w-3xl mx-auto px-0 sm:px-4">
+      <div className="mb-6 sm:mb-8">
+        <h1 className="text-2xl sm:text-3xl font-bold">Create New Simulation</h1>
+        <p className="text-muted-foreground mt-1 text-sm sm:text-base">
           Set up your simulation intent and upload any supporting materials
         </p>
       </div>
@@ -451,32 +451,32 @@ export default function CreateSimulationPage() {
         </Card>
 
         <div className="flex flex-col gap-4">
-          <div className="flex gap-4">
+          <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
             <Button 
               type="button" 
-              className="flex-1" 
+              className="flex-1 min-h-[48px] w-full" 
               size="lg"
               onClick={handleGenerateWithAI}
               disabled={loading || generatingAI || !formData.title}
             >
               {generatingAI ? (
-                <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                <Loader2 className="mr-2 h-5 w-5 animate-spin shrink-0" />
               ) : (
-                <Wand2 className="mr-2 h-5 w-5" />
+                <Wand2 className="mr-2 h-5 w-5 shrink-0" />
               )}
               {generatingAI ? "Generating..." : "Generate with AI"}
             </Button>
             <Button 
               type="submit" 
               variant="outline"
-              className="flex-1" 
+              className="flex-1 min-h-[48px] w-full" 
               size="lg"
               disabled={loading || generatingAI || !formData.title}
             >
               {loading ? (
-                <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                <Loader2 className="mr-2 h-5 w-5 animate-spin shrink-0" />
               ) : (
-                <PenLine className="mr-2 h-5 w-5" />
+                <PenLine className="mr-2 h-5 w-5 shrink-0" />
               )}
               Create Manually
             </Button>

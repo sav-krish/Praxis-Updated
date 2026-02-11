@@ -34,23 +34,23 @@ export default async function DashboardPage() {
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-8">
-        <div>
-          <h1 className="text-3xl font-bold">Your Simulations</h1>
-          <p className="text-muted-foreground mt-1">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between mb-6 sm:mb-8">
+        <div className="min-w-0">
+          <h1 className="text-2xl sm:text-3xl font-bold">Your Simulations</h1>
+          <p className="text-muted-foreground mt-1 text-sm sm:text-base">
             Create and manage your classroom simulations
           </p>
         </div>
-        <Link href="/create">
-          <Button size="lg">
-            <Plus className="mr-2 h-5 w-5" />
+        <Link href="/create" className="w-full sm:w-auto">
+          <Button size="lg" className="w-full sm:w-auto min-h-[48px]">
+            <Plus className="mr-2 h-5 w-5 shrink-0" />
             Create New Simulation
           </Button>
         </Link>
       </div>
 
       {simulations && simulations.length > 0 ? (
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+        <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
           {simulations.map((simulation) => (
             <Card key={simulation.id} className="group hover:shadow-md transition-shadow">
               <CardHeader className="pb-3">
@@ -95,24 +95,20 @@ export default async function DashboardPage() {
                 </div>
               </CardHeader>
               <CardContent>
-                <div className="flex items-center justify-between text-sm text-muted-foreground">
-                  <span>
-                    {simulation.mode === "teams" ? "Team Mode" : "Individual Mode"}
-                  </span>
-                  <span>
-                    Updated {new Date(simulation.updated_at).toLocaleDateString()}
-                  </span>
+                <div className="flex flex-wrap items-center justify-between gap-1 text-sm text-muted-foreground">
+                  <span>{simulation.mode === "teams" ? "Team Mode" : "Individual Mode"}</span>
+                  <span className="text-xs sm:text-sm">Updated {new Date(simulation.updated_at).toLocaleDateString()}</span>
                 </div>
                 <div className="flex gap-2 mt-4">
-                  <Link href={`/edit/${simulation.id}`} className="flex-1">
-                    <Button variant="outline" className="w-full" size="sm">
-                      <Edit className="mr-2 h-4 w-4" />
+                  <Link href={`/edit/${simulation.id}`} className="flex-1 min-w-0">
+                    <Button variant="outline" className="w-full min-h-[44px]" size="sm">
+                      <Edit className="mr-2 h-4 w-4 shrink-0" />
                       Edit
                     </Button>
                   </Link>
-                  <Link href={`/session/${simulation.id}/new`} className="flex-1">
-                    <Button className="w-full" size="sm">
-                      <Play className="mr-2 h-4 w-4" />
+                  <Link href={`/session/${simulation.id}/new`} className="flex-1 min-w-0">
+                    <Button className="w-full min-h-[44px]" size="sm">
+                      <Play className="mr-2 h-4 w-4 shrink-0" />
                       Start
                     </Button>
                   </Link>

@@ -200,27 +200,27 @@ export function ReportsView({
   const maxScore = decisions.length * 3;
 
   return (
-    <div className="max-w-6xl mx-auto">
+    <div className="max-w-6xl mx-auto px-0 sm:px-4">
       {/* Header */}
-      <div className="flex items-center justify-between mb-6">
-        <div className="flex items-center gap-4">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between mb-4 sm:mb-6">
+        <div className="flex items-center gap-3 min-w-0">
           <Link href="/dashboard">
-            <Button variant="ghost" size="icon">
+            <Button variant="ghost" size="icon" className="shrink-0 min-h-[44px] min-w-[44px]">
               <ArrowLeft className="h-5 w-5" />
             </Button>
           </Link>
-          <div>
-            <h1 className="text-2xl font-bold">{simulation.title}</h1>
-            <p className="text-muted-foreground">Session Results</p>
+          <div className="min-w-0">
+            <h1 className="text-xl sm:text-2xl font-bold truncate">{simulation.title}</h1>
+            <p className="text-muted-foreground text-sm">Session Results</p>
           </div>
         </div>
-        <div className="flex items-center gap-4">
+        <div className="flex flex-wrap items-center gap-2 sm:gap-4">
           {sessions.length > 1 && (
             <Select
               value={selectedSession.id}
               onValueChange={(value) => router.push(`/reports/${simulation.id}?session=${value}`)}
             >
-              <SelectTrigger className="w-[200px]">
+              <SelectTrigger className="w-full min-w-0 sm:w-[200px] min-h-[44px]">
                 <SelectValue placeholder="Select session" />
               </SelectTrigger>
               <SelectContent>
@@ -232,15 +232,15 @@ export function ReportsView({
               </SelectContent>
             </Select>
           )}
-          <Button onClick={exportCSV}>
-            <Download className="mr-2 h-4 w-4" />
+          <Button onClick={exportCSV} className="min-h-[44px] w-full sm:w-auto flex-1 sm:flex-none">
+            <Download className="mr-2 h-4 w-4 shrink-0" />
             Export CSV
           </Button>
         </div>
       </div>
 
       {/* Summary Cards */}
-      <div className="grid md:grid-cols-3 gap-4 mb-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 mb-4 sm:mb-6">
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">Participants</CardTitle>
@@ -284,30 +284,30 @@ export function ReportsView({
         </Card>
       </div>
 
-      <Tabs defaultValue="distribution" className="space-y-6">
-        <TabsList>
-          <TabsTrigger value="distribution">Decision Distribution</TabsTrigger>
-          <TabsTrigger value="scores">Scores</TabsTrigger>
-          <TabsTrigger value="reflections">Reflections</TabsTrigger>
+      <Tabs defaultValue="distribution" className="space-y-4 sm:space-y-6">
+        <TabsList className="grid w-full grid-cols-3 h-auto min-h-[44px] p-1">
+          <TabsTrigger value="distribution" className="text-xs sm:text-sm py-2">Distribution</TabsTrigger>
+          <TabsTrigger value="scores" className="text-xs sm:text-sm py-2">Scores</TabsTrigger>
+          <TabsTrigger value="reflections" className="text-xs sm:text-sm py-2">Reflections</TabsTrigger>
         </TabsList>
 
         {/* Distribution Tab */}
-        <TabsContent value="distribution" className="space-y-6">
+        <TabsContent value="distribution" className="space-y-4 sm:space-y-6">
           {decisions.map((decision, index) => {
             const distribution = getDistribution(decision.id);
             return (
               <Card key={decision.id}>
-                <CardHeader>
+                <CardHeader className="px-4 sm:px-6">
                   <Badge variant="outline" className="w-fit mb-2">Decision {index + 1}</Badge>
-                  <CardTitle className="text-lg">{decision.prompt}</CardTitle>
+                  <CardTitle className="text-base sm:text-lg break-words">{decision.prompt}</CardTitle>
                 </CardHeader>
-                <CardContent>
+                <CardContent className="px-4 sm:px-6">
                   <div className="space-y-4">
                     {distribution.map((option) => (
                       <div key={option.id}>
-                        <div className="flex justify-between text-sm mb-1">
-                          <span className="font-medium">{option.label}. {option.title}</span>
-                          <span className="text-muted-foreground">{option.count} ({option.percentage}%)</span>
+                        <div className="flex flex-wrap justify-between gap-1 text-sm mb-1">
+                          <span className="font-medium break-words">{option.label}. {option.title}</span>
+                          <span className="text-muted-foreground shrink-0">{option.count} ({option.percentage}%)</span>
                         </div>
                         <div className="h-8 bg-muted rounded-full overflow-hidden relative">
                           <div 

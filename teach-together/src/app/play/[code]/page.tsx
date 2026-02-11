@@ -361,18 +361,18 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
   // Waiting screen
   if (currentStep === 0) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-muted/50 px-4">
+      <div className="min-h-screen flex items-center justify-center bg-muted/50 px-4 py-6">
         <Card className="w-full max-w-md text-center">
-          <CardHeader>
+          <CardHeader className="px-4 sm:px-6">
             <div className="flex items-center justify-center gap-2 mb-4">
-              <BookOpen className="h-8 w-8 text-primary" />
+              <BookOpen className="h-8 w-8 text-primary shrink-0" />
             </div>
-            <CardTitle>{session?.simulation.title}</CardTitle>
+            <CardTitle className="text-lg sm:text-xl line-clamp-2">{session?.simulation.title}</CardTitle>
             <CardDescription>Welcome, {participantName}!</CardDescription>
           </CardHeader>
-          <CardContent>
-            <div className="flex items-center justify-center gap-2 text-muted-foreground">
-              <Clock className="h-5 w-5 animate-pulse" />
+          <CardContent className="px-4 sm:px-6">
+            <div className="flex items-center justify-center gap-2 text-muted-foreground text-sm sm:text-base">
+              <Clock className="h-5 w-5 animate-pulse shrink-0" />
               <span>Waiting for professor to start the simulation...</span>
             </div>
           </CardContent>
@@ -384,25 +384,25 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
   // Background screen
   if (currentStep === 1) {
     return (
-      <div className="min-h-screen bg-muted/50 py-8 px-4">
+      <div className="min-h-screen bg-muted/50 py-4 sm:py-8 px-3 sm:px-4">
         <div className="max-w-3xl mx-auto">
           <Card>
-            <CardHeader>
+            <CardHeader className="px-4 sm:px-6">
               <Badge className="w-fit mb-2">Background</Badge>
-              <CardTitle>{session?.simulation.title}</CardTitle>
-              <CardDescription>Read the scenario carefully before making decisions</CardDescription>
+              <CardTitle className="text-lg sm:text-xl line-clamp-2">{session?.simulation.title}</CardTitle>
+              <CardDescription className="text-sm">Read the scenario carefully before making decisions</CardDescription>
             </CardHeader>
-            <CardContent>
-              <div className="prose prose-sm max-w-none">
-                <div className="whitespace-pre-wrap">
+            <CardContent className="px-4 sm:px-6">
+              <div className="prose prose-sm max-w-none text-sm sm:text-base">
+                <div className="whitespace-pre-wrap break-words">
                   {session?.simulation.background_content || "No background content provided."}
                 </div>
               </div>
-              <Separator className="my-6" />
+              <Separator className="my-4 sm:my-6" />
               <div className="flex justify-end">
-                <Button onClick={() => setCurrentStep(2)}>
+                <Button onClick={() => setCurrentStep(2)} className="min-h-[48px] w-full sm:w-auto">
                   Continue to Decisions
-                  <ArrowRight className="ml-2 h-4 w-4" />
+                  <ArrowRight className="ml-2 h-4 w-4 shrink-0" />
                 </Button>
               </div>
             </CardContent>
@@ -425,21 +425,21 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
     // Show consequence after submission
     if (showConsequence) {
       return (
-        <div className="min-h-screen bg-muted/50 py-8 px-4">
+        <div className="min-h-screen bg-muted/50 py-4 sm:py-8 px-3 sm:px-4">
           <div className="max-w-3xl mx-auto">
             <Card>
-              <CardHeader>
+              <CardHeader className="px-4 sm:px-6">
                 <Badge variant="secondary" className="w-fit mb-2">Consequence</Badge>
-                <CardTitle>Decision {decision.order_num} Result</CardTitle>
+                <CardTitle className="text-lg sm:text-xl">Decision {decision.order_num} Result</CardTitle>
               </CardHeader>
-              <CardContent>
-                <div className="p-6 bg-muted rounded-lg">
-                  <p className="text-lg">{currentConsequence || "Your choice has been recorded."}</p>
+              <CardContent className="px-4 sm:px-6">
+                <div className="p-4 sm:p-6 bg-muted rounded-lg">
+                  <p className="text-base sm:text-lg break-words">{currentConsequence || "Your choice has been recorded."}</p>
                 </div>
-                <div className="flex justify-end mt-6">
-                  <Button onClick={continueToNext}>
+                <div className="flex justify-end mt-4 sm:mt-6">
+                  <Button onClick={continueToNext} className="min-h-[48px] w-full sm:w-auto">
                     {decisionIndex < 2 ? "Next Decision" : "Continue to Reflection"}
-                    <ArrowRight className="ml-2 h-4 w-4" />
+                    <ArrowRight className="ml-2 h-4 w-4 shrink-0" />
                   </Button>
                 </div>
               </CardContent>
@@ -450,7 +450,7 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
     }
 
     return (
-      <div className="min-h-screen bg-linear-to-b from-muted/30 to-muted/60 py-8 px-4">
+      <div className="min-h-screen bg-linear-to-b from-muted/30 to-muted/60 py-4 sm:py-8 px-3 sm:px-4">
         <div className="max-w-2xl mx-auto space-y-4">
           {/* Decision prompt – collapsible so you can hide it after reading */}
           <Collapsible defaultOpen={true} className="group">
@@ -458,7 +458,7 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
               <CollapsibleTrigger asChild>
                 <button
                   type="button"
-                  className="w-full text-left px-6 py-4 flex items-center justify-between gap-3 hover:bg-muted/40 transition-colors rounded-t-xl focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                  className="w-full text-left px-4 sm:px-6 py-4 min-h-[48px] flex items-center justify-between gap-3 hover:bg-muted/40 active:bg-muted/50 transition-colors rounded-t-xl focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
                 >
                   <div className="flex items-center gap-3 min-w-0">
                     <Badge variant="secondary" className="shrink-0">Decision {decision.order_num} of 3</Badge>
@@ -468,9 +468,9 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
                 </button>
               </CollapsibleTrigger>
               <CollapsibleContent>
-                <div className="px-6 pb-5 pt-0 border-t border-border/50">
-                  <p className="text-[15px] leading-relaxed text-foreground/90">{decision.prompt}</p>
-                  <p className="text-sm text-muted-foreground mt-3">Select an option below and add justification if you like.</p>
+                <div className="px-4 sm:px-6 pb-5 pt-0 border-t border-border/50">
+                  <p className="text-sm sm:text-[15px] leading-relaxed text-foreground/90 break-words">{decision.prompt}</p>
+                  <p className="text-xs sm:text-sm text-muted-foreground mt-3">Select an option below and add justification if you like.</p>
                 </div>
               </CollapsibleContent>
             </Card>
@@ -478,11 +478,11 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
 
           {/* Options – each option is collapsible (title visible, expand for description) */}
           <Card className="border-muted/80 bg-card/95 shadow-sm">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-lg font-medium">Choose an option</CardTitle>
-              <CardDescription>Pick one and optionally expand to read more</CardDescription>
+            <CardHeader className="pb-3 px-4 sm:px-6">
+              <CardTitle className="text-base sm:text-lg font-medium">Choose an option</CardTitle>
+              <CardDescription className="text-xs sm:text-sm">Pick one and optionally expand to read more</CardDescription>
             </CardHeader>
-            <CardContent className="space-y-3">
+            <CardContent className="space-y-3 px-4 sm:px-6">
               <RadioGroup value={selectedOption || ""} onValueChange={setSelectedOption}>
                 {decision.options.map((option) => (
                   <Collapsible key={option.id} className="group/option">
@@ -494,12 +494,12 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
                       }`}
                     >
                       <div
-                        className="flex items-center gap-3 p-4 cursor-pointer"
+                        className="flex items-center gap-3 p-3 sm:p-4 min-h-[48px] cursor-pointer"
                         onClick={() => setSelectedOption(option.id)}
                       >
                         <RadioGroupItem value={option.id} id={option.id} className="mt-0.5 shrink-0" />
                         <div className="flex-1 min-w-0">
-                          <Label htmlFor={option.id} className="text-[15px] font-medium cursor-pointer text-foreground/95">
+                          <Label htmlFor={option.id} className="text-sm sm:text-[15px] font-medium cursor-pointer text-foreground/95 break-words">
                             {option.label}. {option.title}
                           </Label>
                         </div>
@@ -535,7 +535,7 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
               <CollapsibleTrigger asChild>
                 <button
                   type="button"
-                  className="w-full text-left px-6 py-4 flex items-center justify-between gap-3 hover:bg-muted/40 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                  className="w-full text-left px-4 sm:px-6 py-4 min-h-[48px] flex items-center justify-between gap-3 hover:bg-muted/40 active:bg-muted/50 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
                 >
                   <span className="text-sm font-medium text-muted-foreground">Add justification (optional)</span>
                   <ChevronDown className="h-5 w-5 shrink-0 text-muted-foreground transition-transform group-data-[state=open]:rotate-180" />
@@ -562,7 +562,7 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
               size="lg"
               onClick={submitDecision}
               disabled={!selectedOption || submitting}
-              className="shadow-sm"
+              className="shadow-sm min-h-[48px] w-full sm:w-auto"
             >
               {submitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               Submit Decision
@@ -576,18 +576,18 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
   // Reflection screen
   if (currentStep === 5) {
     return (
-      <div className="min-h-screen bg-muted/50 py-8 px-4">
+      <div className="min-h-screen bg-muted/50 py-4 sm:py-8 px-3 sm:px-4">
         <div className="max-w-3xl mx-auto">
           <Card>
-            <CardHeader>
+            <CardHeader className="px-4 sm:px-6">
               <Badge variant="secondary" className="w-fit mb-2">Reflection</Badge>
-              <CardTitle>Reflect on Your Experience</CardTitle>
-              <CardDescription>Take a moment to think about what you learned</CardDescription>
+              <CardTitle className="text-lg sm:text-xl">Reflect on Your Experience</CardTitle>
+              <CardDescription className="text-sm">Take a moment to think about what you learned</CardDescription>
             </CardHeader>
-            <CardContent className="space-y-6">
+            <CardContent className="space-y-6 px-4 sm:px-6">
               {reflectionQuestions.map((question) => (
                 <div key={question.id} className="space-y-2">
-                  <Label>{question.question}</Label>
+                  <Label className="text-sm sm:text-base">{question.question}</Label>
                   <Textarea
                     placeholder="Your thoughts..."
                     value={reflectionAnswers[question.id] || ""}
@@ -596,15 +596,16 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
                       [question.id]: e.target.value
                     }))}
                     rows={4}
+                    className="min-h-[100px] text-base"
                   />
                 </div>
               ))}
 
               <div className="flex justify-end">
-                <Button onClick={submitReflection} disabled={submitting}>
+                <Button onClick={submitReflection} disabled={submitting} className="min-h-[48px] w-full sm:w-auto">
                   {submitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                   Complete Simulation
-                  <Check className="ml-2 h-4 w-4" />
+                  <Check className="ml-2 h-4 w-4 shrink-0" />
                 </Button>
               </div>
             </CardContent>
@@ -616,42 +617,42 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
 
   // Results screen
   return (
-    <div className="min-h-screen bg-muted/50 py-8 px-4">
+    <div className="min-h-screen bg-muted/50 py-4 sm:py-8 px-3 sm:px-4">
       <div className="max-w-3xl mx-auto">
         <Card>
-          <CardHeader className="text-center">
+          <CardHeader className="text-center px-4 sm:px-6">
             <div className="flex justify-center mb-4">
-              <div className="h-16 w-16 rounded-full bg-primary/10 flex items-center justify-center">
-                <Trophy className="h-8 w-8 text-primary" />
+              <div className="h-14 w-14 sm:h-16 sm:w-16 rounded-full bg-primary/10 flex items-center justify-center">
+                <Trophy className="h-7 w-7 sm:h-8 sm:w-8 text-primary" />
               </div>
             </div>
-            <CardTitle>Simulation Complete!</CardTitle>
+            <CardTitle className="text-xl sm:text-2xl">Simulation Complete!</CardTitle>
             <CardDescription>Thank you for participating, {participantName}</CardDescription>
           </CardHeader>
-          <CardContent>
-            <div className="text-center mb-6">
-              <div className="text-5xl font-bold text-primary mb-2">
+          <CardContent className="px-4 sm:px-6">
+            <div className="text-center mb-4 sm:mb-6">
+              <div className="text-4xl sm:text-5xl font-bold text-primary mb-2">
                 {totalScore} / {maxScore}
               </div>
-              <p className="text-muted-foreground">Total Score</p>
+              <p className="text-muted-foreground text-sm">Total Score</p>
             </div>
 
-            <Separator className="my-6" />
+            <Separator className="my-4 sm:my-6" />
 
-            <div className="space-y-4">
-              <h4 className="font-medium">Your Decisions</h4>
+            <div className="space-y-3">
+              <h4 className="font-medium text-sm sm:text-base">Your Decisions</h4>
               {decisions.map((decision, index) => {
                 const response = myResponses.find(r => r.decision_id === decision.id);
                 const selectedOpt = decision.options.find(o => o.id === response?.option_id);
                 return (
-                  <div key={decision.id} className="flex items-center justify-between p-3 bg-muted rounded-lg">
-                    <div>
-                      <p className="font-medium">Decision {index + 1}</p>
-                      <p className="text-sm text-muted-foreground">
+                  <div key={decision.id} className="flex items-center justify-between gap-3 p-3 bg-muted rounded-lg min-h-[52px]">
+                    <div className="min-w-0 flex-1">
+                      <p className="font-medium text-sm">Decision {index + 1}</p>
+                      <p className="text-xs sm:text-sm text-muted-foreground truncate">
                         {selectedOpt ? `${selectedOpt.label}. ${selectedOpt.title}` : "No response"}
                       </p>
                     </div>
-                    <Badge variant={response?.score === 3 ? "default" : "secondary"}>
+                    <Badge variant={response?.score === 3 ? "default" : "secondary"} className="shrink-0">
                       +{response?.score || 0}
                     </Badge>
                   </div>
