@@ -16,13 +16,13 @@ html {
 
 body {
   margin: 0;
-  background: #F6F4F1;
-  color: #1E2A2F;
+  background: #F3F7FF;
+  color: #0F2447;
   font-family: Inter, system-ui, -apple-system, Segoe UI, sans-serif;
 }
 
 ::selection {
-  background: #D8EBEA;
+  background: #C8DCFF;
 }
 
 a {

@@ -1,20 +1,26 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   ArrowRight,
+  BarChart3,
   CheckCircle2,
   ClipboardList,
   Compass,
-  GraduationCap,
+  FileText,
   LineChart,
-  Sparkles
+  SlidersHorizontal,
+  Sparkles,
+  Target,
+  Users,
+  Wand2
 } from "lucide-react";
 
 const navLinks = [
+  { label: "Overview", href: "#overview" },
   { label: "How it works", href: "#how-it-works" },
-  { label: "Why it matters", href: "#why-it-matters" },
+  { label: "Preview", href: "#preview" },
   { label: "Demo", href: "#demo" }
 ];
 
@@ -42,18 +48,10 @@ const heroFrames = [
   }
 ] as const;
 
-const differentiators = [
-  "You control pacing",
-  "You define what ‘good’ looks like",
-  "Students commit to a choice",
-  "Results turn discussion into analysis"
-];
-
 const problemBullets = [
-  "A few voices dominate while others stay silent",
-  "Silence is mistaken for agreement",
-  "Decisions get buried inside discussion",
-  "You finish class without knowing what teams actually chose"
+  "Cases are stagnant and outdated",
+  "Cases are not best fit for shorter engagement spans",
+  "Cases do not promote collaboration and teamwork"
 ];
 
 const simulationFailBullets = [
@@ -63,11 +61,26 @@ const simulationFailBullets = [
 ];
 
 const steps = [
-  "Upload material or define learning goals",
-  "Generate a simulation draft aligned to your class",
-  "Edit context, decisions, and scoring",
-  "Run live — students join in teams",
-  "Review a session report with decision breakdowns"
+  {
+    label: "Upload material or define learning goals",
+    icon: FileText
+  },
+  {
+    label: "Generate a simulation draft aligned to your class",
+    icon: Wand2
+  },
+  {
+    label: "Edit context, decisions, and scoring",
+    icon: SlidersHorizontal
+  },
+  {
+    label: "Run live — students join in teams",
+    icon: Users
+  },
+  {
+    label: "Review a session report with decision breakdowns",
+    icon: BarChart3
+  }
 ];
 
 const solutionCards = [
@@ -98,7 +111,7 @@ function Button({
 }) {
   const styles = {
     primary:
-      "bg-accent text-white shadow-subtle hover:bg-[#174A51] focus-visible:ring-accent",
+      "bg-accent text-white shadow-subtle hover:bg-[#1E40AF] focus-visible:ring-accent",
     secondary:
       "border border-accent text-accent hover:bg-accentSoft focus-visible:ring-accent",
     ghost:
@@ -145,10 +158,14 @@ function SectionHeader({
 
 function DemoBanner({
   activeIndex,
-  setActiveIndex
+  setActiveIndex,
+  onNext,
+  onPrev
 }: {
   activeIndex: number;
   setActiveIndex: (index: number) => void;
+  onNext: () => void;
+  onPrev: () => void;
 }) {
   const frame = heroFrames[activeIndex];
 
@@ -311,7 +328,24 @@ function DemoBanner({
             />
           ))}
         </div>
-        <div className="text-xs text-muted">Use arrows or tabs to switch</div>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            className="rounded-full border border-line px-3 py-1 text-xs font-semibold text-muted hover:bg-accentSoft hover:text-ink"
+            onClick={onPrev}
+            aria-label="Previous frame"
+          >
+            Prev
+          </button>
+          <button
+            type="button"
+            className="rounded-full border border-line px-3 py-1 text-xs font-semibold text-muted hover:bg-accentSoft hover:text-ink"
+            onClick={onNext}
+            aria-label="Next frame"
+          >
+            Next
+          </button>
+        </div>
       </div>
     </div>
   );
@@ -475,26 +509,21 @@ function RequestDemoModal({
 export default function HomePage() {
   const [activeFrame, setActiveFrame] = useState(0);
   const [demoOpen, setDemoOpen] = useState(false);
-  const intervalRef = useRef<NodeJS.Timeout | null>(null);
-  const isHovered = useRef(false);
+  const [isPreviewPaused, setIsPreviewPaused] = useState(false);
 
-  const advance = () => {
+  const goNextFrame = () => {
     setActiveFrame((prev) => (prev + 1) % heroFrames.length);
   };
 
-  useEffect(() => {
-    intervalRef.current = setInterval(() => {
-      if (!isHovered.current) {
-        advance();
-      }
-    }, 3000);
+  const goPrevFrame = () => {
+    setActiveFrame((prev) => (prev === 0 ? heroFrames.length - 1 : prev - 1));
+  };
 
-    return () => {
-      if (intervalRef.current) {
-        clearInterval(intervalRef.current);
-      }
-    };
-  }, []);
+  useEffect(() => {
+    if (isPreviewPaused) return;
+    const timer = window.setInterval(goNextFrame, 3000);
+    return () => window.clearInterval(timer);
+  }, [isPreviewPaused]);
 
   const handleKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
     if (event.key === "ArrowRight") {
@@ -507,20 +536,12 @@ export default function HomePage() {
     }
   };
 
-  const stats = useMemo(
-    () => [
-      { label: "Decision windows", value: "3" },
-      { label: "Live teams", value: "Up to 40" },
-      { label: "Setup", value: "< 15 min" }
-    ],
-    []
-  );
-
   return (
-    <div className="min-h-screen bg-canvas text-ink">
-      <div className="pointer-events-none absolute inset-0 overflow-hidden">
-        <div className="absolute -top-32 right-10 h-64 w-64 rounded-full bg-[#E6F0EF] blur-3xl" />
-        <div className="absolute bottom-0 left-0 h-72 w-72 rounded-full bg-[#F0E7DA] blur-3xl" />
+    <div className="relative isolate min-h-screen overflow-x-clip bg-canvas text-ink">
+      <div className="pointer-events-none fixed inset-0 -z-10 overflow-hidden">
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_15%,rgba(187,214,255,0.42),transparent_42%),radial-gradient(circle_at_80%_75%,rgba(156,194,255,0.35),transparent_40%)]" />
+        <div className="absolute -top-32 right-10 h-64 w-64 rounded-full bg-[#D9E7FF] blur-3xl" />
+        <div className="absolute bottom-0 left-0 h-72 w-72 rounded-full bg-[#CFE2FF] blur-3xl" />
         <motion.div
           className="absolute left-1/3 top-24 h-2 w-2 rounded-full bg-accent/30"
           animate={{ y: [0, -12, 0], opacity: [0.4, 0.8, 0.4] }}
@@ -562,73 +583,37 @@ export default function HomePage() {
       </header>
 
       <main>
-        <section className="container relative grid gap-12 pb-20 pt-16 md:grid-cols-[1.1fr_0.9fr] md:items-center">
-          <div>
+        <section className="container relative pb-12 pt-8 md:pb-12 md:pt-10" id="overview">
+          <div className="max-w-3xl">
             <div className="inline-flex items-center gap-2 rounded-full border border-line bg-white/80 px-4 py-1 text-xs font-semibold text-muted">
               <Sparkles className="h-4 w-4 text-accent" />
               Built for case-based classrooms
             </div>
             <h1 className="mt-6 text-4xl font-semibold leading-tight text-ink md:text-5xl">
-              Run better in-class decisions — not louder discussions.
+              Bring real-world learning into classrooms with meaningful in-class simulations.
             </h1>
             <p className="mt-5 text-base text-muted md:text-lg">
-              Case discussions don’t scale. Teach Together helps you run
-              structured, editable simulations where every team must decide —
-              and you can see the results instantly.
+              Teach Together starts simple: a clear scenario, a decision point,
+              and instant class-wide results. Scroll to see how the full flow
+              works from setup to debrief.
             </p>
             <div className="mt-8 flex flex-wrap gap-4">
               <Button onClick={() => setDemoOpen(true)}>
                 Request a Demo <ArrowRight className="h-4 w-4" />
               </Button>
-              <a href="#sample" className="inline-flex">
-                <Button variant="secondary">See a Sample Simulation</Button>
+              <a href="#how-it-works" className="inline-flex">
+                <Button variant="secondary">See the Flow</Button>
               </a>
             </div>
-            <div className="mt-10 grid grid-cols-3 gap-4 text-sm text-muted">
-              {stats.map((item) => (
-                <div
-                  key={item.label}
-                  className="rounded-xl border border-line bg-white/70 px-4 py-3 text-center"
-                >
-                  <div className="text-lg font-semibold text-ink">
-                    {item.value}
-                  </div>
-                  <div className="mt-1 text-xs uppercase tracking-wide">
-                    {item.label}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          <div
-            className="relative"
-            onMouseEnter={() => {
-              isHovered.current = true;
-            }}
-            onMouseLeave={() => {
-              isHovered.current = false;
-            }}
-            onKeyDown={handleKeyDown}
-            tabIndex={0}
-            aria-label="Interactive demo carousel"
-          >
-            <DemoBanner
-              activeIndex={activeFrame}
-              setActiveIndex={setActiveFrame}
-            />
-            <p className="mt-4 text-sm text-muted">
-              Designed for a 30-minute class. No timers. You control the pace.
-            </p>
           </div>
         </section>
 
-        <section id="why-it-matters" className="container py-16">
-          <div className="grid gap-12 md:grid-cols-[1.1fr_0.9fr]">
-            <div>
+        <section className="container py-8 md:py-10">
+          <div className="grid gap-8 md:grid-cols-2">
+            <div className="rounded-2xl border border-line bg-white/85 p-6 shadow-subtle">
               <SectionHeader
                 eyebrow="Problem"
-                title="Case discussions don’t scale — even in great classrooms."
+                title="Case-based learning is losing its impact."
               />
               <ul className="mt-6 space-y-3 text-sm text-muted">
                 {problemBullets.map((item) => (
@@ -638,15 +623,11 @@ export default function HomePage() {
                   </li>
                 ))}
               </ul>
-              <p className="mt-6 text-base font-semibold text-ink">
-                Learning breaks down when decisions are implicit instead of
-                explicit.
-              </p>
             </div>
-            <div className="rounded-2xl border border-line bg-white/80 p-6 shadow-subtle">
+            <div className="rounded-2xl border border-line bg-white/85 p-6 shadow-subtle">
               <SectionHeader
-                eyebrow="Why Simulations Fail"
-                title="Simulations work — until they become inflexible."
+                eyebrow="Constraint"
+                title="Most simulation tools are too rigid for live class pacing."
               />
               <ul className="mt-6 space-y-3 text-sm text-muted">
                 {simulationFailBullets.map((item) => (
@@ -656,19 +637,88 @@ export default function HomePage() {
                   </li>
                 ))}
               </ul>
-              <p className="mt-6 text-base font-semibold text-ink">
-                The simulation should adapt to the professor — not the other way
-                around.
-              </p>
             </div>
           </div>
         </section>
 
-        <section className="container py-16">
+        <section id="how-it-works" className="container py-8 md:py-10">
           <SectionHeader
-            eyebrow="Solution"
-            title="Give every class a decision moment that you can edit."
-            subtitle="Teach Together gives you control without sacrificing the energy of live discussion."
+            eyebrow="How It Works"
+            title="Keeping you in the loop every step of the way."
+          />
+          <div className="mt-12 space-y-6">
+            {steps.map((step, index) => (
+              <div
+                key={step.label}
+                className="relative ml-5 rounded-2xl border border-line bg-white/85 p-5 pl-8 shadow-subtle md:flex md:items-center md:gap-5"
+              >
+                <div className="absolute left-0 top-1/2 z-10 inline-flex h-10 w-10 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border border-line bg-accentSoft text-sm font-semibold text-accent">
+                  {index + 1}
+                </div>
+                <step.icon className="h-5 w-5 text-accent" />
+                <p className="mt-2 text-sm text-ink md:mt-0 md:text-base">
+                  {step.label}
+                </p>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        <section id="preview" className="container py-8 md:py-10">
+          <SectionHeader
+            eyebrow="Live Preview"
+            title="What students and instructors see during class."
+          />
+          <div className="mt-10 grid gap-10 md:grid-cols-[1.1fr_0.9fr] md:items-stretch">
+            <div
+              className="relative flex h-full flex-col"
+              onMouseEnter={() => setIsPreviewPaused(true)}
+              onMouseLeave={() => setIsPreviewPaused(false)}
+              onFocusCapture={() => setIsPreviewPaused(true)}
+              onBlurCapture={() => setIsPreviewPaused(false)}
+              onKeyDown={handleKeyDown}
+              tabIndex={0}
+              aria-label="Interactive demo carousel"
+            >
+              <div className="flex-1">
+                <DemoBanner
+                  activeIndex={activeFrame}
+                  setActiveIndex={setActiveFrame}
+                  onNext={goNextFrame}
+                  onPrev={goPrevFrame}
+                />
+              </div>
+              <p className="mt-4 text-sm text-muted">
+                Designed for a 30-minute class. You control the pace.
+              </p>
+            </div>
+            <div className="h-full rounded-2xl border border-line bg-white/90 p-6 shadow-subtle">
+              <h3 className="text-2xl font-semibold leading-tight text-ink md:text-3xl">
+                A Lighter, More Focused Simulation Experience
+              </h3>
+              <ul className="mt-6 space-y-4 text-base leading-relaxed text-muted md:text-lg">
+                <li className="flex items-start gap-3">
+                  <Users className="mt-0.5 h-5 w-5 text-accent" />
+                  <span>Students collaborate by working through one decision at a time</span>
+                </li>
+                <li className="flex items-start gap-3">
+                  <LineChart className="mt-0.5 h-5 w-5 text-accent" />
+                  <span>Post-simulation results turn discussion into deep, data-driven analysis</span>
+                </li>
+                <li className="flex items-start gap-3">
+                  <Target className="mt-0.5 h-5 w-5 text-accent" />
+                  <span>A final score links student choices to real consequences for stronger learning</span>
+                </li>
+              </ul>
+            </div>
+          </div>
+        </section>
+
+        <section className="container py-8 md:py-10" id="results">
+          <SectionHeader
+            eyebrow="Outcome"
+            title="Give every class a decision moment you can edit."
+            subtitle="Keep the energy of live discussion without losing structure."
           />
           <div className="mt-10 grid gap-6 md:grid-cols-3">
             {solutionCards.map((card) => {
@@ -691,76 +741,7 @@ export default function HomePage() {
           </div>
         </section>
 
-        <section id="how-it-works" className="container py-16">
-          <div className="rounded-2xl border border-line bg-white/80 p-8 shadow-subtle">
-            <SectionHeader
-              eyebrow="How It Works"
-              title="From course material to live decisions in minutes."
-            />
-            <div className="mt-8 grid gap-4 md:grid-cols-5">
-              {steps.map((step, index) => (
-                <div
-                  key={step}
-                  className="rounded-xl border border-line bg-white px-4 py-4 text-sm text-muted"
-                >
-                  <div className="text-xs font-semibold uppercase tracking-wide text-accent">
-                    Step {index + 1}
-                  </div>
-                  <p className="mt-2 text-sm text-ink">{step}</p>
-                </div>
-              ))}
-            </div>
-          </div>
-        </section>
-
-        <section className="container py-16">
-          <div className="grid gap-10 md:grid-cols-[0.9fr_1.1fr] md:items-center">
-            <div className="rounded-2xl border border-line bg-white/85 p-6 shadow-subtle">
-              <div className="flex items-center gap-2 text-sm font-semibold text-muted">
-                <GraduationCap className="h-4 w-4 text-accent" />
-                Classroom Outcomes
-              </div>
-              <h3 className="mt-4 text-2xl font-semibold text-ink">
-                Not a game. Not a black box. A teaching tool.
-              </h3>
-              <ul className="mt-6 space-y-3 text-sm text-muted">
-                {differentiators.map((item) => (
-                  <li key={item} className="flex items-start gap-3">
-                    <CheckCircle2 className="mt-0.5 h-4 w-4 text-accent" />
-                    <span>{item}</span>
-                  </li>
-                ))}
-              </ul>
-            </div>
-            <div className="rounded-2xl border border-line bg-accentSoft/70 p-8">
-              <h3 className="text-2xl font-semibold text-ink">
-                Designed with faculty input
-              </h3>
-              <p className="mt-4 text-sm text-muted">
-                Teach Together was developed through interviews with professors
-                who needed editable simulations, clear learning alignment, fast
-                setup, and meaningful post-class insight.
-              </p>
-              <div className="mt-6 grid gap-3">
-                {["Strategy", "Leadership", "Power & Influence", "Change"].map(
-                  (topic) => (
-                    <div
-                      key={topic}
-                      className="flex items-center justify-between rounded-xl border border-line bg-white/80 px-4 py-3 text-sm"
-                    >
-                      <span className="text-ink">{topic}</span>
-                      <span className="text-xs font-semibold text-muted">
-                        Case-based
-                      </span>
-                    </div>
-                  )
-                )}
-              </div>
-            </div>
-          </div>
-        </section>
-
-        <section id="sample" className="container py-16">
+        <section id="sample" className="container py-8 md:py-10">
           <SectionHeader
             eyebrow="Sample Simulation"
             title="See a sample decision flow."
@@ -817,27 +798,26 @@ export default function HomePage() {
           </div>
         </section>
 
-        <section id="demo" className="container py-16">
-          <div className="rounded-2xl border border-line bg-ink px-8 py-10 text-white">
-            <div className="flex flex-col items-start justify-between gap-8 md:flex-row md:items-center">
-              <div>
-                <p className="text-xs font-semibold uppercase tracking-[0.28em] text-white/60">
-                  Request a Demo
-                </p>
-                <h2 className="mt-3 text-3xl font-semibold">
-                  See how this fits your course.
-                </h2>
-              </div>
-              <div className="flex flex-wrap gap-4">
-                <Button onClick={() => setDemoOpen(true)}>
-                  Request a Demo
+        <section id="demo" className="container py-8 md:py-10">
+          <div className="w-full rounded-2xl border border-line bg-white/90 p-6 shadow-subtle">
+            <p className="text-xs font-semibold uppercase tracking-[0.28em] text-muted">
+              Request a Demo
+            </p>
+            <h2 className="mt-3 text-2xl font-semibold text-ink">
+              See how this fits your course.
+            </h2>
+            <p className="mt-3 text-sm text-muted">
+              We will walk through a case-based class setup tailored to your teaching goals.
+            </p>
+            <div className="mt-6 flex flex-wrap gap-4">
+              <Button onClick={() => setDemoOpen(true)}>
+                Request a Demo
+              </Button>
+              <a href="#sample" className="inline-flex">
+                <Button variant="secondary">
+                  View a Sample Simulation
                 </Button>
-                <a href="#sample" className="inline-flex">
-                  <Button variant="secondary" className="bg-transparent">
-                    View a Sample Simulation
-                  </Button>
-                </a>
-              </div>
+              </a>
             </div>
           </div>
         </section>

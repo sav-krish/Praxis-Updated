@@ -7,17 +7,17 @@ module.exports = {
   theme: {
     extend: {
       colors: {
-        canvas: "#F6F4F1",
-        ink: "#1E2A2F",
-        muted: "#6B767B",
-        line: "#E2DEDA",
-        accent: "#1E5B63",
-        accentSoft: "#E2F0F0",
-        sun: "#D5B98A"
+        canvas: "#F3F7FF",
+        ink: "#0F2447",
+        muted: "#516481",
+        line: "#D6E1F2",
+        accent: "#1D4ED8",
+        accentSoft: "#E5EEFF",
+        sun: "#60A5FA"
       },
       boxShadow: {
-        soft: "0 12px 30px rgba(30, 42, 47, 0.08)",
-        subtle: "0 6px 16px rgba(30, 42, 47, 0.08)"
+        soft: "0 12px 30px rgba(15, 36, 71, 0.12)",
+        subtle: "0 6px 16px rgba(15, 36, 71, 0.1)"
       },
       borderRadius: {
         xl: "18px",
