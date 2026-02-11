@@ -1,0 +1,666 @@
+"use client";
+
+import { useEffect, useState, useRef, use } from "react";
+import { useRouter } from "next/navigation";
+import { createClient } from "@/lib/supabase/client";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Badge } from "@/components/ui/badge";
+import { Separator } from "@/components/ui/separator";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
+import { 
+  BookOpen, 
+  Loader2, 
+  ArrowRight, 
+  Check, 
+  Clock,
+  Trophy,
+  ChevronDown,
+  ChevronRight,
+} from "lucide-react";
+import { toast } from "sonner";
+
+interface Option {
+  id: string;
+  label: string;
+  title: string;
+  description: string | null;
+  consequence: string | null;
+  score: number;
+}
+
+interface Decision {
+  id: string;
+  order_num: number;
+  prompt: string;
+  options: Option[];
+}
+
+interface Session {
+  id: string;
+  status: string;
+  current_step: number;
+  simulation: {
+    id: string;
+    title: string;
+    background_content: string | null;
+    mode: string;
+  };
+}
+
+interface ReflectionQuestion {
+  id: string;
+  order_num: number;
+  question: string;
+}
+
+export default function PlayPage({ params }: { params: Promise<{ code: string }> }) {
+  const { code } = use(params);
+  const router = useRouter();
+  const [loading, setLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
+  const [session, setSession] = useState<Session | null>(null);
+  const [decisions, setDecisions] = useState<Decision[]>([]);
+  const [reflectionQuestions, setReflectionQuestions] = useState<ReflectionQuestion[]>([]);
+  const [participantId, setParticipantId] = useState<string | null>(null);
+  const [participantName, setParticipantName] = useState<string>("");
+  
+  // Current state
+  const [currentStep, setCurrentStep] = useState(0); // 0 = waiting, 1 = background, 2-4 = decisions, 5 = reflection, 6 = results
+  const [selectedOption, setSelectedOption] = useState<string | null>(null);
+  const [justification, setJustification] = useState("");
+  const [showConsequence, setShowConsequence] = useState(false);
+  const [currentConsequence, setCurrentConsequence] = useState("");
+  const [myResponses, setMyResponses] = useState<{ decision_id: string; option_id: string; score: number }[]>([]);
+  const [reflectionAnswers, setReflectionAnswers] = useState<Record<string, string>>({});
+
+  // Ref to always have latest currentStep in callbacks without re-subscribing
+  const currentStepRef = useRef(currentStep);
+  currentStepRef.current = currentStep;
+
+  // Ref to hold session id for polling without re-subscribing
+  const sessionIdRef = useRef<string | null>(null);
+
+  // Load session data
+  useEffect(() => {
+    loadSession();
+  }, [code]);
+
+  // Subscribe to session updates via Supabase Realtime
+  useEffect(() => {
+    if (!session) return;
+    sessionIdRef.current = session.id;
+
+    const supabase = createClient();
+    const channel = supabase
+      .channel(`session-play-${session.id}`)
+      .on(
+        "postgres_changes",
+        { event: "UPDATE", schema: "public", table: "sessions", filter: `id=eq.${session.id}` },
+        (payload) => {
+          const updated = payload.new as { status: string; current_step: number };
+          if (updated.status === "running" && currentStepRef.current === 0) {
+            setCurrentStep(1); // Move to background
+          }
+          if (updated.status === "complete") {
+            setCurrentStep(6); // Move to results
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [session?.id]); // Only re-subscribe when session id changes, not on every step
+
+  // Polling fallback: check session status every 3s while waiting in lobby
+  useEffect(() => {
+    if (!session || currentStep !== 0) return;
+
+    const supabase = createClient();
+    const interval = setInterval(async () => {
+      const { data } = await supabase
+        .from("sessions")
+        .select("status")
+        .eq("id", session.id)
+        .single();
+
+      if (data?.status === "running" && currentStepRef.current === 0) {
+        setCurrentStep(1);
+      }
+      if (data?.status === "complete") {
+        setCurrentStep(6);
+      }
+    }, 3000);
+
+    return () => clearInterval(interval);
+  }, [session?.id, currentStep]);
+
+  const loadSession = async () => {
+    const supabase = createClient();
+
+    // Get session
+    const { data: sessionData, error } = await supabase
+      .from("sessions")
+      .select(`
+        id,
+        status,
+        current_step,
+        simulation:simulations(id, title, background_content, mode)
+      `)
+      .eq("join_code", code.toUpperCase())
+      .single();
+
+    if (error || !sessionData) {
+      toast.error("Session not found");
+      router.push("/join");
+      return;
+    }
+
+    // Extract simulation from the nested result
+    const simulationData = sessionData.simulation as unknown as {
+      id: string;
+      title: string;
+      background_content: string | null;
+      mode: string;
+    };
+
+    const sessionWithSimulation: Session = {
+      id: sessionData.id,
+      status: sessionData.status,
+      current_step: sessionData.current_step,
+      simulation: simulationData
+    };
+
+    setSession(sessionWithSimulation);
+
+    // Get participant ID from localStorage
+    const storedParticipantId = localStorage.getItem(`participant_${sessionData.id}`);
+    const storedName = localStorage.getItem(`participant_name_${sessionData.id}`);
+    
+    if (!storedParticipantId) {
+      router.push(`/join?code=${code}`);
+      return;
+    }
+
+    // Verify the participant still exists in the DB (handles deleted / stale entries)
+    const { data: existingParticipant } = await supabase
+      .from("participants")
+      .select("id, name")
+      .eq("id", storedParticipantId)
+      .eq("session_id", sessionData.id)
+      .single();
+
+    if (!existingParticipant) {
+      // Stale entry -- clear and redirect to rejoin
+      localStorage.removeItem(`participant_${sessionData.id}`);
+      localStorage.removeItem(`participant_name_${sessionData.id}`);
+      router.push(`/join?code=${code}`);
+      return;
+    }
+
+    setParticipantId(storedParticipantId);
+    setParticipantName(existingParticipant.name || storedName || "");
+
+    // Load decisions
+    const { data: decisionsData } = await supabase
+      .from("decisions")
+      .select(`
+        id,
+        order_num,
+        prompt,
+        options(id, label, title, description, consequence, score)
+      `)
+      .eq("simulation_id", simulationData.id)
+      .order("order_num", { ascending: true });
+
+    if (decisionsData) {
+      setDecisions(decisionsData.map((d: { id: string; order_num: number; prompt: string; options: Option[] }) => ({
+        ...d,
+        options: d.options.sort((a: Option, b: Option) => a.label.localeCompare(b.label))
+      })));
+    }
+
+    // Load reflection questions
+    const { data: questionsData } = await supabase
+      .from("reflection_questions")
+      .select("*")
+      .eq("simulation_id", simulationData.id)
+      .order("order_num", { ascending: true });
+
+    if (questionsData) {
+      setReflectionQuestions(questionsData);
+    }
+
+    // Load existing responses
+    const { data: responsesData } = await supabase
+      .from("responses")
+      .select("decision_id, option_id")
+      .eq("session_id", sessionData.id)
+      .eq("participant_id", storedParticipantId);
+
+    if (responsesData && responsesData.length > 0) {
+      const responseMap = responsesData.map(r => {
+        const decision = decisionsData?.find(d => d.id === r.decision_id);
+        const option = decision?.options.find((o: Option) => o.id === r.option_id);
+        return { decision_id: r.decision_id, option_id: r.option_id, score: option?.score || 0 };
+      });
+      setMyResponses(responseMap);
+    }
+
+    // Set initial step based on session status
+    if (sessionData.status === "lobby") {
+      setCurrentStep(0);
+    } else if (sessionData.status === "running") {
+      // Calculate where the student should be
+      const answeredCount = responsesData?.length || 0;
+      if (answeredCount === 0) {
+        setCurrentStep(1); // Background
+      } else if (answeredCount < 3) {
+        setCurrentStep(answeredCount + 2); // Next decision
+      } else {
+        setCurrentStep(5); // Reflection
+      }
+    } else {
+      setCurrentStep(6); // Complete
+    }
+
+    setLoading(false);
+  };
+
+  const submitDecision = async () => {
+    if (!selectedOption || !session || !participantId) return;
+    setSubmitting(true);
+
+    const supabase = createClient();
+    const decisionIndex = currentStep - 2;
+    const decision = decisions[decisionIndex];
+    const option = decision.options.find(o => o.id === selectedOption);
+
+    // Save response
+    const { error } = await supabase
+      .from("responses")
+      .insert({
+        session_id: session.id,
+        participant_id: participantId,
+        decision_id: decision.id,
+        option_id: selectedOption,
+        justification: justification,
+      });
+
+    if (error) {
+      toast.error("Failed to submit response");
+      setSubmitting(false);
+      return;
+    }
+
+    // Add to my responses
+    setMyResponses(prev => [...prev, { 
+      decision_id: decision.id, 
+      option_id: selectedOption, 
+      score: option?.score || 0 
+    }]);
+
+    // Show consequence
+    setCurrentConsequence(option?.consequence || "");
+    setShowConsequence(true);
+    setSubmitting(false);
+  };
+
+  const continueToNext = () => {
+    setShowConsequence(false);
+    setSelectedOption(null);
+    setJustification("");
+    setCurrentConsequence("");
+    setCurrentStep(prev => prev + 1);
+  };
+
+  const submitReflection = async () => {
+    if (!session || !participantId) return;
+    setSubmitting(true);
+
+    const supabase = createClient();
+
+    for (const question of reflectionQuestions) {
+      const answer = reflectionAnswers[question.id];
+      if (answer) {
+        await supabase
+          .from("reflection_responses")
+          .insert({
+            session_id: session.id,
+            participant_id: participantId,
+            question_id: question.id,
+            response: answer,
+          });
+      }
+    }
+
+    setCurrentStep(6);
+    setSubmitting(false);
+  };
+
+  const totalScore = myResponses.reduce((sum, r) => sum + r.score, 0);
+  const maxScore = decisions.length * 3;
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin" />
+      </div>
+    );
+  }
+
+  // Waiting screen
+  if (currentStep === 0) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-muted/50 px-4">
+        <Card className="w-full max-w-md text-center">
+          <CardHeader>
+            <div className="flex items-center justify-center gap-2 mb-4">
+              <BookOpen className="h-8 w-8 text-primary" />
+            </div>
+            <CardTitle>{session?.simulation.title}</CardTitle>
+            <CardDescription>Welcome, {participantName}!</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="flex items-center justify-center gap-2 text-muted-foreground">
+              <Clock className="h-5 w-5 animate-pulse" />
+              <span>Waiting for professor to start the simulation...</span>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  // Background screen
+  if (currentStep === 1) {
+    return (
+      <div className="min-h-screen bg-muted/50 py-8 px-4">
+        <div className="max-w-3xl mx-auto">
+          <Card>
+            <CardHeader>
+              <Badge className="w-fit mb-2">Background</Badge>
+              <CardTitle>{session?.simulation.title}</CardTitle>
+              <CardDescription>Read the scenario carefully before making decisions</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="prose prose-sm max-w-none">
+                <div className="whitespace-pre-wrap">
+                  {session?.simulation.background_content || "No background content provided."}
+                </div>
+              </div>
+              <Separator className="my-6" />
+              <div className="flex justify-end">
+                <Button onClick={() => setCurrentStep(2)}>
+                  Continue to Decisions
+                  <ArrowRight className="ml-2 h-4 w-4" />
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    );
+  }
+
+  // Decision screens (steps 2, 3, 4)
+  if (currentStep >= 2 && currentStep <= 4) {
+    const decisionIndex = currentStep - 2;
+    const decision = decisions[decisionIndex];
+
+    if (!decision) {
+      setCurrentStep(5);
+      return null;
+    }
+
+    // Show consequence after submission
+    if (showConsequence) {
+      return (
+        <div className="min-h-screen bg-muted/50 py-8 px-4">
+          <div className="max-w-3xl mx-auto">
+            <Card>
+              <CardHeader>
+                <Badge variant="secondary" className="w-fit mb-2">Consequence</Badge>
+                <CardTitle>Decision {decision.order_num} Result</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="p-6 bg-muted rounded-lg">
+                  <p className="text-lg">{currentConsequence || "Your choice has been recorded."}</p>
+                </div>
+                <div className="flex justify-end mt-6">
+                  <Button onClick={continueToNext}>
+                    {decisionIndex < 2 ? "Next Decision" : "Continue to Reflection"}
+                    <ArrowRight className="ml-2 h-4 w-4" />
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+      );
+    }
+
+    return (
+      <div className="min-h-screen bg-linear-to-b from-muted/30 to-muted/60 py-8 px-4">
+        <div className="max-w-2xl mx-auto space-y-4">
+          {/* Decision prompt – collapsible so you can hide it after reading */}
+          <Collapsible defaultOpen={true} className="group">
+            <Card className="border-muted/80 bg-card/95 shadow-sm overflow-hidden">
+              <CollapsibleTrigger asChild>
+                <button
+                  type="button"
+                  className="w-full text-left px-6 py-4 flex items-center justify-between gap-3 hover:bg-muted/40 transition-colors rounded-t-xl focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                >
+                  <div className="flex items-center gap-3 min-w-0">
+                    <Badge variant="secondary" className="shrink-0">Decision {decision.order_num} of 3</Badge>
+                    <span className="font-medium text-foreground/90 truncate">What decision do you need to make?</span>
+                  </div>
+                  <ChevronDown className="h-5 w-5 shrink-0 text-muted-foreground transition-transform group-data-[state=open]:rotate-180" />
+                </button>
+              </CollapsibleTrigger>
+              <CollapsibleContent>
+                <div className="px-6 pb-5 pt-0 border-t border-border/50">
+                  <p className="text-[15px] leading-relaxed text-foreground/90">{decision.prompt}</p>
+                  <p className="text-sm text-muted-foreground mt-3">Select an option below and add justification if you like.</p>
+                </div>
+              </CollapsibleContent>
+            </Card>
+          </Collapsible>
+
+          {/* Options – each option is collapsible (title visible, expand for description) */}
+          <Card className="border-muted/80 bg-card/95 shadow-sm">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-lg font-medium">Choose an option</CardTitle>
+              <CardDescription>Pick one and optionally expand to read more</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <RadioGroup value={selectedOption || ""} onValueChange={setSelectedOption}>
+                {decision.options.map((option) => (
+                  <Collapsible key={option.id} className="group/option">
+                    <div
+                      className={`rounded-xl border-2 transition-all duration-200 ${
+                        selectedOption === option.id
+                          ? "border-primary/60 bg-primary/5 shadow-sm"
+                          : "border-border/60 bg-muted/30 hover:border-muted-foreground/40 hover:bg-muted/50"
+                      }`}
+                    >
+                      <div
+                        className="flex items-center gap-3 p-4 cursor-pointer"
+                        onClick={() => setSelectedOption(option.id)}
+                      >
+                        <RadioGroupItem value={option.id} id={option.id} className="mt-0.5 shrink-0" />
+                        <div className="flex-1 min-w-0">
+                          <Label htmlFor={option.id} className="text-[15px] font-medium cursor-pointer text-foreground/95">
+                            {option.label}. {option.title}
+                          </Label>
+                        </div>
+                        {option.description && (
+                          <CollapsibleTrigger
+                            asChild
+                            onClick={(e: React.MouseEvent) => e.stopPropagation()}
+                          >
+                            <span className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground shrink-0 p-1 rounded">
+                              <ChevronRight className="h-4 w-4 transition-transform group-data-[state=open]/option:rotate-90" />
+                              <span className="sr-only">Toggle details</span>
+                            </span>
+                          </CollapsibleTrigger>
+                        )}
+                      </div>
+                      {option.description && (
+                        <CollapsibleContent>
+                          <div className="px-4 pb-4 pt-0 pl-9 border-t border-border/40">
+                            <p className="text-sm text-muted-foreground leading-relaxed">{option.description}</p>
+                          </div>
+                        </CollapsibleContent>
+                      )}
+                    </div>
+                  </Collapsible>
+                ))}
+              </RadioGroup>
+            </CardContent>
+          </Card>
+
+          {/* Justification – collapsible, collapsed by default */}
+          <Collapsible defaultOpen={false} className="group">
+            <Card className="border-muted/80 bg-card/95 shadow-sm overflow-hidden">
+              <CollapsibleTrigger asChild>
+                <button
+                  type="button"
+                  className="w-full text-left px-6 py-4 flex items-center justify-between gap-3 hover:bg-muted/40 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                >
+                  <span className="text-sm font-medium text-muted-foreground">Add justification (optional)</span>
+                  <ChevronDown className="h-5 w-5 shrink-0 text-muted-foreground transition-transform group-data-[state=open]:rotate-180" />
+                </button>
+              </CollapsibleTrigger>
+              <CollapsibleContent>
+                <div className="px-6 pb-5 pt-0 border-t border-border/50">
+                  <Label htmlFor="justification" className="sr-only">Justification</Label>
+                  <Textarea
+                    id="justification"
+                    placeholder="Explain your reasoning..."
+                    value={justification}
+                    onChange={(e) => setJustification(e.target.value)}
+                    rows={3}
+                    className="resize-none bg-muted/30 border-border/60"
+                  />
+                </div>
+              </CollapsibleContent>
+            </Card>
+          </Collapsible>
+
+          <div className="flex justify-end pt-2">
+            <Button
+              size="lg"
+              onClick={submitDecision}
+              disabled={!selectedOption || submitting}
+              className="shadow-sm"
+            >
+              {submitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Submit Decision
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Reflection screen
+  if (currentStep === 5) {
+    return (
+      <div className="min-h-screen bg-muted/50 py-8 px-4">
+        <div className="max-w-3xl mx-auto">
+          <Card>
+            <CardHeader>
+              <Badge variant="secondary" className="w-fit mb-2">Reflection</Badge>
+              <CardTitle>Reflect on Your Experience</CardTitle>
+              <CardDescription>Take a moment to think about what you learned</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              {reflectionQuestions.map((question) => (
+                <div key={question.id} className="space-y-2">
+                  <Label>{question.question}</Label>
+                  <Textarea
+                    placeholder="Your thoughts..."
+                    value={reflectionAnswers[question.id] || ""}
+                    onChange={(e) => setReflectionAnswers(prev => ({
+                      ...prev,
+                      [question.id]: e.target.value
+                    }))}
+                    rows={4}
+                  />
+                </div>
+              ))}
+
+              <div className="flex justify-end">
+                <Button onClick={submitReflection} disabled={submitting}>
+                  {submitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  Complete Simulation
+                  <Check className="ml-2 h-4 w-4" />
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    );
+  }
+
+  // Results screen
+  return (
+    <div className="min-h-screen bg-muted/50 py-8 px-4">
+      <div className="max-w-3xl mx-auto">
+        <Card>
+          <CardHeader className="text-center">
+            <div className="flex justify-center mb-4">
+              <div className="h-16 w-16 rounded-full bg-primary/10 flex items-center justify-center">
+                <Trophy className="h-8 w-8 text-primary" />
+              </div>
+            </div>
+            <CardTitle>Simulation Complete!</CardTitle>
+            <CardDescription>Thank you for participating, {participantName}</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="text-center mb-6">
+              <div className="text-5xl font-bold text-primary mb-2">
+                {totalScore} / {maxScore}
+              </div>
+              <p className="text-muted-foreground">Total Score</p>
+            </div>
+
+            <Separator className="my-6" />
+
+            <div className="space-y-4">
+              <h4 className="font-medium">Your Decisions</h4>
+              {decisions.map((decision, index) => {
+                const response = myResponses.find(r => r.decision_id === decision.id);
+                const selectedOpt = decision.options.find(o => o.id === response?.option_id);
+                return (
+                  <div key={decision.id} className="flex items-center justify-between p-3 bg-muted rounded-lg">
+                    <div>
+                      <p className="font-medium">Decision {index + 1}</p>
+                      <p className="text-sm text-muted-foreground">
+                        {selectedOpt ? `${selectedOpt.label}. ${selectedOpt.title}` : "No response"}
+                      </p>
+                    </div>
+                    <Badge variant={response?.score === 3 ? "default" : "secondary"}>
+                      +{response?.score || 0}
+                    </Badge>
+                  </div>
+                );
+              })}
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    </div>
+  );
+}
