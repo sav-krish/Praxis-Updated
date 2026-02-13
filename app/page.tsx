@@ -9,6 +9,7 @@ import {
   ClipboardList,
   Compass,
   FileText,
+  Handshake,
   LineChart,
   SlidersHorizontal,
   Sparkles,
@@ -37,66 +38,78 @@ const heroFrames = [
     type: "decision"
   },
   {
-    title: "Live Results",
-    body: "Class-wide decision distribution updates instantly.",
+    title: "Post-Session Results",
+    body: "See choice distribution after class (e.g., 10% chose A).",
     type: "results"
   },
   {
-    title: "Instructor View",
-    body: "Review team choices and scoring in real time.",
+    title: "Instructor Report",
+    body: "Review team choices, scoring, and reflection prompts.",
     type: "instructor"
   }
 ] as const;
 
+const sampleFrames = [
+  {
+    title: "Decision Prompt",
+    type: "decision"
+  },
+  {
+    title: "Team Result",
+    type: "result"
+  }
+] as const;
+
 const problemBullets = [
-  "Cases are stagnant and outdated",
-  "Cases are not best fit for shorter engagement spans",
-  "Cases do not promote collaboration and teamwork"
+  "Students skim the case and a few voices dominate the discussion",
+  "Participation is uneven, so many students stay passive",
+  "You finish class without measurable outcomes to debrief"
 ];
 
 const simulationFailBullets = [
-  "Too rigid to match your course goals",
-  "Hard to edit once generated",
-  "Built for long assignments, not live class time"
+  "The simulation is close, but it doesn’t quite match your lesson.",
+  "Editing context, decisions, and scoring is limited or painful",
+  "Most tools run too long for a single class session"
 ];
 
 const steps = [
   {
-    label: "Upload material or define learning goals",
+    label: "Upload your case, slides, or learning goals",
     icon: FileText
   },
   {
-    label: "Generate a simulation draft aligned to your class",
+    label: "Generate a draft simulation aligned to your class",
     icon: Wand2
   },
   {
-    label: "Edit context, decisions, and scoring",
-    icon: SlidersHorizontal
+    label: "Make it yours: edit context, decisions, options, and scoring",
+    icon: SlidersHorizontal,
+    badge: "Most important"
   },
   {
-    label: "Run live — students join in teams",
+    label: "Students scan a QR code and join in teams",
     icon: Users
   },
   {
-    label: "Review a session report with decision breakdowns",
+    label: "Debrief with a post-session report and reflection prompts",
     icon: BarChart3
   }
 ];
 
 const solutionCards = [
   {
-    title: "Editable by Design",
-    body: "Generate a draft from your course material — then directly edit every decision, option, and outcome.",
+    title: "Keep control of your lesson",
+    body: "Edit the scenario, decisions, options, and scoring before you run it.",
     icon: ClipboardList
   },
   {
-    title: "Built for 30-Minute Classes",
-    body: "Three decisions. No forced timers. You open and close decisions when it fits your discussion.",
+    title: "Drive deeper student thinking",
+    body: "Decision points that push teams to debate, defend reasoning, and commit to a choice.",
     icon: Compass
   },
   {
-    title: "Immediate Insight",
-    body: "End-of-session report shows choice distribution (e.g., 10% chose A), scores, and reflections.",
+    title: "Debrief with real insight",
+    body: "Post-session report shows distributions, scores, and structured reflection prompts.",
     icon: LineChart
   }
 ];
@@ -172,7 +185,7 @@ function DemoBanner({
   const renderFrame = () => {
     if (frame.type === "context") {
       return (
-        <div className="flex h-full flex-col justify-between">
+        <div className="flex h-full w-full flex-col justify-between">
           <div>
             <h4 className="text-sm font-semibold text-muted">Background Context</h4>
             <p className="mt-3 text-base text-ink">
@@ -196,7 +209,7 @@ function DemoBanner({
 
     if (frame.type === "decision") {
       return (
-        <div className="flex h-full flex-col">
+        <div className="flex h-full w-full flex-col">
           <h4 className="text-sm font-semibold text-muted">Decision Point</h4>
           <p className="mt-2 text-base text-ink">
             Choose a market-entry posture.
@@ -226,10 +239,10 @@ function DemoBanner({
 
     if (frame.type === "results") {
       return (
-        <div className="flex h-full flex-col">
-          <h4 className="text-sm font-semibold text-muted">Live Results</h4>
+        <div className="flex h-full w-full flex-col">
+          <h4 className="text-sm font-semibold text-muted">Post-Session Results</h4>
           <p className="mt-2 text-base text-ink">
-            Class-wide decision distribution updates instantly.
+            See choice distribution after class (e.g., 10% chose A).
           </p>
           <div className="mt-6 space-y-4">
             {[
@@ -258,10 +271,10 @@ function DemoBanner({
     }
 
     return (
-      <div className="flex h-full flex-col">
-        <h4 className="text-sm font-semibold text-muted">Instructor View</h4>
+      <div className="flex h-full w-full flex-col">
+        <h4 className="text-sm font-semibold text-muted">Instructor Report</h4>
         <p className="mt-2 text-base text-ink">
-          Review team choices and scoring in real time.
+          Review team choices, scoring, and reflection prompts.
         </p>
         <div className="mt-5 overflow-hidden rounded-xl border border-line bg-white/90">
           <div className="grid grid-cols-3 bg-accentSoft px-4 py-2 text-xs font-semibold text-muted">
@@ -296,7 +309,7 @@ function DemoBanner({
       aria-label="Interactive simulation preview"
     >
       <div className="flex items-center justify-between text-xs font-semibold text-muted">
-        <span>Teach Together · Live Session</span>
+        <span>Teach Together · In-Class Simulation</span>
         <span>Decision 2 of 3</span>
       </div>
       <div className="mt-5 min-h-[260px]">
@@ -508,6 +521,7 @@ function RequestDemoModal({
 
 export default function HomePage() {
   const [activeFrame, setActiveFrame] = useState(0);
+  const [activeSampleFrame, setActiveSampleFrame] = useState(0);
   const [demoOpen, setDemoOpen] = useState(false);
   const [isPreviewPaused, setIsPreviewPaused] = useState(false);
 
@@ -519,11 +533,28 @@ export default function HomePage() {
     setActiveFrame((prev) => (prev === 0 ? heroFrames.length - 1 : prev - 1));
   };
 
+  const goNextSampleFrame = () => {
+    setActiveSampleFrame((prev) => (prev + 1) % sampleFrames.length);
+  };
+
+  const goPrevSampleFrame = () => {
+    setActiveSampleFrame((prev) =>
+      prev === 0 ? sampleFrames.length - 1 : prev - 1
+    );
+  };
+
   useEffect(() => {
     if (isPreviewPaused) return;
     const timer = window.setInterval(goNextFrame, 3000);
     return () => window.clearInterval(timer);
   }, [isPreviewPaused]);
+
+  useEffect(() => {
+    const timer = window.setInterval(() => {
+      setActiveSampleFrame((prev) => (prev + 1) % sampleFrames.length);
+    }, 3000);
+    return () => window.clearInterval(timer);
+  }, []);
 
   const handleKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
     if (event.key === "ArrowRight") {
@@ -585,16 +616,12 @@ export default function HomePage() {
       <main>
         <section className="container relative pb-12 pt-8 md:pb-12 md:pt-10" id="overview">
           <div className="max-w-3xl">
-            <div className="inline-flex items-center gap-2 rounded-full border border-line bg-white/80 px-4 py-1 text-xs font-semibold text-muted">
-              <Sparkles className="h-4 w-4 text-accent" />
-              Built for case-based classrooms
-            </div>
             <h1 className="mt-6 text-4xl font-semibold leading-tight text-ink md:text-5xl">
-              Bring real-world learning into classrooms with meaningful in-class simulations.
+              Bring real-world learning into classrooms with meaningful simulations.
             </h1>
             <p className="mt-5 text-base text-muted md:text-lg">
-              Teach Together starts simple: a clear scenario, a decision point,
-              and instant class-wide results. Scroll to see how the full flow
+              Teach Together starts simple: a clear scenario, decision points,
+              and a post-session report for debrief. Scroll to see how the full flow
               works from setup to debrief.
             </p>
             <div className="mt-8 flex flex-wrap gap-4">
@@ -608,12 +635,12 @@ export default function HomePage() {
           </div>
         </section>
 
-        <section className="container py-8 md:py-10">
+        <section className="container pb-4 pt-8 md:pb-5 md:pt-10">
           <div className="grid gap-8 md:grid-cols-2">
             <div className="rounded-2xl border border-line bg-white/85 p-6 shadow-subtle">
               <SectionHeader
                 eyebrow="Problem"
-                title="Case-based learning is losing its impact."
+                title="Case discussions feel active, but learning is often passive."
               />
               <ul className="mt-6 space-y-3 text-sm text-muted">
                 {problemBullets.map((item) => (
@@ -627,7 +654,7 @@ export default function HomePage() {
             <div className="rounded-2xl border border-line bg-white/85 p-6 shadow-subtle">
               <SectionHeader
                 eyebrow="Constraint"
-                title="Most simulation tools are too rigid for live class pacing."
+                title="Most simulation tools are too rigid to fit your class."
               />
               <ul className="mt-6 space-y-3 text-sm text-muted">
                 {simulationFailBullets.map((item) => (
@@ -641,23 +668,66 @@ export default function HomePage() {
           </div>
         </section>
 
+        <section className="container pb-4 pt-2 md:pb-6 md:pt-3">
+          <div className="w-full rounded-2xl border border-line bg-white/85 p-6 shadow-subtle">
+            <p className="text-xs font-semibold uppercase tracking-[0.28em] text-muted">
+              Our Advantage
+            </p>
+            <h3 className="mt-3 text-2xl font-semibold text-ink">
+              Built for professors who need control, not templates.
+            </h3>
+            <p className="mt-3 text-sm text-muted md:text-base">
+              Teach Together starts with a draft and hands you full control before class. This way, the simulation fits your objective, not the other way around.
+            </p>
+          </div>
+        </section>
+
+        <section className="container py-4 md:py-6">
+          <div className="w-full rounded-2xl border border-line bg-white/85 p-6 shadow-subtle">
+            <h3 className="text-2xl font-semibold leading-tight text-ink md:text-3xl">
+              Why Simulations Outperform Traditional Cases
+            </h3>
+            <ul className="mt-6 space-y-4 text-sm leading-relaxed text-muted md:text-base">
+              <li className="flex items-start gap-3">
+                <BarChart3 className="mt-0.5 h-5 w-5 text-accent" />
+                <span><strong className="text-ink">11–14%</strong> stronger applied knowledge</span>
+              </li>
+              <li className="flex items-start gap-3">
+                <Users className="mt-0.5 h-5 w-5 text-accent" />
+                <span><strong className="text-ink">92%</strong> of recruiters prioritize problem-solving and teamwork</span>
+              </li>
+              <li className="flex items-start gap-3">
+                <Target className="mt-0.5 h-5 w-5 text-accent" />
+                <span>Students in active learning environments scored <strong className="text-ink">6%</strong> higher on exams</span>
+              </li>
+            </ul>
+          </div>
+        </section>
+
         <section id="how-it-works" className="container py-8 md:py-10">
           <SectionHeader
             eyebrow="How It Works"
-            title="Keeping you in the loop every step of the way."
+            title="Transform your existing material into a simulation."
           />
           <div className="mt-12 space-y-6">
             {steps.map((step, index) => (
               <div
                 key={step.label}
-                className="relative ml-5 rounded-2xl border border-line bg-white/85 p-5 pl-8 shadow-subtle md:flex md:items-center md:gap-5"
+                className={`relative ml-5 rounded-2xl border bg-white/85 p-5 pl-8 shadow-subtle md:flex md:items-center md:gap-5 ${
+                  index === 2 ? "border-accent/50" : "border-line"
+                }`}
               >
                 <div className="absolute left-0 top-1/2 z-10 inline-flex h-10 w-10 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border border-line bg-accentSoft text-sm font-semibold text-accent">
                   {index + 1}
                 </div>
                 <step.icon className="h-5 w-5 text-accent" />
-                <p className="mt-2 text-sm text-ink md:mt-0 md:text-base">
+                <p className="mt-2 flex flex-wrap items-center gap-2 text-sm text-ink md:mt-0 md:text-base">
                   {step.label}
+                  {step.badge ? (
+                    <span className="inline-flex items-center rounded-full border border-accent/40 bg-accentSoft px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-accent">
+                      {step.badge}
+                    </span>
+                  ) : null}
                 </p>
               </div>
             ))}
@@ -666,8 +736,8 @@ export default function HomePage() {
 
         <section id="preview" className="container py-8 md:py-10">
           <SectionHeader
-            eyebrow="Live Preview"
-            title="What students and instructors see during class."
+            eyebrow="Instructor Preview"
+            title="Turn live decisions into measurable insight."
           />
           <div className="mt-10 grid gap-10 md:grid-cols-[1.1fr_0.9fr] md:items-stretch">
             <div
@@ -688,26 +758,146 @@ export default function HomePage() {
                   onPrev={goPrevFrame}
                 />
               </div>
-              <p className="mt-4 text-sm text-muted">
-                Designed for a 30-minute class. You control the pace.
-              </p>
             </div>
             <div className="h-full rounded-2xl border border-line bg-white/90 p-6 shadow-subtle">
               <h3 className="text-2xl font-semibold leading-tight text-ink md:text-3xl">
-                A Lighter, More Focused Simulation Experience
+                Built for case-based classrooms.
               </h3>
               <ul className="mt-6 space-y-4 text-base leading-relaxed text-muted md:text-lg">
                 <li className="flex items-start gap-3">
-                  <Users className="mt-0.5 h-5 w-5 text-accent" />
-                  <span>Students collaborate by working through one decision at a time</span>
+                  <FileText className="mt-0.5 h-5 w-5 text-accent" />
+                  <span>Trained on business cases to match how you already teach</span>
                 </li>
                 <li className="flex items-start gap-3">
-                  <LineChart className="mt-0.5 h-5 w-5 text-accent" />
-                  <span>Post-simulation results turn discussion into deep, data-driven analysis</span>
+                  <SlidersHorizontal className="mt-0.5 h-5 w-5 text-accent" />
+                  <span>Add your context and goals before generating the draft</span>
                 </li>
+                <li className="flex items-start gap-3">
+                  <Users className="mt-0.5 h-5 w-5 text-accent" />
+                  <span>Students scan a QR code to join instantly in teams</span>
+                </li>
+              </ul>
+            </div>
+          </div>
+        </section>
+
+        <section id="sample" className="container py-8 md:py-10">
+          <SectionHeader
+            eyebrow="Student Preview"
+            title="Experience the Decision in Action."
+          />
+          <div className="mt-10 grid gap-6 md:grid-cols-[1.1fr_0.9fr]">
+            <div className="rounded-2xl border border-line bg-white/90 p-6 shadow-subtle">
+              <div className="flex items-center justify-between text-xs font-semibold uppercase tracking-wide text-muted">
+                <span>{sampleFrames[activeSampleFrame].title}</span>
+                <span>Screen {activeSampleFrame + 1} of {sampleFrames.length}</span>
+              </div>
+              <div className="mt-3 min-h-[240px]">
+                <AnimatePresence mode="wait">
+                  <motion.div
+                    className="w-full"
+                    key={activeSampleFrame}
+                    initial={{ opacity: 0, y: 12 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -12 }}
+                    transition={{ duration: 0.3 }}
+                  >
+                    {sampleFrames[activeSampleFrame].type === "decision" ? (
+                      <div className="w-full">
+                        <h3 className="text-lg font-semibold text-ink">
+                          Your team leads a turnaround. Which lever do you pull first?
+                        </h3>
+                        <div className="mt-4 grid gap-3">
+                          {[
+                            "Restructure the portfolio",
+                            "Refocus on margin discipline",
+                            "Protect the talent pipeline"
+                          ].map((item) => (
+                            <div
+                              key={item}
+                              className="rounded-xl border border-line bg-white px-4 py-3 text-sm text-ink"
+                            >
+                              {item}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="w-full">
+                        <h3 className="text-lg font-semibold text-ink">
+                          Your team selected: Refocus on margin discipline
+                        </h3>
+                        <div className="mt-4 rounded-xl border border-line bg-accentSoft/50 p-4">
+                          <div className="flex items-center justify-between">
+                            <span className="text-xs font-semibold uppercase tracking-wide text-muted">
+                              Points Earned
+                            </span>
+                            <span className="rounded-full border border-accent/40 bg-white px-3 py-1 text-xs font-semibold text-accent">
+                              +3
+                            </span>
+                          </div>
+                          <p className="mt-3 text-sm text-ink">
+                            Strong short-term execution and clear operating focus.
+                          </p>
+                        </div>
+                      </div>
+                    )}
+                  </motion.div>
+                </AnimatePresence>
+              </div>
+              <div className="mt-5 flex items-center justify-between">
+                <div className="flex gap-2">
+                  {sampleFrames.map((item, index) => (
+                    <button
+                      key={item.title}
+                      type="button"
+                      className={`h-2.5 w-2.5 rounded-full border transition ${
+                        index === activeSampleFrame
+                          ? "border-accent bg-accent"
+                          : "border-line bg-transparent"
+                      }`}
+                      aria-label={`Show ${item.title}`}
+                      aria-pressed={index === activeSampleFrame}
+                      onClick={() => setActiveSampleFrame(index)}
+                    />
+                  ))}
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    className="rounded-full border border-line px-3 py-1 text-xs font-semibold text-muted hover:bg-accentSoft hover:text-ink"
+                    onClick={goPrevSampleFrame}
+                    aria-label="Previous sample screen"
+                  >
+                    Prev
+                  </button>
+                  <button
+                    type="button"
+                    className="rounded-full border border-line px-3 py-1 text-xs font-semibold text-muted hover:bg-accentSoft hover:text-ink"
+                    onClick={goNextSampleFrame}
+                    aria-label="Next sample screen"
+                  >
+                    Next
+                  </button>
+                </div>
+              </div>
+            </div>
+            <div className="rounded-2xl border border-line bg-white/90 p-6 shadow-subtle">
+              <h3 className="text-2xl font-semibold leading-tight text-ink md:text-3xl">
+                A lightweight, real-world simulation experience
+              </h3>
+              <ul className="mt-6 space-y-4 text-base leading-relaxed text-muted md:text-lg">
                 <li className="flex items-start gap-3">
                   <Target className="mt-0.5 h-5 w-5 text-accent" />
-                  <span>A final score links student choices to real consequences for stronger learning</span>
+                  <span>Students focus on one clear decision at a time</span>
+                </li>
+                <li className="flex items-start gap-3">
+                  <Handshake className="mt-0.5 h-5 w-5 text-accent" />
+                  <span>Students collaborate in teams before committing to a choice</span>
+                </li>
+                <li className="flex items-start gap-3">
+                  <BarChart3 className="mt-0.5 h-5 w-5 text-accent" />
+                  <span>Students see how their decisions translate into real consequences</span>
                 </li>
               </ul>
             </div>
@@ -717,8 +907,7 @@ export default function HomePage() {
         <section className="container py-8 md:py-10" id="results">
           <SectionHeader
             eyebrow="Outcome"
-            title="Give every class a decision moment you can edit."
-            subtitle="Keep the energy of live discussion without losing structure."
+            title="End every class with clarity."
           />
           <div className="mt-10 grid gap-6 md:grid-cols-3">
             {solutionCards.map((card) => {
@@ -738,63 +927,6 @@ export default function HomePage() {
                 </div>
               );
             })}
-          </div>
-        </section>
-
-        <section id="sample" className="container py-8 md:py-10">
-          <SectionHeader
-            eyebrow="Sample Simulation"
-            title="See a sample decision flow."
-            subtitle="A static preview of the student experience."
-          />
-          <div className="mt-10 grid gap-6 md:grid-cols-[1.1fr_0.9fr]">
-            <div className="rounded-2xl border border-line bg-white/90 p-6 shadow-subtle">
-              <div className="text-xs font-semibold uppercase tracking-wide text-muted">
-                Decision Prompt
-              </div>
-              <h3 className="mt-3 text-lg font-semibold text-ink">
-                Your team leads a turnaround. Which lever do you pull first?
-              </h3>
-              <div className="mt-4 grid gap-3">
-                {[
-                  "Restructure the portfolio",
-                  "Refocus on margin discipline",
-                  "Protect the talent pipeline"
-                ].map((item) => (
-                  <div
-                    key={item}
-                    className="rounded-xl border border-line bg-white px-4 py-3 text-sm text-ink"
-                  >
-                    {item}
-                  </div>
-                ))}
-              </div>
-            </div>
-            <div className="rounded-2xl border border-line bg-white/90 p-6 shadow-subtle">
-              <div className="text-xs font-semibold uppercase tracking-wide text-muted">
-                Sample Results
-              </div>
-              <div className="mt-4 space-y-4">
-                {[
-                  { label: "Restructure", value: 38 },
-                  { label: "Margin discipline", value: 42 },
-                  { label: "Talent pipeline", value: 20 }
-                ].map((item) => (
-                  <div key={item.label}>
-                    <div className="flex items-center justify-between text-xs font-semibold text-muted">
-                      <span>{item.label}</span>
-                      <span>{item.value}%</span>
-                    </div>
-                    <div className="mt-2 h-3 rounded-full bg-line">
-                      <div
-                        className="h-3 rounded-full bg-sun"
-                        style={{ width: `${item.value}%` }}
-                      />
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
           </div>
         </section>
 
