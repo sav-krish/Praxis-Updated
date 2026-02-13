@@ -1,11 +1,10 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   ArrowRight,
   BarChart3,
-  CheckCircle2,
   ClipboardList,
   Compass,
   FileText,
@@ -20,9 +19,8 @@ import {
 
 const navLinks = [
   { label: "Overview", href: "#overview" },
-  { label: "How it works", href: "#how-it-works" },
-  { label: "Preview", href: "#preview" },
-  { label: "Demo", href: "#demo" }
+  { label: "How It Works", href: "#how-it-works" },
+  { label: "Preview", href: "#preview" }
 ];
 
 const heroFrames = [
@@ -364,165 +362,9 @@ function DemoBanner({
   );
 }
 
-function RequestDemoModal({
-  open,
-  onClose
-}: {
-  open: boolean;
-  onClose: () => void;
-}) {
-  const [submitted, setSubmitted] = useState(false);
-  const [form, setForm] = useState({
-    name: "",
-    school: "",
-    email: "",
-    course: ""
-  });
-  const dialogRef = useRef<HTMLDivElement | null>(null);
-
-  useEffect(() => {
-    if (!open) return;
-    const focusable = dialogRef.current?.querySelectorAll<HTMLElement>(
-      "button, input"
-    );
-    focusable?.[0]?.focus();
-  }, [open]);
-
-  useEffect(() => {
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
-        onClose();
-      }
-    };
-    if (open) {
-      window.addEventListener("keydown", onKeyDown);
-    }
-    return () => window.removeEventListener("keydown", onKeyDown);
-  }, [open, onClose]);
-
-  if (!open) return null;
-
-  return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4"
-      role="dialog"
-      aria-modal="true"
-      aria-label="Request a Demo"
-    >
-      <motion.div
-        ref={dialogRef}
-        className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-soft"
-        initial={{ opacity: 0, scale: 0.96, y: 10 }}
-        animate={{ opacity: 1, scale: 1, y: 0 }}
-        transition={{ duration: 0.2 }}
-      >
-        <div className="flex items-start justify-between">
-          <div>
-            <h3 className="text-xl font-semibold text-ink">Request a Demo</h3>
-            <p className="mt-1 text-sm text-muted">
-              Tell us a bit about your course and we will follow up.
-            </p>
-          </div>
-          <button
-            className="rounded-full px-2 py-1 text-sm text-muted hover:bg-line"
-            onClick={onClose}
-            aria-label="Close modal"
-          >
-            Close
-          </button>
-        </div>
-
-        {submitted ? (
-          <div className="mt-6 rounded-xl border border-line bg-accentSoft p-5">
-            <div className="flex items-center gap-2 text-sm font-semibold text-ink">
-              <CheckCircle2 className="h-5 w-5 text-accent" />
-              Request received
-            </div>
-            <p className="mt-2 text-sm text-muted">
-              We will email you within two business days with next steps.
-            </p>
-            <Button
-              className="mt-4"
-              onClick={() => {
-                setSubmitted(false);
-                onClose();
-              }}
-            >
-              Done
-            </Button>
-          </div>
-        ) : (
-          <form
-            className="mt-6 grid gap-4"
-            onSubmit={(event) => {
-              event.preventDefault();
-              setSubmitted(true);
-            }}
-          >
-            {[
-              {
-                id: "name",
-                label: "Name",
-                type: "text",
-                placeholder: "Professor Lee"
-              },
-              {
-                id: "school",
-                label: "School",
-                type: "text",
-                placeholder: "Wharton"
-              },
-              {
-                id: "email",
-                label: "Email",
-                type: "email",
-                placeholder: "lee@university.edu"
-              },
-              {
-                id: "course",
-                label: "Course",
-                type: "text",
-                placeholder: "Strategy & Decision Making"
-              }
-            ].map((field) => (
-              <label key={field.id} className="grid gap-2 text-sm text-ink">
-                <span className="font-semibold">{field.label}</span>
-                <input
-                  required
-                  type={field.type}
-                  value={form[field.id as keyof typeof form]}
-                  onChange={(event) =>
-                    setForm((prev) => ({
-                      ...prev,
-                      [field.id]: event.target.value
-                    }))
-                  }
-                  placeholder={field.placeholder}
-                  className="rounded-xl border border-line bg-white px-4 py-3 text-sm text-ink shadow-sm focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/30"
-                />
-              </label>
-            ))}
-            <div className="flex items-center justify-between gap-3">
-              <Button type="submit">Submit</Button>
-              <button
-                type="button"
-                onClick={onClose}
-                className="text-sm font-semibold text-muted hover:text-ink"
-              >
-                Cancel
-              </button>
-            </div>
-          </form>
-        )}
-      </motion.div>
-    </div>
-  );
-}
-
 export default function HomePage() {
   const [activeFrame, setActiveFrame] = useState(0);
   const [activeSampleFrame, setActiveSampleFrame] = useState(0);
-  const [demoOpen, setDemoOpen] = useState(false);
   const [isPreviewPaused, setIsPreviewPaused] = useState(false);
 
   const goNextFrame = () => {
@@ -596,19 +438,18 @@ export default function HomePage() {
             ))}
           </div>
           <div className="flex items-center gap-3">
-            <Button
-              variant="ghost"
+            <a
+              href="https://teach-together-bel4.vercel.app/"
               className="hidden md:inline-flex"
-              onClick={() => setDemoOpen(true)}
             >
-              Request a Demo
-            </Button>
-            <Button
-              className="md:hidden"
-              onClick={() => setDemoOpen(true)}
+              <Button variant="ghost">Try It Now For Free</Button>
+            </a>
+            <a
+              href="https://teach-together-bel4.vercel.app/"
+              className="inline-flex md:hidden"
             >
-              Demo
-            </Button>
+              <Button>Try It Now For Free</Button>
+            </a>
           </div>
         </nav>
       </header>
@@ -625,9 +466,11 @@ export default function HomePage() {
               works from setup to debrief.
             </p>
             <div className="mt-8 flex flex-wrap gap-4">
-              <Button onClick={() => setDemoOpen(true)}>
-                Request a Demo <ArrowRight className="h-4 w-4" />
-              </Button>
+              <a href="https://teach-together-bel4.vercel.app/" className="inline-flex">
+                <Button>
+                  Try It Now For Free <ArrowRight className="h-4 w-4" />
+                </Button>
+              </a>
               <a href="#how-it-works" className="inline-flex">
                 <Button variant="secondary">See the Flow</Button>
               </a>
@@ -668,22 +511,11 @@ export default function HomePage() {
           </div>
         </section>
 
-        <section className="container pb-4 pt-2 md:pb-6 md:pt-3">
+        <section className="container py-4 md:py-6">
           <div className="w-full rounded-2xl border border-line bg-white/85 p-6 shadow-subtle">
             <p className="text-xs font-semibold uppercase tracking-[0.28em] text-muted">
               Our Advantage
             </p>
-            <h3 className="mt-3 text-2xl font-semibold text-ink">
-              Built for professors who need control, not templates.
-            </h3>
-            <p className="mt-3 text-sm text-muted md:text-base">
-              Teach Together starts with a draft and hands you full control before class. This way, the simulation fits your objective, not the other way around.
-            </p>
-          </div>
-        </section>
-
-        <section className="container py-4 md:py-6">
-          <div className="w-full rounded-2xl border border-line bg-white/85 p-6 shadow-subtle">
             <h3 className="text-2xl font-semibold leading-tight text-ink md:text-3xl">
               Why Simulations Outperform Traditional Cases
             </h3>
@@ -739,7 +571,7 @@ export default function HomePage() {
             eyebrow="Instructor Preview"
             title="Turn live decisions into measurable insight."
           />
-          <div className="mt-10 grid gap-10 md:grid-cols-[1.1fr_0.9fr] md:items-stretch">
+          <div className="mt-10 grid gap-6 md:grid-cols-[1.1fr_0.9fr] md:items-stretch">
             <div
               className="relative flex h-full flex-col"
               onMouseEnter={() => setIsPreviewPaused(true)}
@@ -884,7 +716,7 @@ export default function HomePage() {
             </div>
             <div className="rounded-2xl border border-line bg-white/90 p-6 shadow-subtle">
               <h3 className="text-2xl font-semibold leading-tight text-ink md:text-3xl">
-                A lightweight, real-world simulation experience
+                A real-world decision experience.
               </h3>
               <ul className="mt-6 space-y-4 text-base leading-relaxed text-muted md:text-lg">
                 <li className="flex items-start gap-3">
@@ -930,29 +762,6 @@ export default function HomePage() {
           </div>
         </section>
 
-        <section id="demo" className="container py-8 md:py-10">
-          <div className="w-full rounded-2xl border border-line bg-white/90 p-6 shadow-subtle">
-            <p className="text-xs font-semibold uppercase tracking-[0.28em] text-muted">
-              Request a Demo
-            </p>
-            <h2 className="mt-3 text-2xl font-semibold text-ink">
-              See how this fits your course.
-            </h2>
-            <p className="mt-3 text-sm text-muted">
-              We will walk through a case-based class setup tailored to your teaching goals.
-            </p>
-            <div className="mt-6 flex flex-wrap gap-4">
-              <Button onClick={() => setDemoOpen(true)}>
-                Request a Demo
-              </Button>
-              <a href="#sample" className="inline-flex">
-                <Button variant="secondary">
-                  View a Sample Simulation
-                </Button>
-              </a>
-            </div>
-          </div>
-        </section>
       </main>
 
       <footer className="container border-t border-line/60 py-10">
@@ -972,8 +781,6 @@ export default function HomePage() {
           </div>
         </div>
       </footer>
-
-      <RequestDemoModal open={demoOpen} onClose={() => setDemoOpen(false)} />
     </div>
   );
 }
