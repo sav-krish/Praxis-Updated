@@ -45,6 +45,15 @@
   --radius-2xl: calc(var(--radius) + 8px);
   --radius-3xl: calc(var(--radius) + 12px);
   --radius-4xl: calc(var(--radius) + 16px);
+  /* Landing / website palette (blue scheme) */
+  --color-canvas: #F3F7FF;
+  --color-ink: #0F2447;
+  --color-line: #D6E1F2;
+  --color-accentSoft: #E5EEFF;
+  --color-sun: #60A5FA;
+  --shadow-soft: 0 12px 30px rgba(15, 36, 71, 0.12);
+  --shadow-subtle: 0 6px 16px rgba(15, 36, 71, 0.1);
+  --color-muted-text: #516481;
 }
 
 :root {
@@ -123,6 +132,28 @@
   body {
     @apply bg-background text-foreground;
   }
+}
+
+/* Landing page container (from teachtogetherwebsite) */
+.container {
+  max-width: 1180px;
+  margin-left: auto;
+  margin-right: auto;
+  padding-left: 1.5rem;
+  padding-right: 1.5rem;
+}
+
+/* Landing page blue theme (from teachtogetherwebsite) */
+[data-landing="true"] {
+  --accent: #1D4ED8;
+  --accent-foreground: #ffffff;
+  --muted: #516481;
+  --muted-foreground: #516481;
+  --background: #F3F7FF;
+  --foreground: #0F2447;
+  --primary: #0F2447;
+  --secondary: #E5EEFF;
+  --border: #D6E1F2;
 }
 
 /* Safe area insets for notched devices (e.g. iPhone) */
