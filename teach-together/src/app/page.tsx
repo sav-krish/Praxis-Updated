@@ -4,20 +4,6 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { motion, AnimatePresence } from "framer-motion";
-import {
-  ArrowRight,
-  BarChart3,
-  ClipboardList,
-  Compass,
-  FileText,
-  Handshake,
-  LineChart,
-  SlidersHorizontal,
-  Target,
-  Users,
-  Wand2
-} from "lucide-react";
-
 const navLinks = [
   { label: "Overview", href: "#overview" },
   { label: "How It Works", href: "#how-it-works" },
@@ -72,45 +58,17 @@ const simulationFailBullets = [
 ];
 
 const steps = [
-  {
-    label: "Upload your case, slides, or learning goals",
-    icon: FileText
-  },
-  {
-    label: "Generate a draft simulation aligned to your class",
-    icon: Wand2
-  },
-  {
-    label: "Make it yours: edit context, decisions, options, and scoring",
-    icon: SlidersHorizontal,
-    badge: "Most important"
-  },
-  {
-    label: "Students scan a QR code and join in teams",
-    icon: Users
-  },
-  {
-    label: "Debrief with a post-session report and reflection prompts",
-    icon: BarChart3
-  }
+  { label: "Upload your case, slides, or learning goals" },
+  { label: "Generate a draft simulation aligned to your class" },
+  { label: "Make it yours: edit context, decisions, options, and scoring", badge: "Most important" },
+  { label: "Students scan a QR code and join in teams" },
+  { label: "Debrief with a post-session report and reflection prompts" }
 ];
 
 const solutionCards = [
-  {
-    title: "Keep control of your lesson",
-    body: "Edit the scenario, decisions, options, and scoring before you run it.",
-    icon: ClipboardList
-  },
-  {
-    title: "Drive deeper student thinking",
-    body: "Decision points that push teams to debate, defend reasoning, and commit to a choice.",
-    icon: Compass
-  },
-  {
-    title: "Debrief with real insight",
-    body: "Post-session report shows distributions, scores, and structured reflection prompts.",
-    icon: LineChart
-  }
+  { title: "Keep control of your lesson", body: "Edit the scenario, decisions, options, and scoring before you run it." },
+  { title: "Drive deeper student thinking", body: "Decision points that push teams to debate, defend reasoning, and commit to a choice." },
+  { title: "Debrief with real insight", body: "Post-session report shows distributions, scores, and structured reflection prompts." }
 ];
 
 function Button({
@@ -474,7 +432,7 @@ export default function HomePage() {
             <div className="mt-8 flex flex-col sm:flex-row flex-wrap gap-3 sm:gap-4">
               <Link href="/signup" className="inline-flex w-full sm:w-auto min-h-[48px] items-center justify-center">
                 <Button className="w-full sm:w-auto min-h-[48px]">
-                  Try It Now For Free <ArrowRight className="h-4 w-4 ml-1" />
+                  Try It Now For Free
                 </Button>
               </Link>
               <a href="#how-it-works" className="inline-flex w-full sm:w-auto min-h-[48px] items-center justify-center">
@@ -526,18 +484,9 @@ export default function HomePage() {
               Why Simulations Outperform Traditional Cases
             </h3>
             <ul className="mt-6 space-y-4 text-sm leading-relaxed text-muted md:text-base">
-              <li className="flex items-start gap-3">
-                <BarChart3 className="mt-0.5 h-5 w-5 text-accent" />
-                <span><strong className="text-ink">11–14%</strong> stronger applied knowledge</span>
-              </li>
-              <li className="flex items-start gap-3">
-                <Users className="mt-0.5 h-5 w-5 text-accent" />
-                <span><strong className="text-ink">92%</strong> of recruiters prioritize problem-solving and teamwork</span>
-              </li>
-              <li className="flex items-start gap-3">
-                <Target className="mt-0.5 h-5 w-5 text-accent" />
-                <span>Students in active learning environments scored <strong className="text-ink">6%</strong> higher on exams</span>
-              </li>
+              <li><strong className="text-ink">11–14%</strong> stronger applied knowledge</li>
+              <li><strong className="text-ink">92%</strong> of recruiters prioritize problem-solving and teamwork</li>
+              <li>Students in active learning environments scored <strong className="text-ink">6%</strong> higher on exams</li>
             </ul>
           </div>
         </section>
@@ -558,7 +507,6 @@ export default function HomePage() {
                 <div className="absolute left-0 top-1/2 z-10 inline-flex h-10 w-10 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border border-line bg-accentSoft text-sm font-semibold text-accent">
                   {index + 1}
                 </div>
-                <step.icon className="h-5 w-5 text-accent" />
                 <p className="mt-2 flex flex-wrap items-center gap-2 text-sm text-ink md:mt-0 md:text-base">
                   {step.label}
                   {step.badge ? (
@@ -602,18 +550,9 @@ export default function HomePage() {
                 Built for case-based classrooms.
               </h3>
               <ul className="mt-6 space-y-4 text-base leading-relaxed text-muted md:text-lg">
-                <li className="flex items-start gap-3">
-                  <FileText className="mt-0.5 h-5 w-5 text-accent" />
-                  <span>Trained on business cases to match how you already teach</span>
-                </li>
-                <li className="flex items-start gap-3">
-                  <SlidersHorizontal className="mt-0.5 h-5 w-5 text-accent" />
-                  <span>Add your context and goals before generating the draft</span>
-                </li>
-                <li className="flex items-start gap-3">
-                  <Users className="mt-0.5 h-5 w-5 text-accent" />
-                  <span>Students scan a QR code to join instantly in teams</span>
-                </li>
+                <li>Trained on business cases to match how you already teach</li>
+                <li>Add your context and goals before generating the draft</li>
+                <li>Students scan a QR code to join instantly in teams</li>
               </ul>
             </div>
           </div>
@@ -725,18 +664,9 @@ export default function HomePage() {
                 A real-world decision experience.
               </h3>
               <ul className="mt-6 space-y-4 text-base leading-relaxed text-muted md:text-lg">
-                <li className="flex items-start gap-3">
-                  <Target className="mt-0.5 h-5 w-5 text-accent" />
-                  <span>Students focus on one clear decision at a time</span>
-                </li>
-                <li className="flex items-start gap-3">
-                  <Handshake className="mt-0.5 h-5 w-5 text-accent" />
-                  <span>Students collaborate in teams before committing to a choice</span>
-                </li>
-                <li className="flex items-start gap-3">
-                  <BarChart3 className="mt-0.5 h-5 w-5 text-accent" />
-                  <span>Students see how their decisions translate into real consequences</span>
-                </li>
+                <li>Students focus on one clear decision at a time</li>
+                <li>Students collaborate in teams before committing to a choice</li>
+                <li>Students see how their decisions translate into real consequences</li>
               </ul>
             </div>
           </div>
@@ -748,23 +678,17 @@ export default function HomePage() {
             title="End every class with clarity."
           />
           <div className="mt-10 grid gap-6 md:grid-cols-3">
-            {solutionCards.map((card) => {
-              const Icon = card.icon;
-              return (
-                <div
-                  key={card.title}
-                  className="rounded-2xl border border-line bg-white/80 p-6 shadow-subtle transition hover:-translate-y-1 hover:shadow-soft"
-                >
-                  <div className="flex h-11 w-11 items-center justify-center rounded-full bg-accentSoft">
-                    <Icon className="h-5 w-5 text-accent" />
-                  </div>
-                  <h3 className="mt-4 text-lg font-semibold text-ink">
-                    {card.title}
-                  </h3>
-                  <p className="mt-3 text-sm text-muted">{card.body}</p>
-                </div>
-              );
-            })}
+            {solutionCards.map((card) => (
+              <div
+                key={card.title}
+                className="rounded-2xl border border-line bg-white/80 p-6 shadow-subtle transition hover:-translate-y-1 hover:shadow-soft"
+              >
+                <h3 className="text-lg font-semibold text-ink">
+                  {card.title}
+                </h3>
+                <p className="mt-3 text-sm text-muted">{card.body}</p>
+              </div>
+            ))}
           </div>
         </section>
 
