@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { AnimatePresence, motion } from "framer-motion";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
@@ -10,7 +11,6 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -27,10 +27,21 @@ import {
   CircleDot,
   MessageSquare,
   ArrowLeft,
+  ArrowRight,
   ChevronDown,
+  Share2,
 } from "lucide-react";
 import { toast } from "sonner";
+import { Plus } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { DataBlockEditor } from "@/components/simulation/DataBlockEditor";
 import type { Simulation, Decision, Option, ReflectionQuestion } from "@/types/database";
+import type { SimulationDataBlock, DataBlockType } from "@/types/data-blocks";
 
 interface DecisionWithOptions extends Decision {
   options: Option[];
@@ -40,18 +51,44 @@ interface SimulationEditorProps {
   simulation: Simulation;
   decisions: DecisionWithOptions[];
   reflectionQuestions: ReflectionQuestion[];
+  dataBlocks: SimulationDataBlock[];
 }
+
+const EDITOR_STEPS = [
+  { id: "background", label: "Background", icon: FileText },
+  { id: "decisions", label: "Decisions", icon: CircleDot },
+  { id: "reflection", label: "Reflection", icon: MessageSquare },
+  { id: "settings", label: "Settings", icon: Settings },
+] as const;
+
+const DEFAULT_BLOCK_DATA: Record<DataBlockType, Record<string, unknown>> = {
+  table: { headers: ["Metric", "Value"], rows: [["—", "—"]] },
+  bar_chart: { labels: ["A", "B", "C"], values: [10, 20, 30] },
+  line_chart: { xLabel: "Quarter", series: [{ label: "Value", data: [{ x: "Q1", y: 10 }, { x: "Q2", y: 20 }] }] },
+  kpi_cards: { items: [{ label: "Metric", value: "—", subtext: "Optional" }] },
+  timeline: { events: [{ date: "—", title: "Event", detail: "Detail" }] },
+  pie_chart: { labels: ["A", "B", "C"], values: [30, 50, 20] },
+};
 
 export function SimulationEditor({ 
   simulation: initialSimulation, 
   decisions: initialDecisions,
-  reflectionQuestions: initialQuestions 
+  reflectionQuestions: initialQuestions,
+  dataBlocks: initialDataBlocks = [],
 }: SimulationEditorProps) {
   const router = useRouter();
   const [saving, setSaving] = useState(false);
   const [simulation, setSimulation] = useState(initialSimulation);
   const [decisions, setDecisions] = useState(initialDecisions);
   const [reflectionQuestions, setReflectionQuestions] = useState(initialQuestions);
+  const [dataBlocks, setDataBlocks] = useState<SimulationDataBlock[]>(initialDataBlocks);
+  const [currentStep, setCurrentStep] = useState(0);
+  const [slideDirection, setSlideDirection] = useState(0);
+
+  const goToStep = (nextIndex: number) => {
+    setSlideDirection(nextIndex > currentStep ? 1 : -1);
+    setCurrentStep(nextIndex);
+  };
 
   const handleSave = async () => {
     setSaving(true);
@@ -112,6 +149,34 @@ export function SimulationEditor({
         if (refError) throw refError;
       }
 
+      // Data blocks: delete removed, update existing, insert new
+      const initialIds = new Set(initialDataBlocks.map((b) => b.id));
+      for (const id of initialIds) {
+        if (!dataBlocks.some((b) => b.id === id)) {
+          await supabase.from("simulation_data_blocks").delete().eq("id", id);
+        }
+      }
+      for (let i = 0; i < dataBlocks.length; i++) {
+        const b = dataBlocks[i];
+        const payload = {
+          simulation_id: simulation.id,
+          order_num: i + 1,
+          block_type: b.block_type,
+          title: b.title || null,
+          data: b.data as unknown as Record<string, unknown>,
+        };
+        const isNew = !b.id || b.id.startsWith("new-");
+        if (isNew) {
+          await supabase.from("simulation_data_blocks").insert(payload);
+        } else {
+          const { error } = await supabase
+            .from("simulation_data_blocks")
+            .update(payload)
+            .eq("id", b.id);
+          if (error) throw error;
+        }
+      }
+
       toast.success("Simulation saved!");
     } catch (error) {
       console.error(error);
@@ -147,6 +212,30 @@ export function SimulationEditor({
     });
   };
 
+  const updateDataBlock = (index: number, block: SimulationDataBlock) => {
+    setDataBlocks((prev) => {
+      const next = [...prev];
+      next[index] = block;
+      return next;
+    });
+  };
+
+  const deleteDataBlock = (index: number) => {
+    setDataBlocks((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const addDataBlock = (type: DataBlockType) => {
+    const newBlock: SimulationDataBlock = {
+      id: `new-${Date.now()}`,
+      simulation_id: simulation.id,
+      order_num: dataBlocks.length + 1,
+      block_type: type,
+      title: null,
+      data: DEFAULT_BLOCK_DATA[type] as unknown as SimulationDataBlock["data"],
+    };
+    setDataBlocks((prev) => [...prev, newBlock]);
+  };
+
   return (
     <div className="max-w-5xl mx-auto px-0 sm:px-4">
       {/* Header */}
@@ -167,6 +256,12 @@ export function SimulationEditor({
             {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
             Save
           </Button>
+          <Link href={`/share/${simulation.id}`} className="flex-1 sm:flex-none">
+            <Button variant="outline" className="w-full min-h-[44px]">
+              <Share2 className="mr-2 h-4 w-4 shrink-0" />
+              Share
+            </Button>
+          </Link>
           <Link href={`/session/${simulation.id}/new`} className="flex-1 sm:flex-none">
             <Button className="w-full min-h-[44px]">
               <Play className="mr-2 h-4 w-4 shrink-0" />
@@ -176,28 +271,80 @@ export function SimulationEditor({
         </div>
       </div>
 
-      <Tabs defaultValue="background" className="space-y-4 sm:space-y-6">
-        <TabsList className="grid w-full grid-cols-2 sm:grid-cols-4 h-auto gap-1 p-1">
-          <TabsTrigger value="background" className="flex items-center gap-1.5 sm:gap-2 min-h-[44px] text-xs sm:text-sm py-2">
-            <FileText className="h-3.5 w-3.5 sm:h-4 sm:w-4 shrink-0" />
-            Background
-          </TabsTrigger>
-          <TabsTrigger value="decisions" className="flex items-center gap-1.5 sm:gap-2 min-h-[44px] text-xs sm:text-sm py-2">
-            <CircleDot className="h-3.5 w-3.5 sm:h-4 sm:w-4 shrink-0" />
-            Decisions
-          </TabsTrigger>
-          <TabsTrigger value="reflection" className="flex items-center gap-1.5 sm:gap-2 min-h-[44px] text-xs sm:text-sm py-2">
-            <MessageSquare className="h-3.5 w-3.5 sm:h-4 sm:w-4 shrink-0" />
-            Reflection
-          </TabsTrigger>
-          <TabsTrigger value="settings" className="flex items-center gap-1.5 sm:gap-2 min-h-[44px] text-xs sm:text-sm py-2">
-            <Settings className="h-3.5 w-3.5 sm:h-4 sm:w-4 shrink-0" />
-            Settings
-          </TabsTrigger>
-        </TabsList>
+      {/* Step indicator: Background → Decisions → Reflection → Settings */}
+      <nav
+        className="mb-6 sm:mb-8 overflow-x-auto pb-2 -mx-2 px-2 sm:mx-0 sm:px-0 scrollbar-thin"
+        aria-label="Editor steps"
+      >
+        <div className="flex flex-nowrap items-center justify-center gap-1 sm:gap-2 text-sm min-w-max sm:min-w-0">
+          {EDITOR_STEPS.map((step, index) => {
+            const Icon = step.icon;
+            const isActive = currentStep === index;
+            const isPast = currentStep > index;
+            return (
+              <span key={step.id} className="flex items-center shrink-0 gap-1 sm:gap-2">
+                <button
+                  type="button"
+                  onClick={() => goToStep(index)}
+                  className={`flex items-center gap-1.5 sm:gap-2 rounded-md px-2 sm:px-3 py-2 transition-colors shrink-0 ${
+                    isActive
+                      ? "bg-primary text-primary-foreground font-medium"
+                      : isPast
+                        ? "text-muted-foreground hover:text-foreground hover:bg-muted"
+                        : "text-muted-foreground hover:text-foreground hover:bg-muted"
+                  }`}
+                >
+                  <Icon className="h-3.5 w-3.5 sm:h-4 sm:w-4 shrink-0" />
+                  <span className="whitespace-nowrap hidden sm:inline">{step.label}</span>
+                </button>
+                {index < EDITOR_STEPS.length - 1 && (
+                  <ArrowRight className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-muted-foreground shrink-0" aria-hidden />
+                )}
+              </span>
+            );
+          })}
+        </div>
+      </nav>
 
-        {/* Background Tab */}
-        <TabsContent value="background">
+      {/* Step content with left/right circular nav */}
+      <div className="flex gap-3 sm:gap-6 items-stretch justify-center">
+        {/* Left nav - circular, sliding animation */}
+        <div className="hidden sm:flex shrink-0 w-12 sm:w-16 items-center justify-center min-h-[200px] sm:min-h-[400px]">
+          <AnimatePresence mode="wait">
+          {currentStep > 0 ? (
+            <motion.button
+              key="nav-left"
+              type="button"
+              onClick={() => goToStep(currentStep - 1)}
+              initial={{ x: -20, opacity: 0 }}
+              animate={{ x: 0, opacity: 1 }}
+              exit={{ x: -20, opacity: 0 }}
+              transition={{ type: "tween", duration: 0.2 }}
+              className="sticky top-[calc(50vh-2rem)] h-14 w-14 sm:h-16 sm:w-16 rounded-full bg-primary text-primary-foreground shadow-lg shadow-primary/25 hover:bg-primary/90 hover:scale-105 active:scale-95 transition-all flex items-center justify-center focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+              title={EDITOR_STEPS[currentStep - 1].label}
+              aria-label={`Go to ${EDITOR_STEPS[currentStep - 1].label}`}
+            >
+              <ArrowLeft className="h-6 w-6 sm:h-7 sm:w-7" />
+            </motion.button>
+          ) : (
+            <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-full border-2 border-dashed border-muted" aria-hidden />
+          )}
+          </AnimatePresence>
+        </div>
+
+        {/* Main content - centered, with slide animation */}
+        <div className="flex-1 min-w-0 max-w-3xl mx-auto space-y-6 overflow-hidden">
+        <AnimatePresence mode="wait">
+        {/* Step 0: Background */}
+        {currentStep === 0 && (
+          <motion.div
+            key="step-0"
+            initial={{ x: slideDirection >= 0 ? 40 : -40, opacity: 0 }}
+            animate={{ x: 0, opacity: 1 }}
+            exit={{ x: slideDirection >= 0 ? -40 : 40, opacity: 0 }}
+            transition={{ type: "tween", duration: 0.2 }}
+            className="space-y-6"
+          >
           <Card>
             <CardHeader>
               <CardTitle>Simulation Intent</CardTitle>
@@ -233,14 +380,79 @@ export function SimulationEditor({
                 className="font-mono text-sm"
               />
               <p className="text-xs text-muted-foreground mt-2">
-                Supports basic text formatting. Aim for 1-2 pages of content.
+                Supports Markdown (headings, lists, **bold**, and tables). Aim for 1-2 pages.
               </p>
             </CardContent>
           </Card>
-        </TabsContent>
 
-        {/* Decisions Tab */}
-        <TabsContent value="decisions" className="space-y-4">
+          {/* Data blocks: tables, charts, timelines */}
+          <Card className="mt-6">
+            <CardHeader>
+              <CardTitle>Data &amp; Visuals</CardTitle>
+              <CardDescription>
+                Tables, charts, timelines, and KPI cards shown to students in the background. AI generates these; you can edit or add more.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {dataBlocks.map((block, index) => (
+                <DataBlockEditor
+                  key={block.id}
+                  block={block}
+                  onUpdate={(updated) => updateDataBlock(index, updated)}
+                  onDelete={() => deleteDataBlock(index)}
+                />
+              ))}
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" size="sm" className="w-fit">
+                    <Plus className="mr-2 h-4 w-4" />
+                    Add data block
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent>
+                  <DropdownMenuItem onClick={() => addDataBlock("table")}>
+                    Table
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => addDataBlock("bar_chart")}>
+                    Bar Chart
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => addDataBlock("line_chart")}>
+                    Line Chart
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => addDataBlock("kpi_cards")}>
+                    KPI Cards
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => addDataBlock("timeline")}>
+                    Timeline
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => addDataBlock("pie_chart")}>
+                    Pie Chart
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+                </DropdownMenu>
+            </CardContent>
+          </Card>
+
+          {/* Mobile nav - shown when side circles are hidden */}
+          <div className="sm:hidden flex justify-end pt-4">
+            <Button onClick={() => goToStep(1)} className="min-h-[44px]">
+              Decisions
+              <ArrowRight className="ml-2 h-4 w-4 shrink-0" />
+            </Button>
+          </div>
+          </motion.div>
+        )}
+
+        {/* Step 1: Decisions */}
+        {currentStep === 1 && (
+        <motion.div
+          key="step-1"
+          initial={{ x: slideDirection >= 0 ? 40 : -40, opacity: 0 }}
+          animate={{ x: 0, opacity: 1 }}
+          exit={{ x: slideDirection >= 0 ? -40 : 40, opacity: 0 }}
+          transition={{ type: "tween", duration: 0.2 }}
+          className="space-y-4"
+        >
           {decisions.map((decision, dIndex) => (
             <Collapsible key={decision.id} defaultOpen={false} className="group/decision">
               <Card className="overflow-hidden">
@@ -327,10 +539,31 @@ export function SimulationEditor({
               </Card>
             </Collapsible>
           ))}
-        </TabsContent>
 
-        {/* Reflection Tab */}
-        <TabsContent value="reflection">
+          {/* Mobile nav */}
+          <div className="sm:hidden flex justify-between pt-4">
+            <Button variant="outline" onClick={() => goToStep(0)} className="min-h-[44px]">
+              <ArrowLeft className="mr-2 h-4 w-4 shrink-0" />
+              Background
+            </Button>
+            <Button onClick={() => goToStep(2)} className="min-h-[44px]">
+              Reflection
+              <ArrowRight className="ml-2 h-4 w-4 shrink-0" />
+            </Button>
+          </div>
+        </motion.div>
+        )}
+
+        {/* Step 2: Reflection */}
+        {currentStep === 2 && (
+          <motion.div
+            key="step-2"
+            initial={{ x: slideDirection >= 0 ? 40 : -40, opacity: 0 }}
+            animate={{ x: 0, opacity: 1 }}
+            exit={{ x: slideDirection >= 0 ? -40 : 40, opacity: 0 }}
+            transition={{ type: "tween", duration: 0.2 }}
+            className="space-y-6"
+          >
           <Card>
             <CardHeader>
               <CardTitle>Reflection Questions</CardTitle>
@@ -351,10 +584,31 @@ export function SimulationEditor({
               ))}
             </CardContent>
           </Card>
-        </TabsContent>
 
-        {/* Settings Tab */}
-        <TabsContent value="settings">
+          {/* Mobile nav */}
+          <div className="sm:hidden flex justify-between pt-4">
+            <Button variant="outline" onClick={() => goToStep(1)} className="min-h-[44px]">
+              <ArrowLeft className="mr-2 h-4 w-4 shrink-0" />
+              Decisions
+            </Button>
+            <Button onClick={() => goToStep(3)} className="min-h-[44px]">
+              Settings
+              <ArrowRight className="ml-2 h-4 w-4 shrink-0" />
+            </Button>
+          </div>
+          </motion.div>
+        )}
+
+        {/* Step 3: Settings */}
+        {currentStep === 3 && (
+          <motion.div
+            key="step-3"
+            initial={{ x: slideDirection >= 0 ? 40 : -40, opacity: 0 }}
+            animate={{ x: 0, opacity: 1 }}
+            exit={{ x: slideDirection >= 0 ? -40 : 40, opacity: 0 }}
+            transition={{ type: "tween", duration: 0.2 }}
+            className="space-y-6"
+          >
           <Card>
             <CardHeader>
               <CardTitle>Run Settings</CardTitle>
@@ -452,22 +706,41 @@ export function SimulationEditor({
               )}
             </CardContent>
           </Card>
-        </TabsContent>
-      </Tabs>
 
-      {/* Bottom Save Bar */}
-      <div className="sticky bottom-0 bg-background border-t py-4 mt-6 sm:mt-8 -mx-3 sm:-mx-4 px-3 sm:px-4 safe-area-inset-bottom">
-        <div className="max-w-5xl mx-auto flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-end gap-2">
-          <Button variant="outline" onClick={handleSave} disabled={saving} className="min-h-[48px] w-full sm:w-auto">
-            {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
-            Save Changes
-          </Button>
-          <Link href={`/session/${simulation.id}/new`} className="w-full sm:w-auto">
-            <Button className="w-full min-h-[48px]">
-              <Play className="mr-2 h-4 w-4 shrink-0" />
-              Start Live Session
+          {/* Mobile nav */}
+          <div className="sm:hidden flex justify-between pt-4">
+            <Button variant="outline" onClick={() => goToStep(2)} className="min-h-[44px]">
+              <ArrowLeft className="mr-2 h-4 w-4 shrink-0" />
+              Reflection
             </Button>
-          </Link>
+          </div>
+          </motion.div>
+        )}
+        </AnimatePresence>
+        </div>
+
+        {/* Right nav - circular, sliding animation */}
+        <div className="hidden sm:flex shrink-0 w-12 sm:w-16 items-center justify-center min-h-[200px] sm:min-h-[400px]">
+          <AnimatePresence mode="wait">
+          {currentStep < 3 ? (
+            <motion.button
+              key="nav-right"
+              type="button"
+              onClick={() => goToStep(currentStep + 1)}
+              initial={{ x: 20, opacity: 0 }}
+              animate={{ x: 0, opacity: 1 }}
+              exit={{ x: 20, opacity: 0 }}
+              transition={{ type: "tween", duration: 0.2 }}
+              className="sticky top-[calc(50vh-2rem)] h-14 w-14 sm:h-16 sm:w-16 rounded-full bg-primary text-primary-foreground shadow-lg shadow-primary/25 hover:bg-primary/90 hover:scale-105 active:scale-95 transition-all flex items-center justify-center focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+              title={EDITOR_STEPS[currentStep + 1].label}
+              aria-label={`Go to ${EDITOR_STEPS[currentStep + 1].label}`}
+            >
+              <ArrowRight className="h-6 w-6 sm:h-7 sm:w-7" />
+            </motion.button>
+          ) : (
+            <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-full border-2 border-dashed border-muted" aria-hidden />
+          )}
+          </AnimatePresence>
         </div>
       </div>
     </div>

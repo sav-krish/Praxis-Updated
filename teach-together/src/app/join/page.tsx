@@ -122,7 +122,9 @@ function JoinForm() {
       <Card className="w-full max-w-md max-h-[calc(100dvh-3rem)] overflow-auto">
         <CardHeader className="text-center">
           <Link href="/" className="flex items-center justify-center gap-2 mb-4">
-            <img src="/logo.svg" alt="Praxis" className="h-8 w-auto" />
+            <span className="inline-flex shrink-0 items-center justify-center rounded-sm bg-white p-0.5">
+            <img src="/logo.jpg" alt="Praxis" className="h-8 w-auto" />
+          </span>
             <span className="text-2xl font-bold">Praxis</span>
           </Link>
           <CardTitle>Join Session</CardTitle>

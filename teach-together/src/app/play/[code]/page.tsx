@@ -26,6 +26,9 @@ import {
   ChevronRight,
 } from "lucide-react";
 import { toast } from "sonner";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
+import { DataBlockRenderer } from "@/components/simulation/DataBlockRenderer";
 
 interface Option {
   id: string;
@@ -70,6 +73,7 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
   const [session, setSession] = useState<Session | null>(null);
   const [decisions, setDecisions] = useState<Decision[]>([]);
   const [reflectionQuestions, setReflectionQuestions] = useState<ReflectionQuestion[]>([]);
+  const [dataBlocks, setDataBlocks] = useState<Array<{ id: string; block_type: string; title: string | null; data: unknown }>>([]);
   const [participantId, setParticipantId] = useState<string | null>(null);
   const [participantName, setParticipantName] = useState<string>("");
   
@@ -81,6 +85,7 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
   const [currentConsequence, setCurrentConsequence] = useState("");
   const [myResponses, setMyResponses] = useState<{ decision_id: string; option_id: string; score: number }[]>([]);
   const [reflectionAnswers, setReflectionAnswers] = useState<Record<string, string>>({});
+  const [participantCount, setParticipantCount] = useState<number>(0);
 
   // Ref to always have latest currentStep in callbacks without re-subscribing
   const currentStepRef = useRef(currentStep);
@@ -93,6 +98,27 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
   useEffect(() => {
     loadSession();
   }, [code]);
+
+  // Subscribe to participant count while waiting (for "N students joined" message)
+  useEffect(() => {
+    if (!session || currentStep !== 0) return;
+    const supabase = createClient();
+    const channel = supabase
+      .channel(`play-participants-${session.id}`)
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "participants", filter: `session_id=eq.${session.id}` },
+        () => {
+          supabase
+            .from("participants")
+            .select("*", { count: "exact", head: true })
+            .eq("session_id", session.id)
+            .then(({ count }) => setParticipantCount(count ?? 0));
+        }
+      )
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [session?.id, currentStep]);
 
   // Subscribe to session updates via Supabase Realtime
   useEffect(() => {
@@ -184,6 +210,13 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
 
     setSession(sessionWithSimulation);
 
+    // Participant count for waiting screen
+    const { count } = await supabase
+      .from("participants")
+      .select("*", { count: "exact", head: true })
+      .eq("session_id", sessionData.id);
+    setParticipantCount(count ?? 0);
+
     // Get participant ID from localStorage
     const storedParticipantId = localStorage.getItem(`participant_${sessionData.id}`);
     const storedName = localStorage.getItem(`participant_name_${sessionData.id}`);
@@ -240,6 +273,17 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
 
     if (questionsData) {
       setReflectionQuestions(questionsData);
+    }
+
+    // Load data blocks
+    const { data: blocksData } = await supabase
+      .from("simulation_data_blocks")
+      .select("id, block_type, title, data")
+      .eq("simulation_id", simulationData.id)
+      .order("order_num", { ascending: true });
+
+    if (blocksData) {
+      setDataBlocks(blocksData);
     }
 
     // Load existing responses
@@ -373,9 +417,16 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
             <CardDescription>Welcome, {participantName}!</CardDescription>
           </CardHeader>
           <CardContent className="px-4 sm:px-6">
-            <div className="flex items-center justify-center gap-2 text-muted-foreground text-sm sm:text-base">
-              <Clock className="h-5 w-5 animate-pulse shrink-0" />
-              <span>Waiting for professor to start the simulation...</span>
+            <div className="space-y-1 text-center">
+              <p className="font-medium text-foreground">You&apos;re in.</p>
+              <p className="text-muted-foreground text-sm sm:text-base">
+                {participantCount <= 1
+                  ? "Waiting for the instructor to start."
+                  : `${participantCount} students joined. Waiting for the instructor to start.`}
+              </p>
+              <div className="flex items-center justify-center gap-2 mt-2 text-muted-foreground">
+                <Clock className="h-4 w-4 animate-pulse shrink-0" />
+              </div>
             </div>
           </CardContent>
         </Card>
@@ -403,11 +454,25 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
               </CardDescription>
             </CardHeader>
             <CardContent className="px-4 sm:px-6">
-              <div className="prose prose-sm max-w-none text-sm sm:text-base">
-                <div className="whitespace-pre-wrap break-words">
-                  {session?.simulation.background_content || "No background content provided."}
-                </div>
+              <div className="prose prose-sm max-w-none text-sm sm:text-base prose-table:overflow-x-auto prose-td:border prose-td:px-3 prose-td:py-2 prose-th:border prose-th:px-3 prose-th:py-2 prose-th:bg-muted/50">
+                {session?.simulation.background_content ? (
+                  <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                    {session.simulation.background_content}
+                  </ReactMarkdown>
+                ) : (
+                  <p className="text-muted-foreground">No background content provided.</p>
+                )}
               </div>
+              {dataBlocks.length > 0 && (
+                <div className="mt-6 space-y-4">
+                  {dataBlocks.map((block) => (
+                    <DataBlockRenderer
+                      key={block.id}
+                      block={block as Parameters<typeof DataBlockRenderer>[0]["block"]}
+                    />
+                  ))}
+                </div>
+              )}
               <Separator className="my-4 sm:my-6" />
               <div className="flex justify-end">
                 <Button onClick={() => setCurrentStep(2)} className="min-h-[48px] w-full sm:w-auto">

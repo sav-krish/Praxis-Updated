@@ -25,9 +25,16 @@ const COURSE_TOPICS = [
   "Other",
 ];
 
+interface GeneratedDataBlock {
+  block_type: string;
+  title: string;
+  data: Record<string, unknown>;
+}
+
 interface GeneratedSimulation {
   title: string;
   backgroundContent: string;
+  dataBlocks?: GeneratedDataBlock[];
   decisions: {
     prompt: string;
     options: {
@@ -74,27 +81,51 @@ export default function CreateSimulationPage() {
       throw new Error("You must be logged in");
     }
 
+    // Ensure professor row exists (trigger might not have run)
+    const { data: professor } = await supabase
+      .from("professors")
+      .select("id")
+      .eq("id", user.id)
+      .single();
+    if (!professor) {
+      const { error: profError } = await supabase.from("professors").insert({
+        id: user.id,
+        email: user.email ?? "",
+        name: user.user_metadata?.name ?? null,
+      });
+      if (profError) {
+        throw new Error(profError.message || "Could not create professor profile");
+      }
+    }
+
+    const bgContent = (generated as { backgroundContent?: string; background_content?: string }).backgroundContent
+      ?? (generated as { background_content?: string }).background_content
+      ?? "";
+
     // Create the simulation
     const { data: simulation, error: simError } = await supabase
       .from("simulations")
       .insert({
         professor_id: user.id,
-        title: generated.title || formData.title,
-        course_topic: formData.courseTopic,
-        goal: formData.goal,
-        target_decisions: formData.targetDecisions,
-        background_content: generated.backgroundContent,
-        ai_notes: formData.aiNotes,
+        title: (generated.title || formData.title) || "Untitled Simulation",
+        course_topic: formData.courseTopic || "Power & Influence",
+        goal: formData.goal || null,
+        target_decisions: formData.targetDecisions || null,
+        background_content: bgContent,
+        ai_notes: formData.aiNotes || null,
         status: "draft",
       })
       .select()
       .single();
 
-    if (simError) throw simError;
+    if (simError) throw new Error(simError.message || "Could not create simulation");
+
+    const decisions = Array.isArray(generated.decisions) ? generated.decisions : [];
+    if (decisions.length === 0) throw new Error("Generated simulation has no decisions");
 
     // Create decisions with AI-generated content
-    for (let i = 0; i < generated.decisions.length; i++) {
-      const genDecision = generated.decisions[i];
+    for (let i = 0; i < decisions.length; i++) {
+      const genDecision = decisions[i];
       const { data: decision, error: decError } = await supabase
         .from("decisions")
         .insert({
@@ -105,28 +136,28 @@ export default function CreateSimulationPage() {
         .select()
         .single();
 
-      if (decError) throw decError;
+      if (decError) throw new Error(decError.message || "Could not save decisions");
 
-      // Create options with AI-generated content
-      for (const option of genDecision.options) {
+      const options = Array.isArray(genDecision.options) ? genDecision.options : [];
+      for (const option of options) {
         const { error: optError } = await supabase
           .from("options")
           .insert({
             decision_id: decision.id,
             label: option.label,
             title: option.title,
-            description: option.description,
-            consequence: option.consequence,
+            description: option.description ?? null,
+            consequence: option.consequence ?? null,
             score: option.score,
           });
 
-        if (optError) throw optError;
+        if (optError) throw new Error(optError.message || "Could not save options");
       }
     }
 
     // Create reflection questions
-    const questions = generated.reflectionQuestions.length > 0 
-      ? generated.reflectionQuestions 
+    const questions = generated.reflectionQuestions?.length > 0
+      ? generated.reflectionQuestions
       : ["What were your key takeaways from this simulation?", "What did you learn that you can apply in real situations?"];
 
     for (let i = 0; i < Math.min(questions.length, 2); i++) {
@@ -138,7 +169,25 @@ export default function CreateSimulationPage() {
           question: questions[i],
         });
 
-      if (refError) throw refError;
+      if (refError) throw new Error(refError.message || "Could not save reflection questions");
+    }
+
+    // Create data blocks (tables, charts, timelines, etc.)
+    const dataBlocks = Array.isArray(generated.dataBlocks) ? generated.dataBlocks : [];
+    const validTypes = ["table", "bar_chart", "line_chart", "kpi_cards", "timeline", "pie_chart"];
+    for (let i = 0; i < dataBlocks.length; i++) {
+      const block = dataBlocks[i];
+      if (!block || !validTypes.includes(block.block_type) || !block.data) continue;
+      const { error: blockError } = await supabase
+        .from("simulation_data_blocks")
+        .insert({
+          simulation_id: simulation.id,
+          order_num: i + 1,
+          block_type: block.block_type,
+          title: block.title || null,
+          data: block.data as Record<string, unknown>,
+        });
+      if (blockError) console.warn("Could not save data block:", blockError);
     }
 
     return simulation.id;
@@ -172,20 +221,34 @@ export default function CreateSimulationPage() {
         body: formPayload,
       });
 
-      const data = await response.json();
-
-      if (!data.success) {
-        throw new Error(data.error || "Failed to generate simulation");
+      let data: { success?: boolean; error?: string; simulation?: unknown };
+      try {
+        data = await response.json();
+      } catch {
+        throw new Error(response.ok ? "Invalid response from server" : `Request failed (${response.status})`);
       }
 
-      // Save to database
-      const simulationId = await saveGeneratedSimulation(data.simulation);
+      if (!response.ok || !data.success) {
+        throw new Error(data?.error || `Request failed (${response.status})`);
+      }
+      if (!data.simulation) {
+        throw new Error("No simulation data returned");
+      }
+
+      toast.info("Saving simulation…");
+      const simulationId = await saveGeneratedSimulation(data.simulation as GeneratedSimulation);
 
       toast.success("Simulation generated! Review and edit the content.");
       router.push(`/edit/${simulationId}`);
     } catch (error) {
-      console.error(error);
-      toast.error(error instanceof Error ? error.message : "Failed to generate simulation");
+      console.error("Create simulation error:", error);
+      const message =
+        error instanceof Error
+          ? error.message
+          : typeof (error as { message?: string })?.message === "string"
+            ? (error as { message: string }).message
+            : "Failed to generate simulation";
+      toast.error(message);
     } finally {
       setGeneratingAI(false);
     }
@@ -205,6 +268,23 @@ export default function CreateSimulationPage() {
         return;
       }
 
+      // Ensure professor row exists (trigger might not have run)
+      const { data: professor } = await supabase
+        .from("professors")
+        .select("id")
+        .eq("id", user.id)
+        .single();
+      if (!professor) {
+        const { error: profError } = await supabase.from("professors").insert({
+          id: user.id,
+          email: user.email ?? "",
+          name: user.user_metadata?.name ?? null,
+        });
+        if (profError) {
+          throw new Error(profError.message || "Could not create professor profile");
+        }
+      }
+
       // Create the simulation
       const { data: simulation, error: simError } = await supabase
         .from("simulations")
@@ -220,7 +300,7 @@ export default function CreateSimulationPage() {
         .select()
         .single();
 
-      if (simError) throw simError;
+      if (simError) throw new Error(simError.message || "Could not create simulation");
 
       // Create default decisions (3 empty decisions)
       for (let i = 1; i <= 3; i++) {
@@ -234,7 +314,7 @@ export default function CreateSimulationPage() {
           .select()
           .single();
 
-        if (decError) throw decError;
+        if (decError) throw new Error(decError.message || "Could not create decision");
 
         // Create 3 options for each decision
         const labels = ["A", "B", "C"] as const;
@@ -250,7 +330,7 @@ export default function CreateSimulationPage() {
               score: label === "A" ? 3 : label === "B" ? 2 : 1,
             });
 
-          if (optError) throw optError;
+          if (optError) throw new Error(optError.message || "Could not create option");
         }
       }
 
@@ -269,14 +349,20 @@ export default function CreateSimulationPage() {
             question: reflectionQuestions[i],
           });
 
-        if (refError) throw refError;
+        if (refError) throw new Error(refError.message || "Could not create reflection question");
       }
 
       toast.success("Simulation created! Now let's edit the details.");
       router.push(`/edit/${simulation.id}`);
     } catch (error) {
-      console.error(error);
-      toast.error("Failed to create simulation");
+      console.error("Create simulation error:", error);
+      const message =
+        error instanceof Error
+          ? error.message
+          : typeof (error as { message?: string })?.message === "string"
+            ? (error as { message: string }).message
+            : "Failed to create simulation";
+      toast.error(message);
     } finally {
       setLoading(false);
     }

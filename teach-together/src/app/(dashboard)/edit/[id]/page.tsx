@@ -38,6 +38,13 @@ export default async function EditSimulationPage({ params }: PageProps) {
     .eq("simulation_id", id)
     .order("order_num", { ascending: true });
 
+  // Fetch data blocks
+  const { data: dataBlocks } = await supabase
+    .from("simulation_data_blocks")
+    .select("*")
+    .eq("simulation_id", id)
+    .order("order_num", { ascending: true });
+
   // Sort options within each decision
   const sortedDecisions = decisions?.map(d => ({
     ...d,
@@ -49,6 +56,7 @@ export default async function EditSimulationPage({ params }: PageProps) {
       simulation={simulation}
       decisions={sortedDecisions}
       reflectionQuestions={reflectionQuestions || []}
+      dataBlocks={(dataBlocks || []).map((b) => ({ ...b, data: b.data as Record<string, unknown> }))}
     />
   );
 }

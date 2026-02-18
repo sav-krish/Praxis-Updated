@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   ArrowRight,
@@ -430,7 +431,9 @@ export default function HomePage() {
       <header className="sticky top-0 z-40 border-b border-line/60 bg-canvas/80 backdrop-blur safe-area-inset-top">
         <nav className="container flex items-center justify-between gap-3 py-3 sm:py-4 px-4 sm:px-6">
           <Link href="/" className="flex items-center gap-2 min-w-0 shrink">
-            <img src="/logo.svg" alt="Praxis" className="h-7 w-auto sm:h-8 shrink-0" />
+            <span className="inline-flex shrink-0 items-center justify-center rounded-sm bg-white p-0.5">
+              <Image src="/logo.jpg" alt="Praxis" width={96} height={73} className="h-7 w-auto sm:h-8" priority />
+            </span>
             <span className="text-base font-semibold text-ink truncate sm:text-lg">Praxis</span>
           </Link>
           <div className="hidden items-center gap-8 text-sm font-medium text-muted md:flex">
@@ -771,7 +774,9 @@ export default function HomePage() {
         <div className="flex flex-col items-start justify-between gap-6 md:flex-row md:items-center">
           <div>
             <Link href="/" className="flex items-center gap-2 text-lg font-semibold text-ink">
-              <img src="/logo.svg" alt="Praxis" className="h-6 w-auto" />
+              <span className="inline-flex shrink-0 items-center justify-center rounded-sm bg-white p-0.5">
+              <Image src="/logo.jpg" alt="Praxis" width={72} height={55} className="h-6 w-auto" />
+            </span>
               Praxis
             </Link>
             <p className="mt-2 text-sm text-muted">

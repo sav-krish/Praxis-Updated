@@ -16,7 +16,10 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "Praxis - Classroom Simulations",
   description: "Create interactive decision-based classroom simulations",
-  icons: { icon: "/logo.svg" },
+  icons: {
+    icon: "/logo.jpg",
+    apple: "/logo.jpg",
+  },
 };
 
 export const viewport = {

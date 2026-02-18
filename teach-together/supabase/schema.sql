@@ -64,6 +64,18 @@ CREATE TABLE reflection_questions (
   UNIQUE(simulation_id, order_num)
 );
 
+-- Data blocks for simulations (tables, charts, timelines, etc.)
+CREATE TABLE simulation_data_blocks (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  simulation_id UUID NOT NULL REFERENCES simulations(id) ON DELETE CASCADE,
+  order_num INTEGER NOT NULL,
+  block_type TEXT NOT NULL CHECK (block_type IN ('table', 'bar_chart', 'line_chart', 'kpi_cards', 'timeline', 'pie_chart')),
+  title TEXT,
+  data JSONB NOT NULL,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  UNIQUE(simulation_id, order_num)
+);
+
 -- Sessions table (live classroom sessions)
 CREATE TABLE sessions (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
@@ -129,6 +141,7 @@ CREATE INDEX idx_participants_session ON participants(session_id);
 CREATE INDEX idx_participants_team ON participants(team_id);
 CREATE INDEX idx_responses_session ON responses(session_id);
 CREATE INDEX idx_responses_decision ON responses(decision_id);
+CREATE INDEX idx_simulation_data_blocks_simulation ON simulation_data_blocks(simulation_id);
 
 -- Row Level Security (RLS) Policies
 
@@ -143,6 +156,7 @@ ALTER TABLE teams ENABLE ROW LEVEL SECURITY;
 ALTER TABLE participants ENABLE ROW LEVEL SECURITY;
 ALTER TABLE responses ENABLE ROW LEVEL SECURITY;
 ALTER TABLE reflection_responses ENABLE ROW LEVEL SECURITY;
+ALTER TABLE simulation_data_blocks ENABLE ROW LEVEL SECURITY;
 
 -- Professors can only see/edit their own profile
 CREATE POLICY "Professors can view own profile" ON professors
@@ -188,6 +202,15 @@ CREATE POLICY "Access reflection questions via simulation" ON reflection_questio
   FOR ALL USING (
     simulation_id IN (SELECT id FROM simulations WHERE professor_id = auth.uid())
   );
+
+-- Data blocks: professors manage, anyone can read (for student view)
+CREATE POLICY "Access data blocks via simulation" ON simulation_data_blocks
+  FOR ALL USING (
+    simulation_id IN (SELECT id FROM simulations WHERE professor_id = auth.uid())
+  );
+
+CREATE POLICY "Anyone can read data blocks" ON simulation_data_blocks
+  FOR SELECT USING (true);
 
 -- Sessions: professors can manage, anyone can read with join code
 CREATE POLICY "Professors can manage own sessions" ON sessions

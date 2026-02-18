@@ -273,6 +273,35 @@ export interface Database {
           submitted_at?: string
         }
       }
+      simulation_data_blocks: {
+        Row: {
+          id: string
+          simulation_id: string
+          order_num: number
+          block_type: string
+          title: string | null
+          data: Json
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          simulation_id: string
+          order_num: number
+          block_type: string
+          title?: string | null
+          data: Json
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          simulation_id?: string
+          order_num?: number
+          block_type?: string
+          title?: string | null
+          data?: Json
+          created_at?: string
+        }
+      }
       reflection_responses: {
         Row: {
           id: string

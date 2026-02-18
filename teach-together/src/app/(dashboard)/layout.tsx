@@ -10,7 +10,7 @@ import {
   DropdownMenuTrigger 
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { LogOut, User, Plus } from "lucide-react";
+import { LogOut, Plus } from "lucide-react";
 
 async function signOut() {
   "use server";
@@ -41,7 +41,9 @@ export default async function DashboardLayout({
       <header className="bg-background border-b sticky top-0 z-50 safe-area-inset-top">
         <div className="container mx-auto px-3 sm:px-4 min-h-14 sm:h-16 flex items-center justify-between gap-2">
           <Link href="/dashboard" className="flex items-center gap-2 min-w-0">
-            <img src="/logo.svg" alt="Praxis" className="h-8 w-auto sm:h-9 shrink-0" />
+            <span className="inline-flex shrink-0 items-center justify-center rounded-sm bg-white p-0.5">
+            <img src="/logo.jpg" alt="Praxis" className="h-8 w-auto sm:h-9" />
+          </span>
             <span className="text-lg sm:text-xl font-bold truncate">Praxis</span>
           </Link>
           
@@ -71,13 +73,6 @@ export default async function DashboardLayout({
                     <p className="text-sm text-muted-foreground">{user.email}</p>
                   </div>
                 </div>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem asChild>
-                  <Link href="/profile" className="cursor-pointer">
-                    <User className="mr-2 h-4 w-4" />
-                    Profile
-                  </Link>
-                </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <form action={signOut}>
                   <DropdownMenuItem asChild>

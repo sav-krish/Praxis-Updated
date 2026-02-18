@@ -19,11 +19,10 @@ export async function extractTextFromFile(
 
 async function extractFromPdf(buffer: Buffer): Promise<string> {
   try {
-    // Use dynamic require for pdf-parse as it doesn't have proper ESM exports
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const pdfParse = require("pdf-parse");
-    const data = await pdfParse(buffer);
-    return data.text;
+    const { extractText, getDocumentProxy } = await import("unpdf");
+    const pdf = await getDocumentProxy(new Uint8Array(buffer));
+    const { text } = await extractText(pdf, { mergePages: true });
+    return text ?? "";
   } catch (error) {
     console.error("Error parsing PDF:", error);
     throw new Error("Failed to parse PDF file. Please try a different format.");

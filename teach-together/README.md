@@ -65,13 +65,22 @@ Edit `.env.local` with your credentials:
 NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
 NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key
 OPENAI_API_KEY=sk-your-openai-key
+# Optional: OPENAI_MODEL=gpt-4o  (default is gpt-4o-mini for higher TPM / longer materials)
 ```
+
+**Long materials and rate limits:** The app defaults to `gpt-4o-mini` (200k TPM) so long uploads usually don’t need truncation. Set `OPENAI_MODEL=gpt-4o` to use the stronger model (30k TPM on tier 1; materials are truncated if very long). For unbounded length, the pattern used by tools like Google NotebookLM is **chunking + RAG**—you could add that later for full books or huge note sets.
 
 ### 3. Set up the database
 
 In your Supabase SQL editor, run the contents of `supabase/schema.sql`. This creates all tables, indexes, RLS policies, triggers, and enables Realtime on the necessary tables.
 
-If you have an existing database from an earlier schema, run the migration in `supabase/migrations/20250217_add_simulation_difficulty.sql` to add simulation length/difficulty (easy, hard, challenge) and time estimates.
+If you have an existing database from an earlier schema:
+
+- Run `supabase/migrations/20250217_add_simulation_difficulty.sql` to add simulation length/difficulty (easy, hard, challenge) and time estimates.
+- Run `supabase/migrations/20250218_share_simulation_policies.sql` to allow the share/copy flow (authenticated users can read simulations for copying).
+- Run `supabase/migrations/20250218_backfill_professors.sql` to create professor rows for existing users who don't have one (fixes foreign key errors when creating simulations).
+- Run `supabase/migrations/20250218_simulation_data_blocks.sql` to add data blocks (tables, charts, timelines). Safe if table already exists (uses `IF NOT EXISTS`).
+- Run `supabase/migrations/20250218_matrix_to_pie_chart.sql` if you had the old matrix block type — replaces it with pie_chart.
 
 **Important:** Make sure Realtime is enabled for the `sessions`, `participants`, `teams`, and `responses` tables. The schema file does this automatically, but you can verify in your Supabase dashboard under **Database > Replication**.
 

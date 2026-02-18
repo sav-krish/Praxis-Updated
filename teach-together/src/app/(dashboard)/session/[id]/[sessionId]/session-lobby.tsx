@@ -220,6 +220,24 @@ export function SessionLobby({
 
   return (
     <div className="max-w-6xl mx-auto px-0 sm:px-4">
+      {/* Session ended: clear CTA to view report */}
+      {session.status === "complete" && (
+        <Card className="mb-4 sm:mb-6 border-primary/30 bg-primary/5">
+          <CardContent className="flex flex-col sm:flex-row items-center justify-between gap-4 py-6 px-4 sm:px-6">
+            <div>
+              <h2 className="text-lg sm:text-xl font-semibold">Session ended</h2>
+              <p className="text-sm text-muted-foreground mt-1">View results and export data for this run.</p>
+            </div>
+            <Link href={`/reports/${simulation.id}?session=${session.id}`} className="w-full sm:w-auto shrink-0">
+              <Button className="w-full min-h-[48px]" size="lg">
+                <BarChart3 className="mr-2 h-4 w-4" />
+                View report
+              </Button>
+            </Link>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Header */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between mb-4 sm:mb-6">
         <div className="flex items-center gap-3 min-w-0">
@@ -240,10 +258,17 @@ export function SessionLobby({
         </div>
         <div className="flex gap-2 shrink-0">
           {session.status === "lobby" && (
-            <Button onClick={startSimulation} disabled={loading || participants.length === 0} className="min-h-[44px] flex-1 sm:flex-none">
-              {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Play className="mr-2 h-4 w-4" />}
-              Start Simulation
-            </Button>
+            <div className="flex flex-col items-stretch sm:items-end gap-1 flex-1 sm:flex-none min-w-0">
+              {participants.length > 0 && (
+                <p className="text-sm text-muted-foreground text-center sm:text-right">
+                  {participants.length} student{participants.length !== 1 ? "s" : ""} waiting. Start when ready.
+                </p>
+              )}
+              <Button onClick={startSimulation} disabled={loading || participants.length === 0} className="min-h-[44px] w-full sm:w-auto">
+                {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Play className="mr-2 h-4 w-4" />}
+                Start Simulation
+              </Button>
+            </div>
           )}
           {session.status === "running" && (
             <Button variant="destructive" onClick={endSimulation} disabled={loading} className="min-h-[44px] flex-1 sm:flex-none">

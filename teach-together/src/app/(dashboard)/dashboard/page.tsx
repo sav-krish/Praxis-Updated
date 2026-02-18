@@ -9,7 +9,7 @@ import {
   DropdownMenuItem, 
   DropdownMenuTrigger 
 } from "@/components/ui/dropdown-menu";
-import { Plus, MoreVertical, Edit, Play, BarChart3, BookOpen, FolderOpen } from "lucide-react";
+import { Plus, MoreVertical, Edit, Play, BarChart3, BookOpen, FolderOpen, Share2 } from "lucide-react";
 
 interface DashboardPageProps {
   searchParams: Promise<{ course?: string }>;
@@ -47,13 +47,17 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
 
   const simulationsWithReports = new Set(completedSessions?.map(s => s.simulation_id) || []);
 
+  const displayName = user?.user_metadata?.name || user?.email?.split("@")[0] || "there";
+
   return (
     <div>
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between mb-4 sm:mb-6">
         <div className="min-w-0">
-          <h1 className="text-2xl sm:text-3xl font-bold">Your Simulations</h1>
+          <h1 className="text-2xl sm:text-3xl font-bold">
+            Hello, {displayName}
+          </h1>
           <p className="text-muted-foreground mt-1 text-sm sm:text-base">
-            Create and manage your classroom simulations
+            Your simulations · Create and manage classroom exercises
           </p>
         </div>
         <Link href="/create" className="w-full sm:w-auto">
@@ -119,6 +123,12 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
                         <Link href={`/session/${simulation.id}/new`}>
                           <Play className="mr-2 h-4 w-4" />
                           Start Session
+                        </Link>
+                      </DropdownMenuItem>
+                      <DropdownMenuItem asChild>
+                        <Link href={`/share/${simulation.id}`}>
+                          <Share2 className="mr-2 h-4 w-4" />
+                          Share
                         </Link>
                       </DropdownMenuItem>
                       {simulationsWithReports.has(simulation.id) && (
