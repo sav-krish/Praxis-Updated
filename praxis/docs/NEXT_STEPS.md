@@ -26,7 +26,7 @@ Confirmed status and recommended order of work.
 
 - From repo root: `git add .` (stage any remaining changes you want), then  
   `git commit -m "Merge website/main: landing page, resolve .gitignore"`.
-- If the merge brought in a **second** Next.js app at repo root (`app/`, `next.config.js` there), decide: either remove that duplicate root app and keep everything under `teach-together/`, or document that the root app is legacy/optional.
+- If the merge brought in a **second** Next.js app at repo root (`app/`, `next.config.js` there), decide: either remove that duplicate root app and keep everything under `praxis/`, or document that the root app is legacy/optional.
 
 ### 2. Add the Profile page (P4)
 
@@ -68,5 +68,5 @@ Implement in this order:
 
 ## Summary
 
-- **Done:** Profile link removed; session-ended "View report" card; student waiting "You're in. N joined"; lobby "N students waiting. Start when ready." Share feature (dashboard + editor Share button, /share/[id], Copy to my account). Landing unchanged. Single app = `teach-together/`, landing at `src/app/page.tsx`.
+- **Done:** Profile link removed; session-ended "View report" card; student waiting "You're in. N joined"; lobby "N students waiting. Start when ready." Share feature (dashboard + editor Share button, /share/[id], Copy to my account). Landing unchanged. Single app = `praxis/`, landing at `src/app/page.tsx`.
 - **Next:** Optional flow polish. Run migration `20250218_share_simulation_policies.sql` for share/copy to work.

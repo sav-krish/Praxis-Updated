@@ -439,13 +439,13 @@ export default function HomePage() {
           </div>
           <div className="flex items-center gap-3">
             <a
-              href="https://teach-together-bel4.vercel.app/"
+              href="https://praxis.vercel.app/"
               className="hidden md:inline-flex"
             >
               <Button variant="ghost">Try It Now For Free</Button>
             </a>
             <a
-              href="https://teach-together-bel4.vercel.app/"
+              href="https://praxis.vercel.app/"
               className="inline-flex md:hidden"
             >
               <Button>Try It Now For Free</Button>
@@ -466,7 +466,7 @@ export default function HomePage() {
               works from setup to debrief.
             </p>
             <div className="mt-8 flex flex-wrap gap-4">
-              <a href="https://teach-together-bel4.vercel.app/" className="inline-flex">
+              <a href="https://praxis.vercel.app/" className="inline-flex">
                 <Button>
                   Try It Now For Free <ArrowRight className="h-4 w-4" />
                 </Button>

@@ -49,7 +49,7 @@ These values are defined in `src/app/globals.css` (theme and `[data-landing="tru
 ### 1. Clone & install
 
 ```bash
-cd teach-together
+cd praxis
 npm install
 ```
 
@@ -97,7 +97,7 @@ Open [http://localhost:3000](http://localhost:3000).
 ### 1. Push to GitHub
 
 ```bash
-cd teach-together
+cd praxis
 git init
 git add .
 git commit -m "Initial commit"
@@ -105,13 +105,13 @@ git remote add origin https://github.com/your-username/teach-together.git
 git push -u origin main
 ```
 
-If the app lives in a subfolder (e.g. `teach-together/` inside the repo), push from the repo root and configure the Root Directory in Vercel.
+If the app lives in a subfolder (e.g. `praxis/` inside the repo), push from the repo root and configure the Root Directory in Vercel.
 
 ### 2. Import in Vercel
 
 1. Go to [vercel.com/new](https://vercel.com/new)
 2. Import your GitHub repository
-3. Set the **Root Directory** to `teach-together` if the app is in that subfolder
+3. Set the **Root Directory** to `praxis` if the app is in that subfolder
 4. Add these **Environment Variables** (Settings → Environment Variables):
    - `NEXT_PUBLIC_SUPABASE_URL` – your Supabase project URL
    - `NEXT_PUBLIC_SUPABASE_ANON_KEY` – your Supabase anon key
@@ -125,7 +125,7 @@ Vercel detects Next.js from `vercel.json` and builds automatically. Each push to
 
 In your Supabase project settings:
 
-- **Authentication > URL Configuration**: Add your Vercel deployment URL (e.g., `https://teach-together.vercel.app`) as a **Site URL** and to **Redirect URLs**.
+- **Authentication > URL Configuration**: Add your Vercel deployment URL (e.g., `https://praxis.vercel.app`) as a **Site URL** and to **Redirect URLs**.
 - **Authentication > Email Templates**: Customize the confirmation email if desired.
 - Ensure your RLS policies are in place (the schema file handles this).
 
