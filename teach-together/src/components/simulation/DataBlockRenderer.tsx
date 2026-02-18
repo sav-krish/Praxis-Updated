@@ -229,13 +229,13 @@ export function DataBlockRenderer({ block }: DataBlockRendererProps) {
                 outerRadius={80}
                 paddingAngle={2}
                 dataKey="value"
-                label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                label={({ name, percent }) => `${name} ${((percent ?? 0) * 100).toFixed(0)}%`}
               >
                 {chartData.map((_, index) => (
                   <Cell key={index} fill={colors[index % colors.length]} />
                 ))}
               </Pie>
-              <Tooltip formatter={(value: number) => [value, ""]} />
+              <Tooltip formatter={(value: number | undefined) => [value ?? 0, ""]} />
             </PieChart>
           </ResponsiveContainer>
         </div>

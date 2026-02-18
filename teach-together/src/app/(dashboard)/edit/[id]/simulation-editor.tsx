@@ -455,19 +455,19 @@ export function SimulationEditor({
         >
           {decisions.map((decision, dIndex) => (
             <Collapsible key={decision.id} defaultOpen={false} className="group/decision">
-              <Card className="overflow-hidden">
+              <Card className="overflow-hidden p-0 gap-0">
                 <CollapsibleTrigger asChild>
                   <button
                     type="button"
-                    className="w-full text-left px-6 py-4 flex items-center justify-between gap-3 hover:bg-muted/50 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                    className="w-full text-left px-4 sm:px-6 py-4 flex items-center justify-between gap-3 bg-transparent hover:bg-muted transition-colors duration-150 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 min-w-0"
                   >
-                    <div className="flex items-center gap-3">
-                      <Badge variant="outline">Decision {decision.order_num}</Badge>
-                      <span className="text-sm text-muted-foreground truncate max-w-md">
+                    <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
+                      <Badge variant="outline" className="shrink-0">Decision {decision.order_num}</Badge>
+                      <span className="text-sm text-muted-foreground break-words min-w-0">
                         {decision.prompt || "No prompt yet"}
                       </span>
                     </div>
-                    <ChevronDown className="h-5 w-5 shrink-0 text-muted-foreground transition-transform group-data-[state=open]/decision:rotate-180" />
+                    <ChevronDown className="h-5 w-5 shrink-0 text-muted-foreground transition-transform group-data-[state=open]/decision:rotate-180 ml-2" />
                   </button>
                 </CollapsibleTrigger>
                 <CollapsibleContent>
@@ -488,15 +488,15 @@ export function SimulationEditor({
                       <Label>Options</Label>
                       {decision.options.map((option, oIndex) => (
                         <div key={option.id} className="border rounded-lg p-4 space-y-4">
-                          <div className="flex items-center gap-2">
-                            <Badge>{option.label}</Badge>
+                          <div className="flex flex-wrap items-center gap-2">
+                            <Badge className="shrink-0">{option.label}</Badge>
                             <Input
                               placeholder="Option title"
                               value={option.title}
                               onChange={(e) => updateOption(dIndex, oIndex, "title", e.target.value)}
-                              className="flex-1"
+                              className="flex-1 min-w-[120px]"
                             />
-                            <div className="flex items-center gap-2">
+                            <div className="flex items-center gap-2 shrink-0">
                               <Label className="text-sm whitespace-nowrap">Score:</Label>
                               <Select
                                 value={String(option.score)}
@@ -616,33 +616,6 @@ export function SimulationEditor({
             </CardHeader>
             <CardContent className="space-y-6">
               <div className="space-y-2">
-                <Label>Simulation length (for students)</Label>
-                <Select
-                  value={simulation.difficulty || "hard"}
-                  onValueChange={(value: "easy" | "hard" | "challenge") => {
-                    const estimates = { easy: 15, hard: 25, challenge: 40 } as const;
-                    setSimulation({
-                      ...simulation,
-                      difficulty: value,
-                      estimated_minutes: estimates[value],
-                    });
-                  }}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="easy">Easy — ~15 min</SelectItem>
-                    <SelectItem value="hard">Hard — ~25 min</SelectItem>
-                    <SelectItem value="challenge">Challenge — ~40 min</SelectItem>
-                  </SelectContent>
-                </Select>
-                <p className="text-xs text-muted-foreground">
-                  Estimated time for a student to complete. Helps set expectations and class timing.
-                </p>
-              </div>
-
-              <div className="space-y-2">
                 <Label>Participation Mode</Label>
                 <Select
                   value={simulation.mode}
@@ -685,7 +658,7 @@ export function SimulationEditor({
                     <Input
                       type="number"
                       min={2}
-                      max={10}
+                      max={50}
                       value={simulation.team_size || 4}
                       onChange={(e) => 
                         setSimulation({ ...simulation, team_size: parseInt(e.target.value) })

@@ -42,6 +42,10 @@ export function DataBlockEditor({ block, onUpdate, onDelete }: DataBlockEditorPr
   const [open, setOpen] = useState(false);
   const [tableEditMode, setTableEditMode] = useState(false);
   const [kpiEditMode, setKpiEditMode] = useState(false);
+  const [barChartEditMode, setBarChartEditMode] = useState(false);
+  const [pieChartEditMode, setPieChartEditMode] = useState(false);
+  const [timelineEditMode, setTimelineEditMode] = useState(false);
+  const [lineChartEditMode, setLineChartEditMode] = useState(false);
 
   const updateData = (data: SimulationDataBlock["data"]) => {
     onUpdate({ ...block, data });
@@ -108,7 +112,7 @@ export function DataBlockEditor({ block, onUpdate, onDelete }: DataBlockEditorPr
           <CollapsibleTrigger asChild>
             <button
               type="button"
-              className="w-full text-left px-4 py-3 flex items-center gap-3 hover:bg-muted/50 transition-colors"
+              className="w-full text-left px-4 py-3 flex items-center gap-3 bg-transparent hover:bg-muted transition-colors duration-150"
             >
               <GripVertical className="h-4 w-4 text-muted-foreground shrink-0" />
               <Badge variant="outline">{BLOCK_TYPE_LABELS.table}</Badge>
@@ -247,18 +251,49 @@ export function DataBlockEditor({ block, onUpdate, onDelete }: DataBlockEditorPr
     );
   }
 
-  // Bar chart editor
+  // Bar chart editor - direct label/value editing
   if (block.block_type === "bar_chart") {
     const d = block.data as BarChartBlockData;
     const labels = d.labels || [];
     const values = d.values || [];
+    const items = labels.map((l, i) => ({ label: l, value: values[i] ?? 0 }));
+    const ensureItems = items.length ? items : [{ label: "", value: 0 }];
+
+    const updateItem = (idx: number, field: "label" | "value", val: string | number) => {
+      const next = [...ensureItems];
+      if (!next[idx]) next[idx] = { label: "", value: 0 };
+      if (field === "label") next[idx].label = String(val);
+      else next[idx].value = typeof val === "number" ? val : parseFloat(String(val)) || 0;
+      updateData({
+        ...d,
+        labels: next.map((x) => x.label),
+        values: next.map((x) => x.value),
+      });
+    };
+
+    const addItem = () =>
+      updateData({
+        ...d,
+        labels: [...labels, ""],
+        values: [...values, 0],
+      });
+
+    const removeItem = (idx: number) => {
+      if (items.length <= 1) return;
+      updateData({
+        ...d,
+        labels: labels.filter((_, i) => i !== idx),
+        values: values.filter((_, i) => i !== idx),
+      });
+    };
+
     return (
       <Collapsible open={open} onOpenChange={setOpen} className="group/block">
         <div className="rounded-lg border bg-card overflow-hidden">
           <CollapsibleTrigger asChild>
             <button
               type="button"
-              className="w-full text-left px-4 py-3 flex items-center gap-3 hover:bg-muted/50 transition-colors"
+              className="w-full text-left px-4 py-3 flex items-center gap-3 bg-transparent hover:bg-muted transition-colors duration-150"
             >
               <GripVertical className="h-4 w-4 text-muted-foreground shrink-0" />
               <Badge variant="outline">{BLOCK_TYPE_LABELS.bar_chart}</Badge>
@@ -268,52 +303,91 @@ export function DataBlockEditor({ block, onUpdate, onDelete }: DataBlockEditorPr
           </CollapsibleTrigger>
           <CollapsibleContent>
             <div className="border-t p-4 space-y-4">
-              <div className="space-y-2">
-                <Label>Title</Label>
-                <Input
-                  value={block.title || ""}
-                  onChange={(e) => updateTitle(e.target.value)}
-                  placeholder="Chart title"
-                />
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label>Labels (comma-separated)</Label>
-                  <Input
-                    value={labels.join(", ")}
-                    onChange={(e) =>
-                      updateData({
-                        ...d,
-                        labels: e.target.value.split(",").map((s) => s.trim()).filter(Boolean),
-                      })
-                    }
-                    placeholder="A, B, C"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>Values (comma-separated numbers)</Label>
-                  <Input
-                    value={values.join(", ")}
-                    onChange={(e) =>
-                      updateData({
-                        ...d,
-                        values: e.target.value
-                          .split(",")
-                          .map((s) => parseFloat(s.trim()) || 0),
-                      })
-                    }
-                    placeholder="10, 20, 30"
-                  />
-                </div>
-              </div>
-              <div className="flex justify-between items-start">
-                <div className="flex-1 min-w-0">
-                  <DataBlockRenderer block={block} />
-                </div>
-                <Button variant="ghost" size="icon" onClick={onDelete} className="text-destructive shrink-0">
-                  <Trash2 className="h-4 w-4" />
-                </Button>
-              </div>
+              {barChartEditMode ? (
+                <>
+                  <div className="space-y-2">
+                    <Label>Title</Label>
+                    <Input
+                      value={block.title || ""}
+                      onChange={(e) => updateTitle(e.target.value)}
+                      placeholder="Chart title"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <Label>Edit bars</Label>
+                      <Button type="button" variant="outline" size="sm" onClick={addItem} className="h-8 px-2">
+                        <Plus className="h-3.5 w-3.5 mr-1" />
+                        Add bar
+                      </Button>
+                    </div>
+                    <div className="space-y-3">
+                      {ensureItems.map((item, idx) => (
+                        <div key={idx} className="rounded-lg border p-3 space-y-2 bg-muted/30">
+                          <div className="flex justify-between items-center gap-2">
+                            <span className="text-xs font-medium text-muted-foreground">Bar {idx + 1}</span>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              className="h-7 w-7 text-muted-foreground hover:text-destructive shrink-0"
+                              onClick={() => removeItem(idx)}
+                              disabled={items.length <= 1}
+                            >
+                              <Minus className="h-3.5 w-3.5" />
+                            </Button>
+                          </div>
+                          <div className="grid gap-2 sm:grid-cols-2">
+                            <div className="space-y-1">
+                              <Label className="text-xs">Label</Label>
+                              <Input
+                                value={item.label}
+                                onChange={(e) => updateItem(idx, "label", e.target.value)}
+                                placeholder="e.g. Q1"
+                                className="h-8"
+                              />
+                            </div>
+                            <div className="space-y-1">
+                              <Label className="text-xs">Value</Label>
+                              <Input
+                                type="number"
+                                value={item.value}
+                                onChange={(e) => updateItem(idx, "value", e.target.value)}
+                                placeholder="0"
+                                className="h-8"
+                              />
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <Button variant="outline" size="sm" onClick={() => setBarChartEditMode(false)}>
+                      <Check className="h-4 w-4 mr-2" />
+                      Done
+                    </Button>
+                    <Button variant="ghost" size="icon" onClick={onDelete} className="text-destructive">
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className="overflow-x-auto">
+                    <DataBlockRenderer block={block} />
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <Button variant="outline" size="sm" onClick={() => setBarChartEditMode(true)}>
+                      <Pencil className="h-4 w-4 mr-2" />
+                      Edit
+                    </Button>
+                    <Button variant="ghost" size="icon" onClick={onDelete} className="text-destructive">
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </>
+              )}
             </div>
           </CollapsibleContent>
         </div>
@@ -331,7 +405,7 @@ export function DataBlockEditor({ block, onUpdate, onDelete }: DataBlockEditorPr
           <CollapsibleTrigger asChild>
             <button
               type="button"
-              className="w-full text-left px-4 py-3 flex items-center gap-3 hover:bg-muted/50 transition-colors"
+              className="w-full text-left px-4 py-3 flex items-center gap-3 bg-transparent hover:bg-muted transition-colors duration-150"
             >
               <GripVertical className="h-4 w-4 text-muted-foreground shrink-0" />
               <Badge variant="outline">{BLOCK_TYPE_LABELS.kpi_cards}</Badge>
@@ -469,17 +543,37 @@ export function DataBlockEditor({ block, onUpdate, onDelete }: DataBlockEditorPr
     );
   }
 
-  // Timeline editor
+  // Timeline editor - direct event editing
   if (block.block_type === "timeline") {
     const d = block.data as TimelineBlockData;
     const events = d.events || [];
+    const ensureEvents = events.length ? events : [{ date: "", title: "", detail: undefined }];
+
+    const updateEvent = (idx: number, field: "date" | "title" | "detail", val: string) => {
+      const next = [...ensureEvents];
+      if (!next[idx]) next[idx] = { date: "", title: "", detail: undefined };
+      next[idx] = { ...next[idx], [field]: field === "detail" ? (val || undefined) : val };
+      updateData({ ...d, events: next });
+    };
+
+    const addEvent = () =>
+      updateData({
+        ...d,
+        events: [...events, { date: "", title: "", detail: undefined }],
+      });
+
+    const removeEvent = (idx: number) => {
+      if (events.length <= 1) return;
+      updateData({ ...d, events: events.filter((_, i) => i !== idx) });
+    };
+
     return (
       <Collapsible open={open} onOpenChange={setOpen} className="group/block">
         <div className="rounded-lg border bg-card overflow-hidden">
           <CollapsibleTrigger asChild>
             <button
               type="button"
-              className="w-full text-left px-4 py-3 flex items-center gap-3 hover:bg-muted/50 transition-colors"
+              className="w-full text-left px-4 py-3 flex items-center gap-3 bg-transparent hover:bg-muted transition-colors duration-150"
             >
               <GripVertical className="h-4 w-4 text-muted-foreground shrink-0" />
               <Badge variant="outline">{BLOCK_TYPE_LABELS.timeline}</Badge>
@@ -489,37 +583,99 @@ export function DataBlockEditor({ block, onUpdate, onDelete }: DataBlockEditorPr
           </CollapsibleTrigger>
           <CollapsibleContent>
             <div className="border-t p-4 space-y-4">
-              <div className="space-y-2">
-                <Label>Title</Label>
-                <Input
-                  value={block.title || ""}
-                  onChange={(e) => updateTitle(e.target.value)}
-                  placeholder="Timeline title"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>Events (date | title | detail per line)</Label>
-                <textarea
-                  className="w-full min-h-[100px] rounded-md border px-3 py-2 text-sm"
-                  value={events.map((e) => `${e.date}|${e.title}|${e.detail || ""}`).join("\n")}
-                  onChange={(e) =>
-                    updateData({
-                      ...d,
-                      events: e.target.value.split("\n").map((line) => {
-                        const [date, title, detail] = line.split("|").map((s) => s.trim());
-                        return { date: date || "", title: title || "", detail: detail || undefined };
-                      }),
-                    })
-                  }
-                  placeholder="Jan 15|CEO departs|Announced suddenly&#10;Feb 1|Interim appointed"
-                />
-              </div>
-              <div className="flex justify-between items-start">
-                <DataBlockRenderer block={block} />
-                <Button variant="ghost" size="icon" onClick={onDelete} className="text-destructive shrink-0">
-                  <Trash2 className="h-4 w-4" />
-                </Button>
-              </div>
+              {timelineEditMode ? (
+                <>
+                  <div className="space-y-2">
+                    <Label>Title</Label>
+                    <Input
+                      value={block.title || ""}
+                      onChange={(e) => updateTitle(e.target.value)}
+                      placeholder="Timeline title"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <Label>Edit events</Label>
+                      <Button type="button" variant="outline" size="sm" onClick={addEvent} className="h-8 px-2">
+                        <Plus className="h-3.5 w-3.5 mr-1" />
+                        Add event
+                      </Button>
+                    </div>
+                    <div className="space-y-3">
+                      {ensureEvents.map((evt, idx) => (
+                        <div key={idx} className="rounded-lg border p-3 space-y-2 bg-muted/30">
+                          <div className="flex justify-between items-center gap-2">
+                            <span className="text-xs font-medium text-muted-foreground">Event {idx + 1}</span>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              className="h-7 w-7 text-muted-foreground hover:text-destructive shrink-0"
+                              onClick={() => removeEvent(idx)}
+                              disabled={events.length <= 1}
+                            >
+                              <Minus className="h-3.5 w-3.5" />
+                            </Button>
+                          </div>
+                          <div className="grid gap-2 sm:grid-cols-3">
+                            <div className="space-y-1">
+                              <Label className="text-xs">Date</Label>
+                              <Input
+                                value={evt.date}
+                                onChange={(e) => updateEvent(idx, "date", e.target.value)}
+                                placeholder="e.g. Jan 15"
+                                className="h-8"
+                              />
+                            </div>
+                            <div className="space-y-1">
+                              <Label className="text-xs">Title</Label>
+                              <Input
+                                value={evt.title}
+                                onChange={(e) => updateEvent(idx, "title", e.target.value)}
+                                placeholder="e.g. CEO departs"
+                                className="h-8"
+                              />
+                            </div>
+                            <div className="space-y-1">
+                              <Label className="text-xs">Detail (optional)</Label>
+                              <Input
+                                value={evt.detail || ""}
+                                onChange={(e) => updateEvent(idx, "detail", e.target.value)}
+                                placeholder="Additional context"
+                                className="h-8"
+                              />
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <Button variant="outline" size="sm" onClick={() => setTimelineEditMode(false)}>
+                      <Check className="h-4 w-4 mr-2" />
+                      Done
+                    </Button>
+                    <Button variant="ghost" size="icon" onClick={onDelete} className="text-destructive">
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className="overflow-x-auto">
+                    <DataBlockRenderer block={block} />
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <Button variant="outline" size="sm" onClick={() => setTimelineEditMode(true)}>
+                      <Pencil className="h-4 w-4 mr-2" />
+                      Edit
+                    </Button>
+                    <Button variant="ghost" size="icon" onClick={onDelete} className="text-destructive">
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </>
+              )}
             </div>
           </CollapsibleContent>
         </div>
@@ -527,18 +683,49 @@ export function DataBlockEditor({ block, onUpdate, onDelete }: DataBlockEditorPr
     );
   }
 
-  // Pie chart editor (same structure as bar chart)
+  // Pie chart editor - direct label/value editing (same pattern as bar chart)
   if (block.block_type === "pie_chart") {
     const d = block.data as PieChartBlockData;
     const labels = d.labels || [];
     const values = d.values || [];
+    const items = labels.map((l, i) => ({ label: l, value: values[i] ?? 0 }));
+    const ensureItems = items.length ? items : [{ label: "", value: 0 }];
+
+    const updateItem = (idx: number, field: "label" | "value", val: string | number) => {
+      const next = [...ensureItems];
+      if (!next[idx]) next[idx] = { label: "", value: 0 };
+      if (field === "label") next[idx].label = String(val);
+      else next[idx].value = typeof val === "number" ? val : parseFloat(String(val)) || 0;
+      updateData({
+        ...d,
+        labels: next.map((x) => x.label),
+        values: next.map((x) => x.value),
+      });
+    };
+
+    const addItem = () =>
+      updateData({
+        ...d,
+        labels: [...labels, ""],
+        values: [...values, 0],
+      });
+
+    const removeItem = (idx: number) => {
+      if (items.length <= 1) return;
+      updateData({
+        ...d,
+        labels: labels.filter((_, i) => i !== idx),
+        values: values.filter((_, i) => i !== idx),
+      });
+    };
+
     return (
       <Collapsible open={open} onOpenChange={setOpen} className="group/block">
         <div className="rounded-lg border bg-card overflow-hidden">
           <CollapsibleTrigger asChild>
             <button
               type="button"
-              className="w-full text-left px-4 py-3 flex items-center gap-3 hover:bg-muted/50 transition-colors"
+              className="w-full text-left px-4 py-3 flex items-center gap-3 bg-transparent hover:bg-muted transition-colors duration-150"
             >
               <GripVertical className="h-4 w-4 text-muted-foreground shrink-0" />
               <Badge variant="outline">{BLOCK_TYPE_LABELS.pie_chart}</Badge>
@@ -548,52 +735,91 @@ export function DataBlockEditor({ block, onUpdate, onDelete }: DataBlockEditorPr
           </CollapsibleTrigger>
           <CollapsibleContent>
             <div className="border-t p-4 space-y-4">
-              <div className="space-y-2">
-                <Label>Title</Label>
-                <Input
-                  value={block.title || ""}
-                  onChange={(e) => updateTitle(e.target.value)}
-                  placeholder="Chart title"
-                />
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label>Labels (comma-separated)</Label>
-                  <Input
-                    value={labels.join(", ")}
-                    onChange={(e) =>
-                      updateData({
-                        ...d,
-                        labels: e.target.value.split(",").map((s) => s.trim()).filter(Boolean),
-                      })
-                    }
-                    placeholder="A, B, C"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>Values (comma-separated numbers)</Label>
-                  <Input
-                    value={values.join(", ")}
-                    onChange={(e) =>
-                      updateData({
-                        ...d,
-                        values: e.target.value
-                          .split(",")
-                          .map((s) => parseFloat(s.trim()) || 0),
-                      })
-                    }
-                    placeholder="30, 50, 20"
-                  />
-                </div>
-              </div>
-              <div className="flex justify-between items-start">
-                <div className="flex-1 min-w-0">
-                  <DataBlockRenderer block={block} />
-                </div>
-                <Button variant="ghost" size="icon" onClick={onDelete} className="text-destructive shrink-0">
-                  <Trash2 className="h-4 w-4" />
-                </Button>
-              </div>
+              {pieChartEditMode ? (
+                <>
+                  <div className="space-y-2">
+                    <Label>Title</Label>
+                    <Input
+                      value={block.title || ""}
+                      onChange={(e) => updateTitle(e.target.value)}
+                      placeholder="Chart title"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <Label>Edit slices</Label>
+                      <Button type="button" variant="outline" size="sm" onClick={addItem} className="h-8 px-2">
+                        <Plus className="h-3.5 w-3.5 mr-1" />
+                        Add slice
+                      </Button>
+                    </div>
+                    <div className="space-y-3">
+                      {ensureItems.map((item, idx) => (
+                        <div key={idx} className="rounded-lg border p-3 space-y-2 bg-muted/30">
+                          <div className="flex justify-between items-center gap-2">
+                            <span className="text-xs font-medium text-muted-foreground">Slice {idx + 1}</span>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              className="h-7 w-7 text-muted-foreground hover:text-destructive shrink-0"
+                              onClick={() => removeItem(idx)}
+                              disabled={items.length <= 1}
+                            >
+                              <Minus className="h-3.5 w-3.5" />
+                            </Button>
+                          </div>
+                          <div className="grid gap-2 sm:grid-cols-2">
+                            <div className="space-y-1">
+                              <Label className="text-xs">Label</Label>
+                              <Input
+                                value={item.label}
+                                onChange={(e) => updateItem(idx, "label", e.target.value)}
+                                placeholder="e.g. Product A"
+                                className="h-8"
+                              />
+                            </div>
+                            <div className="space-y-1">
+                              <Label className="text-xs">Value</Label>
+                              <Input
+                                type="number"
+                                value={item.value}
+                                onChange={(e) => updateItem(idx, "value", e.target.value)}
+                                placeholder="0"
+                                className="h-8"
+                              />
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <Button variant="outline" size="sm" onClick={() => setPieChartEditMode(false)}>
+                      <Check className="h-4 w-4 mr-2" />
+                      Done
+                    </Button>
+                    <Button variant="ghost" size="icon" onClick={onDelete} className="text-destructive">
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className="overflow-x-auto">
+                    <DataBlockRenderer block={block} />
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <Button variant="outline" size="sm" onClick={() => setPieChartEditMode(true)}>
+                      <Pencil className="h-4 w-4 mr-2" />
+                      Edit
+                    </Button>
+                    <Button variant="ghost" size="icon" onClick={onDelete} className="text-destructive">
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </>
+              )}
             </div>
           </CollapsibleContent>
         </div>
@@ -601,42 +827,209 @@ export function DataBlockEditor({ block, onUpdate, onDelete }: DataBlockEditorPr
     );
   }
 
-  // Line chart: simpler editor (raw-ish)
-  return (
-    <Collapsible open={open} onOpenChange={setOpen} className="group/block">
-      <div className="rounded-lg border bg-card overflow-hidden">
-        <CollapsibleTrigger asChild>
-          <button
-            type="button"
-            className="w-full text-left px-4 py-3 flex items-center gap-3 hover:bg-muted/50 transition-colors"
-          >
-            <GripVertical className="h-4 w-4 text-muted-foreground shrink-0" />
-            <Badge variant="outline">{BLOCK_TYPE_LABELS.line_chart}</Badge>
-            <span className="text-sm truncate flex-1">{block.title || "Untitled line chart"}</span>
-            <ChevronDown className="h-4 w-4 shrink-0 transition-transform group-data-[state=open]/block:rotate-180" />
-          </button>
-        </CollapsibleTrigger>
-        <CollapsibleContent>
-          <div className="border-t p-4 space-y-4">
-            <div className="space-y-2">
-              <Label>Title</Label>
-              <Input
-                value={block.title || ""}
-                onChange={(e) => updateTitle(e.target.value)}
-                placeholder="Title"
-              />
+  // Line chart editor - direct series/points editing
+  if (block.block_type === "line_chart") {
+    const d = block.data as LineChartBlockData;
+    const series = d.series || [];
+    const ensureSeries = series.length ? series : [{ label: "", data: [{ x: "", y: 0 }] }];
+
+    const updateSeriesLabel = (sIdx: number, label: string) => {
+      const base = series.length ? series : [{ label: "", data: [{ x: "", y: 0 }] }];
+      const next = base.map((s, i) => (i === sIdx ? { ...s, label } : { ...s }));
+      updateData({ ...d, series: next });
+    };
+
+    const updatePoint = (sIdx: number, pIdx: number, field: "x" | "y", val: string | number) => {
+      const base = series.length ? series : [{ label: "", data: [{ x: "", y: 0 }] }];
+      const next = base.map((s) => ({ ...s, data: [...(s.data || [])] }));
+      if (!next[sIdx]?.data[pIdx]) return;
+      if (field === "x") next[sIdx].data[pIdx].x = String(val);
+      else next[sIdx].data[pIdx].y = typeof val === "number" ? val : parseFloat(String(val)) || 0;
+      updateData({ ...d, series: next });
+    };
+
+    const addPoint = (sIdx: number) => {
+      const base = series.length ? series : [{ label: "", data: [{ x: "", y: 0 }] }];
+      const next = base.map((s, i) =>
+        i === sIdx ? { ...s, data: [...(s.data || []), { x: "", y: 0 }] } : { ...s, data: [...(s.data || [])] }
+      );
+      updateData({ ...d, series: next });
+    };
+
+    const removePoint = (sIdx: number, pIdx: number) => {
+      const base = series.length ? series : [{ label: "", data: [{ x: "", y: 0 }] }];
+      const s = base[sIdx];
+      if (!s?.data || s.data.length <= 1) return;
+      const next = base.map((ss, i) =>
+        i === sIdx ? { ...ss, data: ss.data.filter((_, j) => j !== pIdx) } : { ...ss, data: [...(ss.data || [])] }
+      );
+      updateData({ ...d, series: next });
+    };
+
+    const addSeries = () =>
+      updateData({
+        ...d,
+        series: [...series, { label: "", data: [{ x: "", y: 0 }] }],
+      });
+
+    const removeSeries = (sIdx: number) => {
+      if (series.length <= 1) return;
+      updateData({ ...d, series: series.filter((_, i) => i !== sIdx) });
+    };
+
+    return (
+      <Collapsible open={open} onOpenChange={setOpen} className="group/block">
+        <div className="rounded-lg border bg-card overflow-hidden">
+          <CollapsibleTrigger asChild>
+            <button
+              type="button"
+              className="w-full text-left px-4 py-3 flex items-center gap-3 bg-transparent hover:bg-muted transition-colors duration-150"
+            >
+              <GripVertical className="h-4 w-4 text-muted-foreground shrink-0" />
+              <Badge variant="outline">{BLOCK_TYPE_LABELS.line_chart}</Badge>
+              <span className="text-sm truncate flex-1">{block.title || "Untitled line chart"}</span>
+              <ChevronDown className="h-4 w-4 shrink-0 transition-transform group-data-[state=open]/block:rotate-180" />
+            </button>
+          </CollapsibleTrigger>
+          <CollapsibleContent>
+            <div className="border-t p-4 space-y-4">
+              {lineChartEditMode ? (
+                <>
+                  <div className="space-y-2">
+                    <Label>Title</Label>
+                    <Input
+                      value={block.title || ""}
+                      onChange={(e) => updateTitle(e.target.value)}
+                      placeholder="Chart title"
+                    />
+                  </div>
+                  <div className="grid gap-2 sm:grid-cols-2">
+                    <div className="space-y-1">
+                      <Label className="text-xs">X-axis label</Label>
+                      <Input
+                        value={d.xLabel || ""}
+                        onChange={(e) => updateData({ ...d, xLabel: e.target.value })}
+                        placeholder="e.g. Month"
+                        className="h-8"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs">Y-axis label</Label>
+                      <Input
+                        value={d.yLabel || ""}
+                        onChange={(e) => updateData({ ...d, yLabel: e.target.value })}
+                        placeholder="e.g. Revenue"
+                        className="h-8"
+                      />
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <Label>Edit series</Label>
+                      <Button type="button" variant="outline" size="sm" onClick={addSeries} className="h-8 px-2">
+                        <Plus className="h-3.5 w-3.5 mr-1" />
+                        Add series
+                      </Button>
+                    </div>
+                    <div className="space-y-3">
+                      {ensureSeries.map((s, sIdx) => (
+                        <div key={sIdx} className="rounded-lg border p-3 space-y-3 bg-muted/30">
+                          <div className="flex justify-between items-center gap-2">
+                            <Input
+                              value={s.label}
+                              onChange={(e) => updateSeriesLabel(sIdx, e.target.value)}
+                              placeholder={`Series ${sIdx + 1} label`}
+                              className="h-8 flex-1"
+                            />
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              className="h-7 w-7 text-muted-foreground hover:text-destructive shrink-0"
+                              onClick={() => removeSeries(sIdx)}
+                              disabled={series.length <= 1}
+                            >
+                              <Minus className="h-3.5 w-3.5" />
+                            </Button>
+                          </div>
+                          <div className="space-y-2">
+                            <div className="flex items-center justify-between">
+                              <Label className="text-xs">Data points</Label>
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                className="h-6 px-2 text-xs"
+                                onClick={() => addPoint(sIdx)}
+                              >
+                                <Plus className="h-3 w-3 mr-1" />
+                                Add point
+                              </Button>
+                            </div>
+                            {(s.data?.length ? s.data : [{ x: "", y: 0 }]).map((pt, pIdx) => (
+                              <div key={pIdx} className="flex gap-2 items-center">
+                                <Input
+                                  value={pt.x}
+                                  onChange={(e) => updatePoint(sIdx, pIdx, "x", e.target.value)}
+                                  placeholder="X"
+                                  className="h-8 flex-1"
+                                />
+                                <Input
+                                  type="number"
+                                  value={pt.y}
+                                  onChange={(e) => updatePoint(sIdx, pIdx, "y", e.target.value)}
+                                  placeholder="Y"
+                                  className="h-8 w-20"
+                                />
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-7 w-7 text-muted-foreground hover:text-destructive shrink-0"
+                                  onClick={() => removePoint(sIdx, pIdx)}
+                                  disabled={(s.data?.length || 0) <= 1}
+                                >
+                                  <Minus className="h-3.5 w-3.5" />
+                                </Button>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <Button variant="outline" size="sm" onClick={() => setLineChartEditMode(false)}>
+                      <Check className="h-4 w-4 mr-2" />
+                      Done
+                    </Button>
+                    <Button variant="ghost" size="icon" onClick={onDelete} className="text-destructive">
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className="overflow-x-auto">
+                    <DataBlockRenderer block={block} />
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <Button variant="outline" size="sm" onClick={() => setLineChartEditMode(true)}>
+                      <Pencil className="h-4 w-4 mr-2" />
+                      Edit
+                    </Button>
+                    <Button variant="ghost" size="icon" onClick={onDelete} className="text-destructive">
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </>
+              )}
             </div>
-            <div className="flex justify-between items-start gap-4">
-              <div className="flex-1 min-w-0">
-                <DataBlockRenderer block={block} />
-              </div>
-              <Button variant="ghost" size="icon" onClick={onDelete} className="text-destructive shrink-0">
-                <Trash2 className="h-4 w-4" />
-              </Button>
-            </div>
-          </div>
-        </CollapsibleContent>
-      </div>
-    </Collapsible>
-  );
+          </CollapsibleContent>
+        </div>
+      </Collapsible>
+    );
+  }
+
+  return null;
 }

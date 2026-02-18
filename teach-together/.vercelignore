@@ -1,0 +1,7 @@
+# Local env files (configure in Vercel dashboard instead)
+.env
+.env.local
+.env.*.local
+
+# Dev docs (optional to exclude from upload)
+# docs/

@@ -97,6 +97,7 @@ Open [http://localhost:3000](http://localhost:3000).
 ### 1. Push to GitHub
 
 ```bash
+cd teach-together
 git init
 git add .
 git commit -m "Initial commit"
@@ -104,18 +105,21 @@ git remote add origin https://github.com/your-username/teach-together.git
 git push -u origin main
 ```
 
+If the app lives in a subfolder (e.g. `teach-together/` inside the repo), push from the repo root and configure the Root Directory in Vercel.
+
 ### 2. Import in Vercel
 
 1. Go to [vercel.com/new](https://vercel.com/new)
 2. Import your GitHub repository
-3. Set the **Root Directory** to `teach-together` (if the repo root contains the parent folder)
-4. Add the following **Environment Variables**:
-   - `NEXT_PUBLIC_SUPABASE_URL`
-   - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
-   - `OPENAI_API_KEY`
+3. Set the **Root Directory** to `teach-together` if the app is in that subfolder
+4. Add these **Environment Variables** (Settings → Environment Variables):
+   - `NEXT_PUBLIC_SUPABASE_URL` – your Supabase project URL
+   - `NEXT_PUBLIC_SUPABASE_ANON_KEY` – your Supabase anon key
+   - `OPENAI_API_KEY` – your OpenAI API key (required for AI generation)
+   - `OPENAI_MODEL` – optional, default is `gpt-4o-mini`
 5. Click **Deploy**
 
-Vercel auto-detects Next.js and handles the build. Each push to `main` triggers a new deployment.
+Vercel detects Next.js from `vercel.json` and builds automatically. Each push to `main` triggers a new deployment.
 
 ### 3. Configure Supabase for production
 

@@ -57,6 +57,7 @@ export default function CreateSimulationPage() {
   const [formData, setFormData] = useState({
     title: "",
     courseTopic: "Power & Influence",
+    difficulty: "hard" as "easy" | "hard" | "challenge",
     goal: "",
     targetDecisions: "",
     pastedText: "",
@@ -103,12 +104,15 @@ export default function CreateSimulationPage() {
       ?? "";
 
     // Create the simulation
+    const difficultyEstimates = { easy: 15, hard: 25, challenge: 40 } as const;
     const { data: simulation, error: simError } = await supabase
       .from("simulations")
       .insert({
         professor_id: user.id,
         title: (generated.title || formData.title) || "Untitled Simulation",
         course_topic: formData.courseTopic || "Power & Influence",
+        difficulty: formData.difficulty || "hard",
+        estimated_minutes: difficultyEstimates[formData.difficulty] ?? 25,
         goal: formData.goal || null,
         target_decisions: formData.targetDecisions || null,
         background_content: bgContent,
@@ -207,6 +211,7 @@ export default function CreateSimulationPage() {
       const formPayload = new FormData();
       formPayload.append("title", formData.title);
       formPayload.append("courseTopic", formData.courseTopic);
+      formPayload.append("difficulty", formData.difficulty);
       formPayload.append("goal", formData.goal);
       formPayload.append("targetDecisions", formData.targetDecisions);
       formPayload.append("pastedText", formData.pastedText);
@@ -285,13 +290,15 @@ export default function CreateSimulationPage() {
         }
       }
 
-      // Create the simulation
+      const difficultyEstimates = { easy: 15, hard: 25, challenge: 40 } as const;
       const { data: simulation, error: simError } = await supabase
         .from("simulations")
         .insert({
           professor_id: user.id,
           title: formData.title,
           course_topic: formData.courseTopic,
+          difficulty: formData.difficulty || "hard",
+          estimated_minutes: difficultyEstimates[formData.difficulty] ?? 25,
           goal: formData.goal,
           target_decisions: formData.targetDecisions,
           ai_notes: formData.aiNotes,
@@ -411,6 +418,25 @@ export default function CreateSimulationPage() {
                   ))}
                 </SelectContent>
               </Select>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="difficulty">Difficulty / Length</Label>
+              <Select
+                value={formData.difficulty}
+                onValueChange={(value: "easy" | "hard" | "challenge") => setFormData({ ...formData, difficulty: value })}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select difficulty" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="easy">Easy — ~15 min (shorter scenario, simpler decisions)</SelectItem>
+                  <SelectItem value="hard">Hard — ~25 min (moderate complexity)</SelectItem>
+                  <SelectItem value="challenge">Challenge — ~40 min (longer, more nuanced)</SelectItem>
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">
+                AI will tailor the scenario length and decision complexity to this level
+              </p>
             </div>
           </CardContent>
         </Card>

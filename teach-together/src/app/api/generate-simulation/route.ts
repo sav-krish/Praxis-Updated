@@ -25,6 +25,7 @@ export async function POST(request: NextRequest) {
     
     const title = formData.get("title") as string;
     const courseTopic = formData.get("courseTopic") as string;
+    const difficulty = (formData.get("difficulty") as string) || "hard";
     const goal = formData.get("goal") as string;
     const targetDecisions = formData.get("targetDecisions") as string;
     const pastedText = formData.get("pastedText") as string;
@@ -55,7 +56,8 @@ export async function POST(request: NextRequest) {
       goal,
       targetDecisions,
       courseTopic,
-      aiNotes
+      aiNotes,
+      difficulty as "easy" | "hard" | "challenge"
     );
 
     // Override title if provided

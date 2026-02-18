@@ -47,6 +47,22 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
 
   const simulationsWithReports = new Set(completedSessions?.map(s => s.simulation_id) || []);
 
+  // Running sessions – map simulation_id -> session for "Continue" on cards
+  const allSimIds = allSimulations?.map(s => s.id) || [];
+  const { data: runningSessions } = allSimIds.length > 0
+    ? await supabase
+        .from("sessions")
+        .select("id, simulation_id")
+        .in("simulation_id", allSimIds)
+        .eq("status", "running")
+        .order("created_at", { ascending: false })
+    : { data: [] };
+
+  const sessionBySimulation = (runningSessions || []).reduce<Record<string, { id: string }>>((acc, s) => {
+    if (!acc[s.simulation_id]) acc[s.simulation_id] = { id: s.id };
+    return acc;
+  }, {});
+
   const displayName = user?.user_metadata?.name || user?.email?.split("@")[0] || "there";
 
   return (
@@ -94,7 +110,10 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
 
       {simulations && simulations.length > 0 ? (
         <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
-          {simulations.map((simulation) => (
+          {simulations.map((simulation) => {
+            const activeSession = sessionBySimulation[simulation.id];
+            const isActive = !!activeSession;
+            return (
             <Card key={simulation.id} className="group hover:shadow-md transition-shadow">
               <CardHeader className="pb-3">
                 <div className="flex items-start justify-between">
@@ -120,9 +139,9 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
                         </Link>
                       </DropdownMenuItem>
                       <DropdownMenuItem asChild>
-                        <Link href={`/session/${simulation.id}/new`}>
+                        <Link href={isActive ? `/session/${simulation.id}/${activeSession.id}` : `/session/${simulation.id}/new`}>
                           <Play className="mr-2 h-4 w-4" />
-                          Start Session
+                          {isActive ? "Continue Session" : "Start Session"}
                         </Link>
                       </DropdownMenuItem>
                       <DropdownMenuItem asChild>
@@ -155,16 +174,17 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
                       Edit
                     </Button>
                   </Link>
-                  <Link href={`/session/${simulation.id}/new`} className="flex-1 min-w-0">
-                    <Button className="w-full min-h-[44px]" size="sm">
+                  <Link href={isActive ? `/session/${simulation.id}/${activeSession.id}` : `/session/${simulation.id}/new`} className="flex-1 min-w-0">
+                    <Button className={`w-full min-h-[44px] ${isActive ? "bg-green-600 hover:bg-green-700 text-white" : ""}`} size="sm">
                       <Play className="mr-2 h-4 w-4 shrink-0" />
-                      Start
+                      {isActive ? "Continue" : "Start"}
                     </Button>
                   </Link>
                 </div>
               </CardContent>
             </Card>
-          ))}
+          );
+          })}
         </div>
       ) : (
         <Card className="text-center py-12">

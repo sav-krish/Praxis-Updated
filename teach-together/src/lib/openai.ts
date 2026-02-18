@@ -1,12 +1,16 @@
 import OpenAI from "openai";
 import type { DataBlockType } from "@/types/data-blocks";
 
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
+function getOpenAIClient(): OpenAI {
+  const key = process.env.OPENAI_API_KEY;
+  if (!key) {
+    throw new Error("Missing credentials. Please set the OPENAI_API_KEY environment variable.");
+  }
+  return new OpenAI({ apiKey: key });
+}
 
 // Default gpt-4o-mini (200k TPM) so long materials work; set OPENAI_MODEL=gpt-4o for 30k TPM tier.
-const MODEL = process.env.OPENAI_MODEL || "gpt-4o-mini";
+const getModel = () => process.env.OPENAI_MODEL || "gpt-4o-mini";
 
 export interface GeneratedDataBlock {
   block_type: DataBlockType;
@@ -36,23 +40,35 @@ export async function generateSimulationContent(
   goal: string,
   targetDecisions: string,
   courseTopic: string,
-  aiNotes: string
+  aiNotes: string,
+  difficulty: "easy" | "hard" | "challenge" = "hard"
 ): Promise<GeneratedSimulation> {
+  const difficultyGuidance =
+    difficulty === "easy"
+      ? "EASY (~15 min): Keep the background scenario concise (roughly half a page). Use simpler, more straightforward decisions with clearer tradeoffs. Fewer data blocks (1-2) with essential info only."
+      : difficulty === "challenge"
+        ? "CHALLENGE (~40 min): Create a rich, detailed background (1.5-2 pages). Include nuanced decisions with subtle distinctions between options. Use 2-3 data blocks with more depth. Consequence text can be longer. Aim for higher complexity and ambiguity."
+        : "HARD (~25 min): Standard length background (1-2 pages). Moderate complexity—decisions with meaningful tradeoffs but not overly obscure. Include 1-3 data blocks. Balance clarity with nuance.";
+
   const systemPrompt = `You are an expert instructional designer specializing in creating interactive classroom simulations for higher education. Your task is to create engaging decision-based simulations that help students understand complex concepts through realistic scenarios.
 
+DIFFICULTY LEVEL: ${difficulty.toUpperCase()} — ${difficultyGuidance}
+
 You will generate a complete simulation with:
-1. A compelling background/scenario (1-2 pages worth of content)
+1. A compelling background/scenario (length adjusted for difficulty)
 2. A "dataBlocks" array of 1-3 structured data visualizations (tables, charts, timelines, KPI cards) that support the scenario. Choose the type that best fits: tables for lists/comparisons, bar_chart for category comparisons, line_chart for trends over time, kpi_cards for key metrics, timeline for event sequences, pie_chart for parts-of-a-whole (e.g. budget allocation, market share).
 3. Exactly 3 decision points, each with exactly 3 options (A, B, C)
 4. Each option should have a score from 1-3 (3 being the most optimal choice)
 5. Realistic consequences for each choice
 6. 2 reflection questions
 
-The simulation should be realistic, nuanced, and create genuine dilemmas. Data blocks should contain plausible numbers and facts that students will use to inform their decisions.`;
+The simulation should be realistic and create genuine dilemmas. Tailor complexity and length to the difficulty level.`;
 
   const userPrompt = `Create a simulation based on the following:
 
 **Course/Topic:** ${courseTopic}
+
+**Difficulty / Target Length:** ${difficulty} (~${difficulty === "easy" ? "15" : difficulty === "challenge" ? "40" : "25"} min) — tailor scenario length and decision complexity accordingly.
 
 **Learning Goal:** ${goal || "Help students understand key concepts and decision-making in this field"}
 
@@ -121,8 +137,9 @@ Block type must be one of: table, bar_chart, line_chart, kpi_cards, timeline, pi
 For pie_chart: data has "labels" and "values" (same as bar_chart), e.g. { "labels": ["A", "B", "C"], "values": [30, 50, 20] } for parts of a whole.
 Generate exactly 3 decisions with exactly 3 options each. Include 1-3 dataBlocks. Ensure valid JSON.`;
 
+  const openai = getOpenAIClient();
   const response = await openai.chat.completions.create({
-    model: MODEL,
+    model: getModel(),
     messages: [
       { role: "system", content: systemPrompt },
       { role: "user", content: userPrompt },

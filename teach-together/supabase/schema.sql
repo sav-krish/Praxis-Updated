@@ -1,10 +1,11 @@
-
+-- Schema: idempotent — safe to re-run on existing databases.
+-- Uses IF NOT EXISTS / DROP IF EXISTS where applicable.
 
 -- Enable UUID extension
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
 -- Professors table (linked to Supabase Auth)
-CREATE TABLE professors (
+CREATE TABLE IF NOT EXISTS professors (
   id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
   email TEXT NOT NULL UNIQUE,
   name TEXT,
@@ -12,7 +13,7 @@ CREATE TABLE professors (
 );
 
 -- Simulations table
-CREATE TABLE simulations (
+CREATE TABLE IF NOT EXISTS simulations (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   professor_id UUID NOT NULL REFERENCES professors(id) ON DELETE CASCADE,
   title TEXT NOT NULL,
@@ -32,7 +33,7 @@ CREATE TABLE simulations (
 );
 
 -- Decisions table (3 per simulation)
-CREATE TABLE decisions (
+CREATE TABLE IF NOT EXISTS decisions (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   simulation_id UUID NOT NULL REFERENCES simulations(id) ON DELETE CASCADE,
   order_num INTEGER NOT NULL CHECK (order_num BETWEEN 1 AND 3),
@@ -42,7 +43,7 @@ CREATE TABLE decisions (
 );
 
 -- Options table (3 per decision: A, B, C)
-CREATE TABLE options (
+CREATE TABLE IF NOT EXISTS options (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   decision_id UUID NOT NULL REFERENCES decisions(id) ON DELETE CASCADE,
   label TEXT NOT NULL CHECK (label IN ('A', 'B', 'C')),
@@ -55,7 +56,7 @@ CREATE TABLE options (
 );
 
 -- Reflection questions table (2 per simulation)
-CREATE TABLE reflection_questions (
+CREATE TABLE IF NOT EXISTS reflection_questions (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   simulation_id UUID NOT NULL REFERENCES simulations(id) ON DELETE CASCADE,
   order_num INTEGER NOT NULL CHECK (order_num BETWEEN 1 AND 2),
@@ -65,7 +66,7 @@ CREATE TABLE reflection_questions (
 );
 
 -- Data blocks for simulations (tables, charts, timelines, etc.)
-CREATE TABLE simulation_data_blocks (
+CREATE TABLE IF NOT EXISTS simulation_data_blocks (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   simulation_id UUID NOT NULL REFERENCES simulations(id) ON DELETE CASCADE,
   order_num INTEGER NOT NULL,
@@ -77,7 +78,7 @@ CREATE TABLE simulation_data_blocks (
 );
 
 -- Sessions table (live classroom sessions)
-CREATE TABLE sessions (
+CREATE TABLE IF NOT EXISTS sessions (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   simulation_id UUID NOT NULL REFERENCES simulations(id) ON DELETE CASCADE,
   join_code TEXT NOT NULL UNIQUE,
@@ -89,7 +90,7 @@ CREATE TABLE sessions (
 );
 
 -- Teams table (for team mode)
-CREATE TABLE teams (
+CREATE TABLE IF NOT EXISTS teams (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   session_id UUID NOT NULL REFERENCES sessions(id) ON DELETE CASCADE,
   name TEXT NOT NULL,
@@ -97,7 +98,7 @@ CREATE TABLE teams (
 );
 
 -- Participants table (students in a session)
-CREATE TABLE participants (
+CREATE TABLE IF NOT EXISTS participants (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   session_id UUID NOT NULL REFERENCES sessions(id) ON DELETE CASCADE,
   team_id UUID REFERENCES teams(id) ON DELETE SET NULL,
@@ -107,7 +108,7 @@ CREATE TABLE participants (
 );
 
 -- Responses table (decision submissions)
-CREATE TABLE responses (
+CREATE TABLE IF NOT EXISTS responses (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   session_id UUID NOT NULL REFERENCES sessions(id) ON DELETE CASCADE,
   participant_id UUID REFERENCES participants(id) ON DELETE CASCADE,
@@ -120,7 +121,7 @@ CREATE TABLE responses (
 );
 
 -- Reflection responses table
-CREATE TABLE reflection_responses (
+CREATE TABLE IF NOT EXISTS reflection_responses (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   session_id UUID NOT NULL REFERENCES sessions(id) ON DELETE CASCADE,
   participant_id UUID REFERENCES participants(id) ON DELETE CASCADE,
@@ -132,62 +133,75 @@ CREATE TABLE reflection_responses (
 );
 
 -- Indexes for performance
-CREATE INDEX idx_simulations_professor ON simulations(professor_id);
-CREATE INDEX idx_decisions_simulation ON decisions(simulation_id);
-CREATE INDEX idx_options_decision ON options(decision_id);
-CREATE INDEX idx_sessions_simulation ON sessions(simulation_id);
-CREATE INDEX idx_sessions_join_code ON sessions(join_code);
-CREATE INDEX idx_participants_session ON participants(session_id);
-CREATE INDEX idx_participants_team ON participants(team_id);
-CREATE INDEX idx_responses_session ON responses(session_id);
-CREATE INDEX idx_responses_decision ON responses(decision_id);
-CREATE INDEX idx_simulation_data_blocks_simulation ON simulation_data_blocks(simulation_id);
+CREATE INDEX IF NOT EXISTS idx_simulations_professor ON simulations(professor_id);
+CREATE INDEX IF NOT EXISTS idx_decisions_simulation ON decisions(simulation_id);
+CREATE INDEX IF NOT EXISTS idx_options_decision ON options(decision_id);
+CREATE INDEX IF NOT EXISTS idx_sessions_simulation ON sessions(simulation_id);
+CREATE INDEX IF NOT EXISTS idx_sessions_join_code ON sessions(join_code);
+CREATE INDEX IF NOT EXISTS idx_participants_session ON participants(session_id);
+CREATE INDEX IF NOT EXISTS idx_participants_team ON participants(team_id);
+CREATE INDEX IF NOT EXISTS idx_responses_session ON responses(session_id);
+CREATE INDEX IF NOT EXISTS idx_responses_decision ON responses(decision_id);
+CREATE INDEX IF NOT EXISTS idx_simulation_data_blocks_simulation ON simulation_data_blocks(simulation_id);
 
 -- Row Level Security (RLS) Policies
 
--- Enable RLS on all tables
-ALTER TABLE professors ENABLE ROW LEVEL SECURITY;
-ALTER TABLE simulations ENABLE ROW LEVEL SECURITY;
-ALTER TABLE decisions ENABLE ROW LEVEL SECURITY;
-ALTER TABLE options ENABLE ROW LEVEL SECURITY;
-ALTER TABLE reflection_questions ENABLE ROW LEVEL SECURITY;
-ALTER TABLE sessions ENABLE ROW LEVEL SECURITY;
-ALTER TABLE teams ENABLE ROW LEVEL SECURITY;
-ALTER TABLE participants ENABLE ROW LEVEL SECURITY;
-ALTER TABLE responses ENABLE ROW LEVEL SECURITY;
-ALTER TABLE reflection_responses ENABLE ROW LEVEL SECURITY;
-ALTER TABLE simulation_data_blocks ENABLE ROW LEVEL SECURITY;
+-- Enable RLS on all tables (idempotent: only enable if not already)
+DO $$
+DECLARE
+  tbl TEXT;
+BEGIN
+  FOREACH tbl IN ARRAY '{professors,simulations,decisions,options,reflection_questions,sessions,teams,participants,responses,reflection_responses,simulation_data_blocks}'::TEXT[]
+  LOOP
+    IF EXISTS (
+      SELECT 1 FROM pg_class c
+      JOIN pg_namespace n ON n.oid = c.relnamespace
+      WHERE c.relname = tbl AND n.nspname = 'public' AND NOT c.relrowsecurity
+    ) THEN
+      EXECUTE format('ALTER TABLE %I ENABLE ROW LEVEL SECURITY', tbl);
+    END IF;
+  END LOOP;
+END $$;
 
 -- Professors can only see/edit their own profile
+DROP POLICY IF EXISTS "Professors can view own profile" ON professors;
 CREATE POLICY "Professors can view own profile" ON professors
   FOR SELECT USING (auth.uid() = id);
 
+DROP POLICY IF EXISTS "Professors can update own profile" ON professors;
 CREATE POLICY "Professors can update own profile" ON professors
   FOR UPDATE USING (auth.uid() = id);
 
+DROP POLICY IF EXISTS "Professors can insert own profile" ON professors;
 CREATE POLICY "Professors can insert own profile" ON professors
   FOR INSERT WITH CHECK (auth.uid() = id);
 
 -- Professors can only see/edit their own simulations
+DROP POLICY IF EXISTS "Professors can view own simulations" ON simulations;
 CREATE POLICY "Professors can view own simulations" ON simulations
   FOR SELECT USING (professor_id = auth.uid());
 
+DROP POLICY IF EXISTS "Professors can insert own simulations" ON simulations;
 CREATE POLICY "Professors can insert own simulations" ON simulations
   FOR INSERT WITH CHECK (professor_id = auth.uid());
 
+DROP POLICY IF EXISTS "Professors can update own simulations" ON simulations;
 CREATE POLICY "Professors can update own simulations" ON simulations
   FOR UPDATE USING (professor_id = auth.uid());
 
+DROP POLICY IF EXISTS "Professors can delete own simulations" ON simulations;
 CREATE POLICY "Professors can delete own simulations" ON simulations
   FOR DELETE USING (professor_id = auth.uid());
 
 -- Decisions inherit access from simulations
+DROP POLICY IF EXISTS "Access decisions via simulation" ON decisions;
 CREATE POLICY "Access decisions via simulation" ON decisions
   FOR ALL USING (
     simulation_id IN (SELECT id FROM simulations WHERE professor_id = auth.uid())
   );
 
 -- Options inherit access from decisions
+DROP POLICY IF EXISTS "Access options via decision" ON options;
 CREATE POLICY "Access options via decision" ON options
   FOR ALL USING (
     decision_id IN (
@@ -198,30 +212,36 @@ CREATE POLICY "Access options via decision" ON options
   );
 
 -- Reflection questions inherit access from simulations
+DROP POLICY IF EXISTS "Access reflection questions via simulation" ON reflection_questions;
 CREATE POLICY "Access reflection questions via simulation" ON reflection_questions
   FOR ALL USING (
     simulation_id IN (SELECT id FROM simulations WHERE professor_id = auth.uid())
   );
 
 -- Data blocks: professors manage, anyone can read (for student view)
+DROP POLICY IF EXISTS "Access data blocks via simulation" ON simulation_data_blocks;
 CREATE POLICY "Access data blocks via simulation" ON simulation_data_blocks
   FOR ALL USING (
     simulation_id IN (SELECT id FROM simulations WHERE professor_id = auth.uid())
   );
 
+DROP POLICY IF EXISTS "Anyone can read data blocks" ON simulation_data_blocks;
 CREATE POLICY "Anyone can read data blocks" ON simulation_data_blocks
   FOR SELECT USING (true);
 
 -- Sessions: professors can manage, anyone can read with join code
+DROP POLICY IF EXISTS "Professors can manage own sessions" ON sessions;
 CREATE POLICY "Professors can manage own sessions" ON sessions
   FOR ALL USING (
     simulation_id IN (SELECT id FROM simulations WHERE professor_id = auth.uid())
   );
 
+DROP POLICY IF EXISTS "Anyone can read sessions by join code" ON sessions;
 CREATE POLICY "Anyone can read sessions by join code" ON sessions
   FOR SELECT USING (true);
 
 -- Teams: professors can manage, participants can view
+DROP POLICY IF EXISTS "Professors can manage teams" ON teams;
 CREATE POLICY "Professors can manage teams" ON teams
   FOR ALL USING (
     session_id IN (
@@ -231,30 +251,38 @@ CREATE POLICY "Professors can manage teams" ON teams
     )
   );
 
+DROP POLICY IF EXISTS "Anyone can view teams" ON teams;
 CREATE POLICY "Anyone can view teams" ON teams
   FOR SELECT USING (true);
 
 -- Participants: anyone can join (no auth required for students)
+DROP POLICY IF EXISTS "Anyone can view participants" ON participants;
 CREATE POLICY "Anyone can view participants" ON participants
   FOR SELECT USING (true);
 
+DROP POLICY IF EXISTS "Anyone can insert participants" ON participants;
 CREATE POLICY "Anyone can insert participants" ON participants
   FOR INSERT WITH CHECK (true);
 
+DROP POLICY IF EXISTS "Anyone can update participants" ON participants;
 CREATE POLICY "Anyone can update participants" ON participants
   FOR UPDATE USING (true);
 
 -- Responses: anyone can submit and view
+DROP POLICY IF EXISTS "Anyone can submit responses" ON responses;
 CREATE POLICY "Anyone can submit responses" ON responses
   FOR INSERT WITH CHECK (true);
 
+DROP POLICY IF EXISTS "Anyone can view responses" ON responses;
 CREATE POLICY "Anyone can view responses" ON responses
   FOR SELECT USING (true);
 
 -- Reflection responses: anyone can submit and view
+DROP POLICY IF EXISTS "Anyone can submit reflection responses" ON reflection_responses;
 CREATE POLICY "Anyone can submit reflection responses" ON reflection_responses
   FOR INSERT WITH CHECK (true);
 
+DROP POLICY IF EXISTS "Anyone can view reflection responses" ON reflection_responses;
 CREATE POLICY "Anyone can view reflection responses" ON reflection_responses
   FOR SELECT USING (true);
 
@@ -268,6 +296,7 @@ END;
 $$ language 'plpgsql';
 
 -- Trigger for simulations updated_at
+DROP TRIGGER IF EXISTS update_simulations_updated_at ON simulations;
 CREATE TRIGGER update_simulations_updated_at
   BEFORE UPDATE ON simulations
   FOR EACH ROW
@@ -299,13 +328,30 @@ END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
 -- Trigger to create professor profile on auth signup
+DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
 CREATE TRIGGER on_auth_user_created
   AFTER INSERT ON auth.users
   FOR EACH ROW
   EXECUTE FUNCTION handle_new_user();
 
--- Enable realtime for sessions and participants
-ALTER PUBLICATION supabase_realtime ADD TABLE sessions;
-ALTER PUBLICATION supabase_realtime ADD TABLE participants;
-ALTER PUBLICATION supabase_realtime ADD TABLE teams;
-ALTER PUBLICATION supabase_realtime ADD TABLE responses;
+-- Enable realtime for sessions and participants (idempotent: add only if not already in publication)
+DO $$
+BEGIN
+  ALTER PUBLICATION supabase_realtime ADD TABLE sessions;
+EXCEPTION WHEN OTHERS THEN NULL; -- Already in publication or other non-fatal error
+END $$;
+DO $$
+BEGIN
+  ALTER PUBLICATION supabase_realtime ADD TABLE participants;
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
+DO $$
+BEGIN
+  ALTER PUBLICATION supabase_realtime ADD TABLE teams;
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
+DO $$
+BEGIN
+  ALTER PUBLICATION supabase_realtime ADD TABLE responses;
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;

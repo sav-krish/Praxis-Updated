@@ -19,6 +19,7 @@ import {
   BookOpen, 
   Loader2, 
   ArrowRight, 
+  ArrowLeft,
   Check, 
   Clock,
   Trophy,
@@ -86,6 +87,8 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
   const [myResponses, setMyResponses] = useState<{ decision_id: string; option_id: string; score: number }[]>([]);
   const [reflectionAnswers, setReflectionAnswers] = useState<Record<string, string>>({});
   const [participantCount, setParticipantCount] = useState<number>(0);
+  const [returnToStep, setReturnToStep] = useState<number | null>(null);
+  const [returnToConsequence, setReturnToConsequence] = useState(false);
 
   // Ref to always have latest currentStep in callbacks without re-subscribing
   const currentStepRef = useRef(currentStep);
@@ -475,10 +478,30 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
               )}
               <Separator className="my-4 sm:my-6" />
               <div className="flex justify-end">
-                <Button onClick={() => setCurrentStep(2)} className="min-h-[48px] w-full sm:w-auto">
-                  Continue to Decisions
-                  <ArrowRight className="ml-2 h-4 w-4 shrink-0" />
-                </Button>
+                {returnToStep != null ? (
+                  <Button
+                    onClick={() => {
+                      setCurrentStep(returnToStep);
+                      setReturnToStep(null);
+                      if (returnToConsequence) setShowConsequence(true);
+                      setReturnToConsequence(false);
+                    }}
+                    variant="outline"
+                    className="min-h-[48px] w-full sm:w-auto"
+                  >
+                    <ArrowLeft className="mr-2 h-4 w-4 shrink-0" />
+                    {returnToStep >= 2 && returnToStep <= 4
+                      ? `Back to Decision ${returnToStep - 1}`
+                      : returnToStep === 5
+                        ? "Back to Reflection"
+                        : "Back"}
+                  </Button>
+                ) : (
+                  <Button onClick={() => setCurrentStep(2)} className="min-h-[48px] w-full sm:w-auto">
+                    Continue to Decisions
+                    <ArrowRight className="ml-2 h-4 w-4 shrink-0" />
+                  </Button>
+                )}
               </div>
             </CardContent>
           </Card>
@@ -486,6 +509,12 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
       </div>
     );
   }
+
+  const goToScenario = (fromStep: number, fromConsequence: boolean) => {
+    setReturnToStep(fromStep);
+    setReturnToConsequence(fromConsequence);
+    setCurrentStep(1);
+  };
 
   // Decision screens (steps 2, 3, 4)
   if (currentStep >= 2 && currentStep <= 4) {
@@ -501,17 +530,25 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
     if (showConsequence) {
       return (
         <div className="min-h-screen bg-muted/50 py-4 sm:py-8 px-3 sm:px-4">
-          <div className="max-w-3xl mx-auto">
+          <div className="max-w-3xl mx-auto space-y-4">
             <Card>
               <CardHeader className="px-4 sm:px-6">
                 <Badge variant="secondary" className="w-fit mb-2">Consequence</Badge>
                 <CardTitle className="text-lg sm:text-xl">Decision {decision.order_num} Result</CardTitle>
               </CardHeader>
-              <CardContent className="px-4 sm:px-6">
+              <CardContent className="px-4 sm:px-6 space-y-4">
                 <div className="p-4 sm:p-6 bg-muted rounded-lg">
                   <p className="text-base sm:text-lg break-words">{currentConsequence || "Your choice has been recorded."}</p>
                 </div>
-                <div className="flex justify-end mt-4 sm:mt-6">
+                <Button
+                  variant="outline"
+                  onClick={() => goToScenario(currentStep, true)}
+                  className="w-full sm:w-auto min-h-[44px]"
+                >
+                  <BookOpen className="mr-2 h-4 w-4 shrink-0" />
+                  View scenario
+                </Button>
+                <div className="flex justify-end pt-2">
                   <Button onClick={continueToNext} className="min-h-[48px] w-full sm:w-auto">
                     {decisionIndex < 2 ? "Next Decision" : "Continue to Reflection"}
                     <ArrowRight className="ml-2 h-4 w-4 shrink-0" />
@@ -527,17 +564,27 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
     return (
       <div className="min-h-screen bg-linear-to-b from-muted/30 to-muted/60 py-4 sm:py-8 px-3 sm:px-4">
         <div className="max-w-2xl mx-auto space-y-4">
+          <Button
+            variant="outline"
+            onClick={() => goToScenario(currentStep, false)}
+            className="w-full sm:w-auto min-h-[44px]"
+          >
+            <BookOpen className="mr-2 h-4 w-4 shrink-0" />
+            View scenario
+          </Button>
+
           {/* Decision prompt – collapsible so you can hide it after reading */}
           <Collapsible defaultOpen={true} className="group">
-            <Card className="border-muted/80 bg-card/95 shadow-sm overflow-hidden">
+            <Card className="border-muted/80 bg-card/95 shadow-sm overflow-hidden p-0 gap-0">
               <CollapsibleTrigger asChild>
                 <button
                   type="button"
-                  className="w-full text-left px-4 sm:px-6 py-4 min-h-[48px] flex items-center justify-between gap-3 hover:bg-muted/40 active:bg-muted/50 transition-colors rounded-t-xl focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                  className="w-full text-left px-4 sm:px-6 py-4 min-h-[48px] flex items-center justify-between gap-3 bg-transparent hover:bg-muted/50 transition-colors duration-150 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 rounded-t-xl"
                 >
-                  <div className="flex items-center gap-3 min-w-0">
+                  <div className="flex items-center gap-3 min-w-0 flex-1">
                     <Badge variant="secondary" className="shrink-0">Decision {decision.order_num} of 3</Badge>
-                    <span className="font-medium text-foreground/90 truncate">What decision do you need to make?</span>
+                    <span className="font-medium text-foreground/90 truncate group-data-[state=open]:inline group-data-[state=closed]:hidden">What decision do you need to make?</span>
+                    <span className="font-medium text-muted-foreground truncate group-data-[state=open]:hidden group-data-[state=closed]:inline">Tap to view question</span>
                   </div>
                   <ChevronDown className="h-5 w-5 shrink-0 text-muted-foreground transition-transform group-data-[state=open]:rotate-180" />
                 </button>
@@ -606,11 +653,11 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
 
           {/* Justification – collapsible, collapsed by default */}
           <Collapsible defaultOpen={false} className="group">
-            <Card className="border-muted/80 bg-card/95 shadow-sm overflow-hidden">
+            <Card className="border-muted/80 bg-card/95 shadow-sm overflow-hidden p-0 gap-0">
               <CollapsibleTrigger asChild>
                 <button
                   type="button"
-                  className="w-full text-left px-4 sm:px-6 py-4 min-h-[48px] flex items-center justify-between gap-3 hover:bg-muted/40 active:bg-muted/50 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                  className="w-full text-left px-4 sm:px-6 py-4 min-h-[48px] flex items-center justify-between gap-3 bg-transparent hover:bg-muted/50 transition-colors duration-150 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
                 >
                   <span className="text-sm font-medium text-muted-foreground">Add justification (optional)</span>
                   <ChevronDown className="h-5 w-5 shrink-0 text-muted-foreground transition-transform group-data-[state=open]:rotate-180" />
@@ -652,7 +699,16 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
   if (currentStep === 5) {
     return (
       <div className="min-h-screen bg-muted/50 py-4 sm:py-8 px-3 sm:px-4">
-        <div className="max-w-3xl mx-auto">
+        <div className="max-w-3xl mx-auto space-y-4">
+          <Button
+            variant="outline"
+            onClick={() => goToScenario(5, false)}
+            className="w-full sm:w-auto min-h-[44px]"
+          >
+            <BookOpen className="mr-2 h-4 w-4 shrink-0" />
+            View scenario
+          </Button>
+
           <Card>
             <CardHeader className="px-4 sm:px-6">
               <Badge variant="secondary" className="w-fit mb-2">Reflection</Badge>
