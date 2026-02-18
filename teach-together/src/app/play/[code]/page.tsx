@@ -52,6 +52,7 @@ interface Session {
     title: string;
     background_content: string | null;
     mode: string;
+    estimated_minutes?: number | null;
   };
 }
 
@@ -154,7 +155,7 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
         id,
         status,
         current_step,
-        simulation:simulations(id, title, background_content, mode)
+        simulation:simulations(id, title, background_content, mode, estimated_minutes)
       `)
       .eq("join_code", code.toUpperCase())
       .single();
@@ -171,6 +172,7 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
       title: string;
       background_content: string | null;
       mode: string;
+      estimated_minutes?: number | null;
     };
 
     const sessionWithSimulation: Session = {
@@ -390,7 +392,15 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
             <CardHeader className="px-4 sm:px-6">
               <Badge className="w-fit mb-2">Background</Badge>
               <CardTitle className="text-lg sm:text-xl line-clamp-2">{session?.simulation.title}</CardTitle>
-              <CardDescription className="text-sm">Read the scenario carefully before making decisions</CardDescription>
+              <CardDescription className="text-sm">
+                Read the scenario carefully before making decisions.
+                {session?.simulation.estimated_minutes ? (
+                  <span className="block mt-1 text-muted-foreground">
+                    <Clock className="h-3.5 w-3.5 inline mr-1" />
+                    Est. ~{session.simulation.estimated_minutes} min
+                  </span>
+                ) : null}
+              </CardDescription>
             </CardHeader>
             <CardContent className="px-4 sm:px-6">
               <div className="prose prose-sm max-w-none text-sm sm:text-base">

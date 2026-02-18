@@ -9,18 +9,33 @@ import {
   DropdownMenuItem, 
   DropdownMenuTrigger 
 } from "@/components/ui/dropdown-menu";
-import { Plus, MoreVertical, Edit, Play, BarChart3, BookOpen } from "lucide-react";
+import { Plus, MoreVertical, Edit, Play, BarChart3, BookOpen, FolderOpen } from "lucide-react";
 
-export default async function DashboardPage() {
+interface DashboardPageProps {
+  searchParams: Promise<{ course?: string }>;
+}
+
+export default async function DashboardPage({ searchParams }: DashboardPageProps) {
+  const { course: selectedCourse } = await searchParams;
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
 
   // Fetch simulations for this professor
-  const { data: simulations } = await supabase
+  const { data: allSimulations } = await supabase
     .from("simulations")
     .select("*")
     .eq("professor_id", user?.id)
     .order("updated_at", { ascending: false });
+
+  // Unique courses (course_topic) for personalized dashboard
+  const courses = Array.from(
+    new Set((allSimulations || []).map((s) => s.course_topic || "Uncategorized"))
+  ).sort();
+
+  // Filter by selected course when provided
+  const simulations = selectedCourse
+    ? (allSimulations || []).filter((s) => (s.course_topic || "Uncategorized") === selectedCourse)
+    : allSimulations;
 
   // Check which simulations have completed sessions
   const simulationIds = simulations?.map(s => s.id) || [];
@@ -34,7 +49,7 @@ export default async function DashboardPage() {
 
   return (
     <div>
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between mb-6 sm:mb-8">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between mb-4 sm:mb-6">
         <div className="min-w-0">
           <h1 className="text-2xl sm:text-3xl font-bold">Your Simulations</h1>
           <p className="text-muted-foreground mt-1 text-sm sm:text-base">
@@ -48,6 +63,30 @@ export default async function DashboardPage() {
           </Button>
         </Link>
       </div>
+
+      {/* Course filter: select a course to see curated simulations */}
+      {courses.length > 1 && (
+        <div className="mb-6">
+          <p className="text-sm font-medium text-muted-foreground mb-2 flex items-center gap-2">
+            <FolderOpen className="h-4 w-4" />
+            By course
+          </p>
+          <div className="flex flex-wrap gap-2">
+            <Link href="/dashboard">
+              <Button variant={!selectedCourse ? "default" : "outline"} size="sm" className="min-h-[40px]">
+                All
+              </Button>
+            </Link>
+            {courses.map((course) => (
+              <Link key={course} href={`/dashboard?course=${encodeURIComponent(course)}`}>
+                <Button variant={selectedCourse === course ? "default" : "outline"} size="sm" className="min-h-[40px]">
+                  {course}
+                </Button>
+              </Link>
+            ))}
+          </div>
+        </div>
+      )}
 
       {simulations && simulations.length > 0 ? (
         <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
@@ -123,16 +162,27 @@ export default async function DashboardPage() {
             <div className="mx-auto w-16 h-16 rounded-full bg-muted flex items-center justify-center mb-4">
               <BookOpen className="h-8 w-8 text-muted-foreground" />
             </div>
-            <h3 className="text-lg font-semibold mb-2">No simulations yet</h3>
+            <h3 className="text-lg font-semibold mb-2">
+              {selectedCourse ? `No simulations for "${selectedCourse}" yet` : "No simulations yet"}
+            </h3>
             <p className="text-muted-foreground mb-6">
-              Create your first simulation to get started with interactive classroom exercises.
+              {selectedCourse
+                ? "Create a simulation for this course or view all simulations."
+                : "Create your first simulation to get started with interactive classroom exercises."}
             </p>
-            <Link href="/create">
-              <Button>
-                <Plus className="mr-2 h-4 w-4" />
-                Create Your First Simulation
-              </Button>
-            </Link>
+            <div className="flex flex-wrap justify-center gap-2">
+              {selectedCourse && (
+                <Link href="/dashboard">
+                  <Button variant="outline">View all simulations</Button>
+                </Link>
+              )}
+              <Link href="/create">
+                <Button>
+                  <Plus className="mr-2 h-4 w-4" />
+                  {selectedCourse ? "Create simulation for this course" : "Create Your First Simulation"}
+                </Button>
+              </Link>
+            </div>
           </CardContent>
         </Card>
       )}

@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { BookOpen, Loader2 } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
 
 export default function SignupPage() {
@@ -49,8 +49,8 @@ export default function SignupPage() {
       <Card className="w-full max-w-md max-h-[calc(100dvh-3rem)] overflow-auto">
         <CardHeader className="text-center">
           <Link href="/" className="flex items-center justify-center gap-2 mb-4">
-            <BookOpen className="h-8 w-8 text-primary" />
-            <span className="text-2xl font-bold">Teach Together</span>
+            <img src="/logo.svg" alt="Praxis" className="h-8 w-auto" />
+            <span className="text-2xl font-bold">Praxis</span>
           </Link>
           <CardTitle>Create an account</CardTitle>
           <CardDescription>

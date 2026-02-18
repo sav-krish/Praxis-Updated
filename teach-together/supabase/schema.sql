@@ -24,6 +24,8 @@ CREATE TABLE simulations (
   mode TEXT DEFAULT 'individual' CHECK (mode IN ('individual', 'teams')),
   team_size INTEGER,
   team_assignment TEXT CHECK (team_assignment IN ('auto', 'self')),
+  difficulty TEXT CHECK (difficulty IN ('easy', 'hard', 'challenge')),
+  estimated_minutes INTEGER CHECK (estimated_minutes IS NULL OR (estimated_minutes >= 5 AND estimated_minutes <= 120)),
   status TEXT DEFAULT 'draft' CHECK (status IN ('draft', 'published')),
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()

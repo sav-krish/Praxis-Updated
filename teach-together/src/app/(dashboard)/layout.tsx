@@ -10,7 +10,7 @@ import {
   DropdownMenuTrigger 
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { BookOpen, LogOut, User, Plus } from "lucide-react";
+import { LogOut, User, Plus } from "lucide-react";
 
 async function signOut() {
   "use server";
@@ -41,8 +41,8 @@ export default async function DashboardLayout({
       <header className="bg-background border-b sticky top-0 z-50 safe-area-inset-top">
         <div className="container mx-auto px-3 sm:px-4 min-h-14 sm:h-16 flex items-center justify-between gap-2">
           <Link href="/dashboard" className="flex items-center gap-2 min-w-0">
-            <BookOpen className="h-5 w-5 sm:h-6 sm:w-6 text-primary shrink-0" />
-            <span className="text-lg sm:text-xl font-bold truncate">Teach Together</span>
+            <img src="/logo.svg" alt="Praxis" className="h-8 w-auto sm:h-9 shrink-0" />
+            <span className="text-lg sm:text-xl font-bold truncate">Praxis</span>
           </Link>
           
           <div className="flex items-center gap-2 sm:gap-4 shrink-0">

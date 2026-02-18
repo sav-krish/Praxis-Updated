@@ -307,7 +307,7 @@ function DemoBanner({
       aria-label="Interactive simulation preview"
     >
       <div className="flex items-center justify-between text-xs font-semibold text-muted">
-        <span>Teach Together · In-Class Simulation</span>
+        <span>Praxis · In-Class Simulation</span>
         <span>Decision 2 of 3</span>
       </div>
       <div className="mt-5 min-h-[260px]">
@@ -427,10 +427,11 @@ export default function HomePage() {
         />
       </div>
 
-      <header className="sticky top-0 z-40 border-b border-line/60 bg-canvas/80 backdrop-blur">
-        <nav className="container flex items-center justify-between py-4">
-          <Link href="/" className="text-lg font-semibold text-ink">
-            Teach Together
+      <header className="sticky top-0 z-40 border-b border-line/60 bg-canvas/80 backdrop-blur safe-area-inset-top">
+        <nav className="container flex items-center justify-between gap-3 py-3 sm:py-4 px-4 sm:px-6">
+          <Link href="/" className="flex items-center gap-2 min-w-0 shrink">
+            <img src="/logo.svg" alt="Praxis" className="h-7 w-auto sm:h-8 shrink-0" />
+            <span className="text-base font-semibold text-ink truncate sm:text-lg">Praxis</span>
           </Link>
           <div className="hidden items-center gap-8 text-sm font-medium text-muted md:flex">
             {navLinks.map((link) => (
@@ -439,18 +440,18 @@ export default function HomePage() {
               </a>
             ))}
           </div>
-          <div className="flex items-center gap-3">
-            <Link href="/join" className="hidden md:inline-flex">
-              <Button variant="ghost">Join Session</Button>
+          <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+            <Link href="/join" className="hidden md:inline-flex min-h-[44px] items-center">
+              <Button variant="ghost" className="min-h-[44px]">Join Session</Button>
             </Link>
-            <Link href="/signup" className="hidden md:inline-flex">
-              <Button>Get Started</Button>
+            <Link href="/signup" className="hidden md:inline-flex min-h-[44px] items-center">
+              <Button className="min-h-[44px]">Get Started</Button>
             </Link>
-            <Link href="/join" className="inline-flex md:hidden">
-              <Button variant="ghost">Join</Button>
+            <Link href="/join" className="inline-flex md:hidden min-h-[44px] items-center">
+              <Button variant="ghost" className="min-h-[44px] px-4">Join</Button>
             </Link>
-            <Link href="/signup" className="inline-flex md:hidden">
-              <Button>Get Started</Button>
+            <Link href="/signup" className="inline-flex md:hidden min-h-[44px] items-center">
+              <Button className="min-h-[44px] px-4">Get Started</Button>
             </Link>
           </div>
         </nav>
@@ -463,18 +464,18 @@ export default function HomePage() {
               Bring real-world learning into classrooms with meaningful simulations.
             </h1>
             <p className="mt-5 text-base text-muted md:text-lg">
-              Teach Together starts simple: a clear scenario, decision points,
+              Praxis starts simple: a clear scenario, decision points,
               and a post-session report for debrief. Scroll to see how the full flow
               works from setup to debrief.
             </p>
-            <div className="mt-8 flex flex-wrap gap-4">
-              <Link href="/signup" className="inline-flex">
-                <Button>
-                  Try It Now For Free <ArrowRight className="h-4 w-4" />
+            <div className="mt-8 flex flex-col sm:flex-row flex-wrap gap-3 sm:gap-4">
+              <Link href="/signup" className="inline-flex w-full sm:w-auto min-h-[48px] items-center justify-center">
+                <Button className="w-full sm:w-auto min-h-[48px]">
+                  Try It Now For Free <ArrowRight className="h-4 w-4 ml-1" />
                 </Button>
               </Link>
-              <a href="#how-it-works" className="inline-flex">
-                <Button variant="secondary">See the Flow</Button>
+              <a href="#how-it-works" className="inline-flex w-full sm:w-auto min-h-[48px] items-center justify-center">
+                <Button variant="secondary" className="w-full sm:w-auto min-h-[48px]">See the Flow</Button>
               </a>
             </div>
           </div>
@@ -769,9 +770,12 @@ export default function HomePage() {
       <footer className="container border-t border-line/60 py-10">
         <div className="flex flex-col items-start justify-between gap-6 md:flex-row md:items-center">
           <div>
-            <Link href="/" className="text-lg font-semibold text-ink">Teach Together</Link>
+            <Link href="/" className="flex items-center gap-2 text-lg font-semibold text-ink">
+              <img src="/logo.svg" alt="Praxis" className="h-6 w-auto" />
+              Praxis
+            </Link>
             <p className="mt-2 text-sm text-muted">
-              Teach Together · Classroom Decision Simulations
+              Praxis · Classroom Decision Simulations
             </p>
           </div>
           <div className="flex flex-wrap gap-6 text-sm text-muted">

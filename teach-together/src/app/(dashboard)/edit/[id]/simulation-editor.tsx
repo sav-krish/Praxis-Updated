@@ -70,6 +70,8 @@ export function SimulationEditor({
           mode: simulation.mode,
           team_size: simulation.team_size,
           team_assignment: simulation.team_assignment,
+          difficulty: simulation.difficulty ?? null,
+          estimated_minutes: simulation.estimated_minutes ?? null,
           updated_at: new Date().toISOString(),
         })
         .eq("id", simulation.id);
@@ -359,6 +361,33 @@ export function SimulationEditor({
               <CardDescription>Configure how students participate in this simulation</CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
+              <div className="space-y-2">
+                <Label>Simulation length (for students)</Label>
+                <Select
+                  value={simulation.difficulty || "hard"}
+                  onValueChange={(value: "easy" | "hard" | "challenge") => {
+                    const estimates = { easy: 15, hard: 25, challenge: 40 } as const;
+                    setSimulation({
+                      ...simulation,
+                      difficulty: value,
+                      estimated_minutes: estimates[value],
+                    });
+                  }}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="easy">Easy — ~15 min</SelectItem>
+                    <SelectItem value="hard">Hard — ~25 min</SelectItem>
+                    <SelectItem value="challenge">Challenge — ~40 min</SelectItem>
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground">
+                  Estimated time for a student to complete. Helps set expectations and class timing.
+                </p>
+              </div>
+
               <div className="space-y-2">
                 <Label>Participation Mode</Label>
                 <Select

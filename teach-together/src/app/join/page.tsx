@@ -1,13 +1,14 @@
 "use client";
 
 import { useState, useEffect, Suspense } from "react";
+import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { BookOpen, Loader2, ArrowRight } from "lucide-react";
+import { Loader2, ArrowRight } from "lucide-react";
 import { toast } from "sonner";
 
 function JoinForm() {
@@ -120,10 +121,10 @@ function JoinForm() {
     <div className="min-h-screen flex items-center justify-center bg-muted/50 px-4 py-6">
       <Card className="w-full max-w-md max-h-[calc(100dvh-3rem)] overflow-auto">
         <CardHeader className="text-center">
-          <div className="flex items-center justify-center gap-2 mb-4">
-            <BookOpen className="h-8 w-8 text-primary" />
-            <span className="text-2xl font-bold">Teach Together</span>
-          </div>
+          <Link href="/" className="flex items-center justify-center gap-2 mb-4">
+            <img src="/logo.svg" alt="Praxis" className="h-8 w-auto" />
+            <span className="text-2xl font-bold">Praxis</span>
+          </Link>
           <CardTitle>Join Session</CardTitle>
           <CardDescription>
             Enter the code provided by your professor

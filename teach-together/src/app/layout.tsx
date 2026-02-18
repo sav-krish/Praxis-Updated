@@ -14,8 +14,9 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Teach Together - Classroom Simulations",
+  title: "Praxis - Classroom Simulations",
   description: "Create interactive decision-based classroom simulations",
+  icons: { icon: "/logo.svg" },
 };
 
 export const viewport = {

@@ -1,6 +1,23 @@
-# Teach Together
+# Praxis (Teach Together)
 
-Interactive decision-based classroom simulations for higher education. Professors create scenarios with branching decision points; students join live sessions, make choices, see consequences, and reflect on their experience.
+**Praxis** is the product name for this app. Interactive decision-based classroom simulations for higher education.
+
+## Website palette (Praxis logo–derived)
+
+The app and landing page use a blue palette derived from the Praxis logo for consistency:
+
+| Role | Hex | Usage |
+|------|-----|--------|
+| **Primary (accent)** | `#1D4ED8` | Primary buttons, links, key CTAs |
+| **Primary dark** | `#0F2447` (ink) | Headings, body text |
+| **Canvas** | `#F3F7FF` | Page background (landing) |
+| **Accent soft** | `#E5EEFF` | Secondary backgrounds, hover states |
+| **Line** | `#D6E1F2` | Borders, dividers |
+| **Muted text** | `#516481` | Secondary text, captions |
+| **Logo primary** | `#5BA2D8` | Logo primary blue (book/arrows) |
+| **Logo light** | `#AADBF4` – `#AED6EB` | Logo highlights |
+
+These values are defined in `src/app/globals.css` (theme and `[data-landing="true"]` overrides) and used across the landing page and app UI. Professors create scenarios with branching decision points; students join live sessions, make choices, see consequences, and reflect on their experience.
 
 ## Features
 
@@ -53,6 +70,8 @@ OPENAI_API_KEY=sk-your-openai-key
 ### 3. Set up the database
 
 In your Supabase SQL editor, run the contents of `supabase/schema.sql`. This creates all tables, indexes, RLS policies, triggers, and enables Realtime on the necessary tables.
+
+If you have an existing database from an earlier schema, run the migration in `supabase/migrations/20250217_add_simulation_difficulty.sql` to add simulation length/difficulty (easy, hard, challenge) and time estimates.
 
 **Important:** Make sure Realtime is enabled for the `sessions`, `participants`, `teams`, and `responses` tables. The schema file does this automatically, but you can verify in your Supabase dashboard under **Database > Replication**.
 

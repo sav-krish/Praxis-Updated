@@ -42,6 +42,8 @@ export interface Database {
           mode: 'individual' | 'teams'
           team_size: number | null
           team_assignment: 'auto' | 'self' | null
+          difficulty: 'easy' | 'hard' | 'challenge' | null
+          estimated_minutes: number | null
           status: 'draft' | 'published'
           created_at: string
           updated_at: string
@@ -58,6 +60,8 @@ export interface Database {
           mode?: 'individual' | 'teams'
           team_size?: number | null
           team_assignment?: 'auto' | 'self' | null
+          difficulty?: 'easy' | 'hard' | 'challenge' | null
+          estimated_minutes?: number | null
           status?: 'draft' | 'published'
           created_at?: string
           updated_at?: string
@@ -74,6 +78,8 @@ export interface Database {
           mode?: 'individual' | 'teams'
           team_size?: number | null
           team_assignment?: 'auto' | 'self' | null
+          difficulty?: 'easy' | 'hard' | 'challenge' | null
+          estimated_minutes?: number | null
           status?: 'draft' | 'published'
           created_at?: string
           updated_at?: string
