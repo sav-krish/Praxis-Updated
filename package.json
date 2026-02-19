@@ -3,7 +3,6 @@
   "private": true,
   "version": "1.0.0",
   "scripts": {
-    "postinstall": "pnpm install --prefix praxis",
     "dev": "pnpm -C praxis dev",
     "build": "pnpm -C praxis build",
     "start": "pnpm -C praxis start",
