@@ -1,4 +1,4 @@
-# Teach Together (Praxis)
+# Praxis
 
 Interactive decision-based classroom simulations for higher education.
 
