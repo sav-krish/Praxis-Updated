@@ -11,6 +11,10 @@ export async function embedText(text: string): Promise<number[]> {
   return response.data[0].embedding;
 }
 
+function toPgVector(embedding: number[]): string {
+  return `[${embedding.join(",")}]`;
+}
+
 export function chunkText(text: string, maxTokens = 500): string[] {
   const approxCharsPerToken = 4;
   const chunkSize = maxTokens * approxCharsPerToken;
@@ -66,7 +70,7 @@ export async function retrieveRelevantChunks(
 
   // Use the match_knowledge_chunks RPC function
   const { data, error } = await supabase.rpc("match_knowledge_chunks", {
-    query_embedding: queryEmbedding,
+    query_embedding: toPgVector(queryEmbedding),
     match_count: limit,
     filter_subject: options.subject || null,
   });
