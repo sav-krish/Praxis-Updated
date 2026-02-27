@@ -72,7 +72,7 @@ export async function retrieveRelevantChunks(
   const { data, error } = await supabase.rpc("match_knowledge_chunks", {
     query_embedding: toPgVector(queryEmbedding),
     match_count: limit,
-    filter_subject: options.subject || null,
+    filter_subject: options.subject,
   });
 
   if (error) {
