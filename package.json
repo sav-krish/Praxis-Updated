@@ -2,11 +2,10 @@
   "name": "praxis-root",
   "private": true,
   "version": "1.0.0",
-  "packageManager": "pnpm@9.15.0",
   "scripts": {
-    "dev": "pnpm -C praxis dev",
-    "build": "pnpm -C praxis build",
-    "start": "pnpm -C praxis start",
-    "lint": "pnpm -C praxis lint"
+    "dev": "npm --prefix ./praxis run dev",
+    "build": "npm --prefix ./praxis run build",
+    "start": "npm --prefix ./praxis run start",
+    "lint": "npm --prefix ./praxis run lint"
   }
 }
