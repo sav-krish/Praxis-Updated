@@ -1,4 +1,6 @@
 import { getOpenAIClient } from "@/lib/openai";
+import type { SupabaseClient } from "@supabase/supabase-js";
+import type { Database } from "@/types/database";
 
 export async function embedText(text: string): Promise<number[]> {
   const openai = getOpenAIClient();
@@ -53,9 +55,8 @@ export interface RetrievedChunk {
  * Retrieves the most relevant knowledge base chunks for a given query.
  * Uses pgvector cosine similarity search via Supabase RPC or raw SQL.
  */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export async function retrieveRelevantChunks(
-  supabase: any,
+  supabase: SupabaseClient<Database>,
   query: string,
   options: { subject?: string; limit?: number } = {}
 ): Promise<RetrievedChunk[]> {

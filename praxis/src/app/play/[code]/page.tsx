@@ -102,15 +102,13 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
 
   // Ref to always have latest currentStep in callbacks without re-subscribing
   const currentStepRef = useRef(currentStep);
-  currentStepRef.current = currentStep;
 
   // Ref to hold session id for polling without re-subscribing
   const sessionIdRef = useRef<string | null>(null);
 
-  // Load session data
   useEffect(() => {
-    loadSession();
-  }, [code]);
+    currentStepRef.current = currentStep;
+  }, [currentStep]);
 
   // Subscribe to participant count while waiting (for "N students joined" message)
   useEffect(() => {
@@ -206,7 +204,7 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
     return () => clearInterval(interval);
   }, [session?.id, currentStep]);
 
-  const loadSession = async () => {
+  async function loadSession() {
     const supabase = createClient();
 
     // Get session
@@ -365,7 +363,13 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
     }
 
     setLoading(false);
-  };
+  }
+
+  // Load session data
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    void loadSession();
+  }, [code]);
 
   const submitDecision = async () => {
     if (!selectedOption || !session || !participantId) return;
