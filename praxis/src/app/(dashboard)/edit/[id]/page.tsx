@@ -1,14 +1,18 @@
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { SimulationEditor } from "./simulation-editor";
+import type { SimulationDataBlock } from "@/types/data-blocks";
 
 interface PageProps {
   params: Promise<{ id: string }>;
+  searchParams: Promise<{ [key: string]: string | undefined }>;
 }
 
-export default async function EditSimulationPage({ params }: PageProps) {
+export default async function EditSimulationPage({ params, searchParams }: PageProps) {
   const { id } = await params;
+  const { generated } = await searchParams;
   const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
 
   // Fetch simulation with all related data
   const { data: simulation, error } = await supabase
@@ -20,6 +24,8 @@ export default async function EditSimulationPage({ params }: PageProps) {
   if (error || !simulation) {
     notFound();
   }
+
+  const isOwner = !!user && simulation.professor_id === user.id;
 
   // Fetch decisions with options
   const { data: decisions } = await supabase
@@ -45,6 +51,13 @@ export default async function EditSimulationPage({ params }: PageProps) {
     .eq("simulation_id", id)
     .order("order_num", { ascending: true });
 
+  // Fetch hidden profiles
+  const { data: profiles } = await supabase
+    .from("simulation_profiles")
+    .select("*")
+    .eq("simulation_id", id)
+    .order("order_num", { ascending: true });
+
   // Sort options within each decision
   const sortedDecisions = decisions?.map(d => ({
     ...d,
@@ -56,7 +69,11 @@ export default async function EditSimulationPage({ params }: PageProps) {
       simulation={simulation}
       decisions={sortedDecisions}
       reflectionQuestions={reflectionQuestions || []}
-      dataBlocks={(dataBlocks || []).map((b) => ({ ...b, data: b.data as Record<string, unknown> }))}
+      dataBlocks={(dataBlocks || []).map((b) => ({ ...b, block_type: b.block_type as SimulationDataBlock["block_type"], data: b.data as unknown as SimulationDataBlock["data"] }))}
+      profiles={profiles || []}
+      userId={user?.id}
+      isNewlyGenerated={generated === "1"}
+      isOwner={isOwner}
     />
   );
 }

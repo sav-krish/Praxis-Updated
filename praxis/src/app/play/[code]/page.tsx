@@ -25,11 +25,13 @@ import {
   Trophy,
   ChevronDown,
   ChevronRight,
+  RefreshCw,
 } from "lucide-react";
 import { toast } from "sonner";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { DataBlockRenderer } from "@/components/simulation/DataBlockRenderer";
+import { FeedbackCard } from "@/components/simulation/FeedbackCard";
 
 interface Option {
   id: string;
@@ -57,7 +59,13 @@ interface Session {
     background_content: string | null;
     mode: string;
     estimated_minutes?: number | null;
+    hidden_profiles_enabled?: boolean;
   };
+}
+
+interface PlayerProfile {
+  profile_name: string;
+  private_briefing: string;
 }
 
 interface ReflectionQuestion {
@@ -77,6 +85,7 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
   const [dataBlocks, setDataBlocks] = useState<Array<{ id: string; block_type: string; title: string | null; data: unknown }>>([]);
   const [participantId, setParticipantId] = useState<string | null>(null);
   const [participantName, setParticipantName] = useState<string>("");
+  const [playerProfile, setPlayerProfile] = useState<PlayerProfile | null>(null);
   
   // Current state
   const [currentStep, setCurrentStep] = useState(0); // 0 = waiting, 1 = background, 2-4 = decisions, 5 = reflection, 6 = results
@@ -89,6 +98,7 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
   const [participantCount, setParticipantCount] = useState<number>(0);
   const [returnToStep, setReturnToStep] = useState<number | null>(null);
   const [returnToConsequence, setReturnToConsequence] = useState(false);
+  const [manualRefreshing, setManualRefreshing] = useState(false);
 
   // Ref to always have latest currentStep in callbacks without re-subscribing
   const currentStepRef = useRef(currentStep);
@@ -151,11 +161,33 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
     };
   }, [session?.id]); // Only re-subscribe when session id changes, not on every step
 
-  // Polling fallback: check session status every 3s while waiting in lobby
+  // Fetch hidden profile when transitioning to background step
   useEffect(() => {
-    if (!session || currentStep !== 0) return;
+    if (currentStep !== 1 || playerProfile || !participantId || !session?.simulation.hidden_profiles_enabled) return;
+    const supabase = createClient();
+    (async () => {
+      const { data: pData } = await supabase
+        .from("participants")
+        .select("profile_id")
+        .eq("id", participantId)
+        .single();
+      if (pData?.profile_id) {
+        const { data: prof } = await supabase
+          .from("simulation_profiles")
+          .select("profile_name, private_briefing")
+          .eq("id", pData.profile_id)
+          .single();
+        if (prof) setPlayerProfile(prof);
+      }
+    })();
+  }, [currentStep, participantId, playerProfile, session?.simulation.hidden_profiles_enabled]);
+
+  // Polling fallback: check session status every 2s (lobby) or 5s (active)
+  useEffect(() => {
+    if (!session) return;
 
     const supabase = createClient();
+    const pollInterval = currentStep === 0 ? 2000 : 5000;
     const interval = setInterval(async () => {
       const { data } = await supabase
         .from("sessions")
@@ -166,10 +198,10 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
       if (data?.status === "running" && currentStepRef.current === 0) {
         setCurrentStep(1);
       }
-      if (data?.status === "complete") {
+      if (data?.status === "complete" && currentStepRef.current !== 6) {
         setCurrentStep(6);
       }
-    }, 3000);
+    }, pollInterval);
 
     return () => clearInterval(interval);
   }, [session?.id, currentStep]);
@@ -184,7 +216,7 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
         id,
         status,
         current_step,
-        simulation:simulations(id, title, background_content, mode, estimated_minutes)
+        simulation:simulations(id, title, background_content, mode, estimated_minutes, hidden_profiles_enabled)
       `)
       .eq("join_code", code.toUpperCase())
       .single();
@@ -202,6 +234,7 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
       background_content: string | null;
       mode: string;
       estimated_minutes?: number | null;
+      hidden_profiles_enabled?: boolean;
     };
 
     const sessionWithSimulation: Session = {
@@ -232,13 +265,12 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
     // Verify the participant still exists in the DB (handles deleted / stale entries)
     const { data: existingParticipant } = await supabase
       .from("participants")
-      .select("id, name")
+      .select("id, name, profile_id")
       .eq("id", storedParticipantId)
       .eq("session_id", sessionData.id)
       .single();
 
     if (!existingParticipant) {
-      // Stale entry -- clear and redirect to rejoin
       localStorage.removeItem(`participant_${sessionData.id}`);
       localStorage.removeItem(`participant_name_${sessionData.id}`);
       router.push(`/join?code=${code}`);
@@ -247,6 +279,16 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
 
     setParticipantId(storedParticipantId);
     setParticipantName(existingParticipant.name || storedName || "");
+
+    // Fetch assigned hidden profile (if any)
+    if (existingParticipant.profile_id) {
+      const { data: profileData } = await supabase
+        .from("simulation_profiles")
+        .select("profile_name, private_briefing")
+        .eq("id", existingParticipant.profile_id)
+        .single();
+      if (profileData) setPlayerProfile(profileData);
+    }
 
     // Load decisions
     const { data: decisionsData } = await supabase
@@ -396,6 +438,24 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
     setSubmitting(false);
   };
 
+  const manualRefreshSession = async () => {
+    if (!session) return;
+    setManualRefreshing(true);
+    const supabase = createClient();
+    const { data } = await supabase
+      .from("sessions")
+      .select("status")
+      .eq("id", session.id)
+      .single();
+
+    if (data?.status === "running" && currentStep === 0) {
+      setCurrentStep(1);
+    } else if (data?.status === "complete") {
+      setCurrentStep(6);
+    }
+    setManualRefreshing(false);
+  };
+
   const totalScore = myResponses.reduce((sum, r) => sum + r.score, 0);
   const maxScore = decisions.length * 3;
 
@@ -420,7 +480,7 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
             <CardDescription>Welcome, {participantName}!</CardDescription>
           </CardHeader>
           <CardContent className="px-4 sm:px-6">
-            <div className="space-y-1 text-center">
+            <div className="space-y-3 text-center">
               <p className="font-medium text-foreground">You&apos;re in.</p>
               <p className="text-muted-foreground text-sm sm:text-base">
                 {participantCount <= 1
@@ -430,6 +490,16 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
               <div className="flex items-center justify-center gap-2 mt-2 text-muted-foreground">
                 <Clock className="h-4 w-4 animate-pulse shrink-0" />
               </div>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={manualRefreshSession}
+                disabled={manualRefreshing}
+                className="mt-3 text-muted-foreground"
+              >
+                <RefreshCw className={`mr-2 h-3.5 w-3.5 ${manualRefreshing ? "animate-spin" : ""}`} />
+                {manualRefreshing ? "Checking..." : "Refresh status"}
+              </Button>
             </div>
           </CardContent>
         </Card>
@@ -457,6 +527,21 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
               </CardDescription>
             </CardHeader>
             <CardContent className="px-4 sm:px-6">
+              {playerProfile && (
+                <div className="mb-6 border-l-4 border-primary rounded-lg bg-primary/5 p-4 space-y-2">
+                  <div className="flex items-center gap-2">
+                    <Badge>Your Role: {playerProfile.profile_name}</Badge>
+                  </div>
+                  <div className="prose prose-sm max-w-none text-sm">
+                    <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                      {playerProfile.private_briefing}
+                    </ReactMarkdown>
+                  </div>
+                  <p className="text-[11px] text-muted-foreground italic">
+                    This briefing is private to your role. Other participants have different information.
+                  </p>
+                </div>
+              )}
               <div className="prose prose-sm max-w-none text-sm sm:text-base prose-table:overflow-x-auto prose-td:border prose-td:px-3 prose-td:py-2 prose-th:border prose-th:px-3 prose-th:py-2 prose-th:bg-muted/50">
                 {session?.simulation.background_content ? (
                   <ReactMarkdown remarkPlugins={[remarkGfm]}>
@@ -790,6 +875,16 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
                 );
               })}
             </div>
+
+            <Separator className="my-4 sm:my-6" />
+
+            <FeedbackCard
+              simulationId={session?.simulation.id || ""}
+              sessionId={session?.id}
+              participantId={participantId || undefined}
+              feedbackType="post_session"
+              role="student"
+            />
           </CardContent>
         </Card>
       </div>

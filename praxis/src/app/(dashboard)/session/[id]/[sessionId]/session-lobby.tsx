@@ -20,7 +20,14 @@ import {
   BarChart3
 } from "lucide-react";
 import { toast } from "sonner";
-import type { Session, Simulation, Participant, Team } from "@/types/database";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import type { Session, Simulation, Participant, Team, SimulationProfile } from "@/types/database";
 
 interface SessionLobbyProps {
   session: Session;
@@ -29,6 +36,7 @@ interface SessionLobbyProps {
   teams: Team[];
   decisions: { id: string }[];
   responses: { decision_id: string; participant_id: string | null; team_id: string | null }[];
+  profiles: SimulationProfile[];
 }
 
 export function SessionLobby({ 
@@ -37,7 +45,8 @@ export function SessionLobby({
   participants: initialParticipants,
   teams: initialTeams,
   decisions,
-  responses: initialResponses
+  responses: initialResponses,
+  profiles,
 }: SessionLobbyProps) {
   const router = useRouter();
   const [session, setSession] = useState(initialSession);
@@ -152,10 +161,44 @@ export function SessionLobby({
     setTimeout(() => setCopied(false), 2000);
   };
 
+  const assignProfilesToParticipants = async () => {
+    if (!simulation.hidden_profiles_enabled || profiles.length === 0) return;
+    const supabase = createClient();
+    const unassigned = participants.filter(p => !p.profile_id);
+    for (let i = 0; i < unassigned.length; i++) {
+      const profile = profiles[i % profiles.length];
+      await supabase
+        .from("participants")
+        .update({ profile_id: profile.id })
+        .eq("id", unassigned[i].id);
+    }
+    // Re-fetch participants so the UI shows updated profile_id
+    const { data } = await supabase
+      .from("participants")
+      .select("*")
+      .eq("session_id", session.id)
+      .order("joined_at", { ascending: true });
+    if (data) setParticipants(data);
+  };
+
+  const reassignProfile = async (participantId: string, profileId: string) => {
+    const supabase = createClient();
+    await supabase
+      .from("participants")
+      .update({ profile_id: profileId })
+      .eq("id", participantId);
+    setParticipants(prev =>
+      prev.map(p => p.id === participantId ? { ...p, profile_id: profileId } : p)
+    );
+  };
+
   const startSimulation = async () => {
     setLoading(true);
     const supabase = createClient();
     const now = new Date().toISOString();
+
+    // Auto-assign profiles before starting
+    await assignProfilesToParticipants();
 
     const { error } = await supabase
       .from("sessions")
@@ -169,7 +212,6 @@ export function SessionLobby({
     if (error) {
       toast.error("Failed to start simulation");
     } else {
-      // Optimistic local update so the UI reflects the change immediately
       setSession(prev => ({ ...prev, status: "running", current_step: 1, started_at: now }));
       toast.success("Simulation started!");
     }
@@ -209,6 +251,12 @@ export function SessionLobby({
   };
 
   const totalGroups = simulation.mode === "teams" ? teams.length : participants.length;
+
+  const profileMap = new Map(profiles.map(p => [p.id, p]));
+  const getProfileName = (profileId: string | null) =>
+    profileId ? profileMap.get(profileId)?.profile_name ?? null : null;
+
+  const hasProfiles = simulation.hidden_profiles_enabled && profiles.length > 0;
 
   // Group participants by team
   const participantsByTeam = participants.reduce((acc, p) => {
@@ -372,11 +420,17 @@ export function SessionLobby({
                 {teams.map(team => (
                   <div key={team.id}>
                     <h4 className="font-medium text-sm mb-2">{team.name}</h4>
-                    <div className="flex flex-wrap gap-2">
+                    <div className="space-y-1">
                       {participantsByTeam[team.id]?.map(p => (
-                        <Badge key={p.id} variant={p.is_voter ? "default" : "secondary"}>
-                          {p.name} {p.is_voter && "(Voter)"}
-                        </Badge>
+                        <ParticipantRow
+                          key={p.id}
+                          participant={p}
+                          profileName={getProfileName(p.profile_id)}
+                          hasProfiles={hasProfiles}
+                          profiles={profiles}
+                          onReassign={reassignProfile}
+                          showVoter
+                        />
                       ))}
                     </div>
                   </div>
@@ -384,24 +438,95 @@ export function SessionLobby({
                 {participantsByTeam["unassigned"]?.length > 0 && (
                   <div>
                     <h4 className="font-medium text-sm mb-2 text-muted-foreground">Unassigned</h4>
-                    <div className="flex flex-wrap gap-2">
+                    <div className="space-y-1">
                       {participantsByTeam["unassigned"].map(p => (
-                        <Badge key={p.id} variant="outline">{p.name}</Badge>
+                        <ParticipantRow
+                          key={p.id}
+                          participant={p}
+                          profileName={getProfileName(p.profile_id)}
+                          hasProfiles={hasProfiles}
+                          profiles={profiles}
+                          onReassign={reassignProfile}
+                        />
                       ))}
                     </div>
                   </div>
                 )}
               </div>
             ) : (
-              <div className="flex flex-wrap gap-2">
+              <div className="space-y-1">
                 {participants.map(p => (
-                  <Badge key={p.id} variant="secondary">{p.name}</Badge>
+                  <ParticipantRow
+                    key={p.id}
+                    participant={p}
+                    profileName={getProfileName(p.profile_id)}
+                    hasProfiles={hasProfiles}
+                    profiles={profiles}
+                    onReassign={reassignProfile}
+                  />
                 ))}
               </div>
             )}
           </CardContent>
         </Card>
       </div>
+    </div>
+  );
+}
+
+function ParticipantRow({
+  participant,
+  profileName,
+  hasProfiles,
+  profiles,
+  onReassign,
+  showVoter,
+}: {
+  participant: Participant;
+  profileName: string | null;
+  hasProfiles: boolean;
+  profiles: SimulationProfile[];
+  onReassign: (participantId: string, profileId: string) => void;
+  showVoter?: boolean;
+}) {
+  if (!hasProfiles) {
+    return (
+      <Badge variant={showVoter && participant.is_voter ? "default" : "secondary"}>
+        {participant.name} {showVoter && participant.is_voter && "(Voter)"}
+      </Badge>
+    );
+  }
+
+  return (
+    <div className="flex items-center justify-between gap-2 py-1.5 px-2 rounded-md hover:bg-muted/50">
+      <div className="flex items-center gap-2 min-w-0">
+        <span className="text-sm truncate">{participant.name}</span>
+        {showVoter && participant.is_voter && (
+          <Badge variant="default" className="text-[10px] px-1.5 py-0">Voter</Badge>
+        )}
+        {profileName && (
+          <Badge variant="outline" className="text-[10px] px-1.5 py-0 shrink-0">
+            {profileName}
+          </Badge>
+        )}
+      </div>
+      <Select
+        value={participant.profile_id || "none"}
+        onValueChange={(val) => {
+          if (val !== "none") onReassign(participant.id, val);
+        }}
+      >
+        <SelectTrigger className="h-7 w-[130px] text-xs shrink-0">
+          <SelectValue placeholder="Assign role" />
+        </SelectTrigger>
+        <SelectContent>
+          {profiles.map(p => (
+            <SelectItem key={p.id} value={p.id} className="text-xs">
+              {p.profile_name || `Role ${p.order_num}`}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
     </div>
   );
 }

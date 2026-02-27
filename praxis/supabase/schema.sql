@@ -9,6 +9,7 @@ CREATE TABLE IF NOT EXISTS professors (
   id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
   email TEXT NOT NULL UNIQUE,
   name TEXT,
+  active_role TEXT DEFAULT 'professor' CHECK (active_role IN ('professor', 'student')),
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
@@ -28,8 +29,23 @@ CREATE TABLE IF NOT EXISTS simulations (
   difficulty TEXT CHECK (difficulty IN ('easy', 'hard', 'challenge')),
   estimated_minutes INTEGER CHECK (estimated_minutes IS NULL OR (estimated_minutes >= 5 AND estimated_minutes <= 120)),
   status TEXT DEFAULT 'draft' CHECK (status IN ('draft', 'published')),
+  preferences JSONB DEFAULT '{}',
+  is_public BOOLEAN DEFAULT false,
+  favorite_count INTEGER DEFAULT 0,
+  hidden_profiles_enabled BOOLEAN DEFAULT false,
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Simulation profiles (hidden profiles / asymmetric information)
+CREATE TABLE IF NOT EXISTS simulation_profiles (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  simulation_id UUID NOT NULL REFERENCES simulations(id) ON DELETE CASCADE,
+  profile_name TEXT NOT NULL,
+  private_briefing TEXT NOT NULL,
+  order_num INTEGER NOT NULL,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  UNIQUE(simulation_id, order_num)
 );
 
 -- Decisions table (3 per simulation)
@@ -86,6 +102,7 @@ CREATE TABLE IF NOT EXISTS sessions (
   current_step INTEGER DEFAULT 0,
   started_at TIMESTAMPTZ,
   ended_at TIMESTAMPTZ,
+  debrief_guide JSONB,
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
@@ -106,6 +123,9 @@ CREATE TABLE IF NOT EXISTS participants (
   is_voter BOOLEAN DEFAULT false,
   joined_at TIMESTAMPTZ DEFAULT NOW()
 );
+
+-- Add profile_id to participants (safe for both fresh and existing databases)
+ALTER TABLE participants ADD COLUMN IF NOT EXISTS profile_id UUID REFERENCES simulation_profiles(id) ON DELETE SET NULL;
 
 -- Responses table (decision submissions)
 CREATE TABLE IF NOT EXISTS responses (
@@ -132,6 +152,42 @@ CREATE TABLE IF NOT EXISTS reflection_responses (
   CHECK (participant_id IS NOT NULL OR team_id IS NOT NULL)
 );
 
+-- Feedback table (post-generation and post-session)
+CREATE TABLE IF NOT EXISTS feedback (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  simulation_id UUID NOT NULL REFERENCES simulations(id) ON DELETE CASCADE,
+  session_id UUID REFERENCES sessions(id) ON DELETE CASCADE,
+  user_id UUID REFERENCES auth.users(id) ON DELETE SET NULL,
+  participant_id UUID REFERENCES participants(id) ON DELETE SET NULL,
+  feedback_type TEXT NOT NULL CHECK (feedback_type IN ('post_generation', 'post_session')),
+  role TEXT NOT NULL CHECK (role IN ('professor', 'student')),
+  checked_items TEXT[] NOT NULL DEFAULT '{}',
+  freeform_text TEXT,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Simulation favorites (for library ranking)
+CREATE TABLE IF NOT EXISTS simulation_favorites (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  simulation_id UUID NOT NULL REFERENCES simulations(id) ON DELETE CASCADE,
+  user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  UNIQUE(simulation_id, user_id)
+);
+
+-- Knowledge base chunks (RAG)
+CREATE EXTENSION IF NOT EXISTS vector;
+
+CREATE TABLE IF NOT EXISTS knowledge_chunks (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  subject TEXT NOT NULL,
+  source_filename TEXT NOT NULL,
+  chunk_index INTEGER NOT NULL,
+  content TEXT NOT NULL,
+  embedding vector(1536),
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
 -- Indexes for performance
 CREATE INDEX IF NOT EXISTS idx_simulations_professor ON simulations(professor_id);
 CREATE INDEX IF NOT EXISTS idx_decisions_simulation ON decisions(simulation_id);
@@ -143,6 +199,43 @@ CREATE INDEX IF NOT EXISTS idx_participants_team ON participants(team_id);
 CREATE INDEX IF NOT EXISTS idx_responses_session ON responses(session_id);
 CREATE INDEX IF NOT EXISTS idx_responses_decision ON responses(decision_id);
 CREATE INDEX IF NOT EXISTS idx_simulation_data_blocks_simulation ON simulation_data_blocks(simulation_id);
+CREATE INDEX IF NOT EXISTS idx_feedback_simulation ON feedback(simulation_id);
+CREATE INDEX IF NOT EXISTS idx_feedback_session ON feedback(session_id);
+CREATE INDEX IF NOT EXISTS idx_simulation_favorites_simulation ON simulation_favorites(simulation_id);
+CREATE INDEX IF NOT EXISTS idx_simulation_favorites_user ON simulation_favorites(user_id);
+CREATE INDEX IF NOT EXISTS idx_knowledge_chunks_subject ON knowledge_chunks(subject);
+CREATE INDEX IF NOT EXISTS idx_simulation_profiles_simulation ON simulation_profiles(simulation_id);
+CREATE INDEX IF NOT EXISTS idx_participants_profile ON participants(profile_id);
+
+-- RPC for RAG: vector similarity search over knowledge_chunks
+CREATE OR REPLACE FUNCTION match_knowledge_chunks(
+  query_embedding vector(1536),
+  match_count int DEFAULT 8,
+  filter_subject text DEFAULT NULL
+)
+RETURNS TABLE (
+  content text,
+  subject text,
+  source_filename text,
+  similarity float
+)
+LANGUAGE plpgsql
+AS $$
+BEGIN
+  RETURN QUERY
+  SELECT
+    kc.content,
+    kc.subject,
+    kc.source_filename,
+    1 - (kc.embedding <=> query_embedding) AS similarity
+  FROM knowledge_chunks kc
+  WHERE
+    kc.embedding IS NOT NULL
+    AND (filter_subject IS NULL OR kc.subject = filter_subject)
+  ORDER BY kc.embedding <=> query_embedding
+  LIMIT match_count;
+END;
+$$;
 
 -- Row Level Security (RLS) Policies
 
@@ -151,7 +244,7 @@ DO $$
 DECLARE
   tbl TEXT;
 BEGIN
-  FOREACH tbl IN ARRAY '{professors,simulations,decisions,options,reflection_questions,sessions,teams,participants,responses,reflection_responses,simulation_data_blocks}'::TEXT[]
+  FOREACH tbl IN ARRAY '{professors,simulations,decisions,options,reflection_questions,sessions,teams,participants,responses,reflection_responses,simulation_data_blocks,feedback,simulation_favorites,knowledge_chunks,simulation_profiles}'::TEXT[]
   LOOP
     IF EXISTS (
       SELECT 1 FROM pg_class c
@@ -286,6 +379,53 @@ DROP POLICY IF EXISTS "Anyone can view reflection responses" ON reflection_respo
 CREATE POLICY "Anyone can view reflection responses" ON reflection_responses
   FOR SELECT USING (true);
 
+-- Feedback: anyone can submit, professors can read their own
+DROP POLICY IF EXISTS "Anyone can submit feedback" ON feedback;
+CREATE POLICY "Anyone can submit feedback" ON feedback
+  FOR INSERT WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Professors can view feedback for own simulations" ON feedback;
+CREATE POLICY "Professors can view feedback for own simulations" ON feedback
+  FOR SELECT USING (
+    simulation_id IN (SELECT id FROM simulations WHERE professor_id = auth.uid())
+  );
+
+-- Simulation favorites: authenticated users can manage their own
+DROP POLICY IF EXISTS "Users can manage own favorites" ON simulation_favorites;
+CREATE POLICY "Users can manage own favorites" ON simulation_favorites
+  FOR ALL USING (user_id = auth.uid());
+
+DROP POLICY IF EXISTS "Anyone can read favorites" ON simulation_favorites;
+CREATE POLICY "Anyone can read favorites" ON simulation_favorites
+  FOR SELECT USING (true);
+
+-- Public simulations: anyone authenticated can read
+DROP POLICY IF EXISTS "Anyone can read public simulations" ON simulations;
+CREATE POLICY "Anyone can read public simulations" ON simulations
+  FOR SELECT USING (is_public = true);
+
+-- Knowledge chunks: read for all, insert for authenticated users
+DROP POLICY IF EXISTS "Anyone can read knowledge chunks" ON knowledge_chunks;
+CREATE POLICY "Anyone can read knowledge chunks" ON knowledge_chunks
+  FOR SELECT USING (true);
+
+DROP POLICY IF EXISTS "Authenticated users can insert knowledge chunks" ON knowledge_chunks;
+CREATE POLICY "Authenticated users can insert knowledge chunks" ON knowledge_chunks
+  FOR INSERT WITH CHECK (auth.uid() IS NOT NULL);
+
+-- Simulation profiles: professors can CRUD for their own simulations, anyone can read
+DROP POLICY IF EXISTS "Anyone can read simulation profiles" ON simulation_profiles;
+CREATE POLICY "Anyone can read simulation profiles" ON simulation_profiles
+  FOR SELECT USING (true);
+
+DROP POLICY IF EXISTS "Professors can manage own simulation profiles" ON simulation_profiles;
+CREATE POLICY "Professors can manage own simulation profiles" ON simulation_profiles
+  FOR ALL USING (
+    EXISTS (
+      SELECT 1 FROM simulations s WHERE s.id = simulation_id AND s.professor_id = auth.uid()
+    )
+  );
+
 -- Function to update updated_at timestamp
 CREATE OR REPLACE FUNCTION update_updated_at_column()
 RETURNS TRIGGER AS $$
@@ -355,3 +495,33 @@ BEGIN
   ALTER PUBLICATION supabase_realtime ADD TABLE responses;
 EXCEPTION WHEN duplicate_object THEN NULL;
 END $$;
+DO $$
+BEGIN
+  ALTER PUBLICATION supabase_realtime ADD TABLE feedback;
+EXCEPTION WHEN OTHERS THEN NULL;
+END $$;
+
+-- Trigger to keep favorite_count in sync
+CREATE OR REPLACE FUNCTION update_simulation_favorite_count()
+RETURNS TRIGGER AS $$
+BEGIN
+  IF TG_OP = 'INSERT' THEN
+    UPDATE simulations SET favorite_count = favorite_count + 1 WHERE id = NEW.simulation_id;
+    RETURN NEW;
+  ELSIF TG_OP = 'DELETE' THEN
+    UPDATE simulations SET favorite_count = GREATEST(favorite_count - 1, 0) WHERE id = OLD.simulation_id;
+    RETURN OLD;
+  END IF;
+  RETURN NULL;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+DROP TRIGGER IF EXISTS trg_favorite_count_insert ON simulation_favorites;
+CREATE TRIGGER trg_favorite_count_insert
+  AFTER INSERT ON simulation_favorites
+  FOR EACH ROW EXECUTE FUNCTION update_simulation_favorite_count();
+
+DROP TRIGGER IF EXISTS trg_favorite_count_delete ON simulation_favorites;
+CREATE TRIGGER trg_favorite_count_delete
+  AFTER DELETE ON simulation_favorites
+  FOR EACH ROW EXECUTE FUNCTION update_simulation_favorite_count();

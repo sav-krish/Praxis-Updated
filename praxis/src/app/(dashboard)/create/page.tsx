@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import type { Json } from "@/types/database";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -12,6 +13,25 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Separator } from "@/components/ui/separator";
 import { Upload, Loader2, Sparkles, FileText, X, Wand2, PenLine } from "lucide-react";
 import { toast } from "sonner";
+
+const PREFERENCE_CATEGORIES = {
+  style: {
+    label: "Simulation Style",
+    options: ["Case Study", "Role Play", "Crisis Management", "Negotiation", "Ethical Dilemma", "Strategic Planning"],
+  },
+  interaction: {
+    label: "Student Interaction",
+    options: ["Individual Reflection", "Group Discussion", "Debate", "Peer Review"],
+  },
+  focus: {
+    label: "Content Focus",
+    options: ["Data-Driven", "Narrative-Heavy", "Visual/Charts", "Timeline-Based"],
+  },
+  assessment: {
+    label: "Assessment Style",
+    options: ["Clear Right/Wrong", "Nuanced Tradeoffs", "No Correct Answer"],
+  },
+} as const;
 
 const COURSE_TOPICS = [
   "Power & Influence",
@@ -62,7 +82,28 @@ export default function CreateSimulationPage() {
     targetDecisions: "",
     pastedText: "",
     aiNotes: "",
+    reframeAs: "",
   });
+  const [preferences, setPreferences] = useState<Record<string, string[]>>({
+    style: [],
+    interaction: [],
+    focus: [],
+    assessment: [],
+  });
+
+  const togglePreference = (category: string, option: string) => {
+    setPreferences((prev) => {
+      const current = prev[category] || [];
+      return {
+        ...prev,
+        [category]: current.includes(option)
+          ? current.filter((o) => o !== option)
+          : [...current, option],
+      };
+    });
+  };
+
+  const hasAnyPreferences = Object.values(preferences).some((v) => v.length > 0);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const newFiles = Array.from(e.target.files || []);
@@ -92,7 +133,7 @@ export default function CreateSimulationPage() {
       const { error: profError } = await supabase.from("professors").insert({
         id: user.id,
         email: user.email ?? "",
-        name: user.user_metadata?.name ?? null,
+        name: (user.user_metadata?.name as string) ?? null,
       });
       if (profError) {
         throw new Error(profError.message || "Could not create professor profile");
@@ -189,7 +230,7 @@ export default function CreateSimulationPage() {
           order_num: i + 1,
           block_type: block.block_type,
           title: block.title || null,
-          data: block.data as Record<string, unknown>,
+          data: block.data as unknown as Json,
         });
       if (blockError) console.warn("Could not save data block:", blockError);
     }
@@ -216,6 +257,10 @@ export default function CreateSimulationPage() {
       formPayload.append("targetDecisions", formData.targetDecisions);
       formPayload.append("pastedText", formData.pastedText);
       formPayload.append("aiNotes", formData.aiNotes);
+      formPayload.append("reframeAs", formData.reframeAs);
+      if (hasAnyPreferences) {
+        formPayload.append("preferences", JSON.stringify(preferences));
+      }
       
       for (const file of files) {
         formPayload.append("files", file);
@@ -244,7 +289,7 @@ export default function CreateSimulationPage() {
       const simulationId = await saveGeneratedSimulation(data.simulation as GeneratedSimulation);
 
       toast.success("Simulation generated! Review and edit the content.");
-      router.push(`/edit/${simulationId}`);
+      router.push(`/edit/${simulationId}?generated=1`);
     } catch (error) {
       console.error("Create simulation error:", error);
       const message =
@@ -283,7 +328,7 @@ export default function CreateSimulationPage() {
         const { error: profError } = await supabase.from("professors").insert({
           id: user.id,
           email: user.email ?? "",
-          name: user.user_metadata?.name ?? null,
+          name: (user.user_metadata?.name as string) ?? null,
         });
         if (profError) {
           throw new Error(profError.message || "Could not create professor profile");
@@ -478,6 +523,41 @@ export default function CreateSimulationPage() {
 
         <Card className="mb-6">
           <CardHeader>
+            <CardTitle>Preferences</CardTitle>
+            <CardDescription>
+              Select tags to guide the AI in generating your simulation (optional)
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {Object.entries(PREFERENCE_CATEGORIES).map(([key, category]) => (
+              <div key={key} className="space-y-2">
+                <Label className="text-sm font-medium">{category.label}</Label>
+                <div className="flex flex-wrap gap-2">
+                  {category.options.map((option) => {
+                    const isSelected = preferences[key]?.includes(option);
+                    return (
+                      <button
+                        key={option}
+                        type="button"
+                        onClick={() => togglePreference(key, option)}
+                        className={`inline-flex items-center rounded-full px-3 py-1.5 text-xs font-medium border transition-colors ${
+                          isSelected
+                            ? "bg-primary text-primary-foreground border-primary"
+                            : "bg-muted text-muted-foreground border-transparent hover:text-foreground hover:border-border"
+                        }`}
+                      >
+                        {option}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+
+        <Card className="mb-6">
+          <CardHeader>
             <CardTitle>Upload Materials</CardTitle>
             <CardDescription>
               Upload case studies, readings, or other materials to help generate content (optional)
@@ -552,13 +632,28 @@ export default function CreateSimulationPage() {
               Optional guidance for AI content generation
             </CardDescription>
           </CardHeader>
-          <CardContent>
+          <CardContent className="space-y-4">
             <Textarea
               placeholder="e.g., Align with Kotter's change model, Emphasize informal power, Avoid finance-heavy framing"
               value={formData.aiNotes}
               onChange={(e) => setFormData({ ...formData, aiNotes: e.target.value })}
               rows={3}
             />
+
+            <Separator />
+
+            <div className="space-y-2">
+              <Label htmlFor="reframe">Reframe / Disguise Scenario As</Label>
+              <Input
+                id="reframe"
+                placeholder='e.g., "A racing team deciding on tire changes" instead of the original setting'
+                value={formData.reframeAs}
+                onChange={(e) => setFormData({ ...formData, reframeAs: e.target.value })}
+              />
+              <p className="text-xs text-muted-foreground">
+                The AI will camouflage the case using this alternate setting while preserving the core dilemmas
+              </p>
+            </div>
           </CardContent>
         </Card>
 

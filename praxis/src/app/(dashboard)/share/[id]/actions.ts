@@ -1,6 +1,12 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
+import type { Database } from "@/types/database";
+
+type SimInsert = Database["public"]["Tables"]["simulations"]["Insert"];
+type DecInsert = Database["public"]["Tables"]["decisions"]["Insert"];
+type OptInsert = Database["public"]["Tables"]["options"]["Insert"];
+type RQInsert = Database["public"]["Tables"]["reflection_questions"]["Insert"];
 
 export async function copySimulationToAccount(simulationId: string): Promise<{ newId: string } | { error: string }> {
   const supabase = await createClient();
@@ -19,7 +25,7 @@ export async function copySimulationToAccount(simulationId: string): Promise<{ n
     await supabase.from("professors").insert({
       id: user.id,
       email: user.email ?? "",
-      name: user.user_metadata?.name ?? null,
+      name: (user.user_metadata?.name as string) ?? null,
     });
   }
 
@@ -59,7 +65,7 @@ export async function copySimulationToAccount(simulationId: string): Promise<{ n
       ...simInsert,
       professor_id: user.id,
       title: `${sim.title} (copy)`,
-    })
+    } as SimInsert)
     .select("id")
     .single();
 
@@ -77,7 +83,7 @@ export async function copySimulationToAccount(simulationId: string): Promise<{ n
       .insert({
         ...dRest,
         simulation_id: newSimId,
-      })
+      } as DecInsert)
       .select("id")
       .single();
     if (decErr || !newDec) continue;
@@ -90,7 +96,7 @@ export async function copySimulationToAccount(simulationId: string): Promise<{ n
         .insert({
           ...optRest,
           decision_id: newDec.id,
-        });
+        } as OptInsert);
     }
   }
 
@@ -101,7 +107,7 @@ export async function copySimulationToAccount(simulationId: string): Promise<{ n
       .insert({
         ...rqRest,
         simulation_id: newSimId,
-      });
+      } as RQInsert);
   }
 
   return { newId: newSimId };

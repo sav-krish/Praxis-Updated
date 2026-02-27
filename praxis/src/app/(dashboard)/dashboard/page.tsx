@@ -19,12 +19,13 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
   const { course: selectedCourse } = await searchParams;
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return null;
 
   // Fetch simulations for this professor
   const { data: allSimulations } = await supabase
     .from("simulations")
     .select("*")
-    .eq("professor_id", user?.id)
+    .eq("professor_id", user.id)
     .order("updated_at", { ascending: false });
 
   // Unique courses (course_topic) for personalized dashboard

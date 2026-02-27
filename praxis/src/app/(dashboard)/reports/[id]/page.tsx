@@ -52,6 +52,17 @@ export default async function ReportsPage({ params, searchParams }: PageProps) {
     .eq("id", selectedSessionId)
     .single();
 
+  if (!selectedSession) {
+    return (
+      <div className="max-w-4xl mx-auto text-center py-12">
+        <h1 className="text-2xl font-bold mb-4">Session Not Found</h1>
+        <p className="text-muted-foreground">
+          The selected session could not be loaded.
+        </p>
+      </div>
+    );
+  }
+
   // Fetch decisions with options
   const { data: decisions } = await supabase
     .from("decisions")
@@ -102,6 +113,7 @@ export default async function ReportsPage({ params, searchParams }: PageProps) {
       teams={teams || []}
       responses={responses || []}
       reflectionResponses={reflectionResponses || []}
+      initialDebrief={selectedSession?.debrief_guide as Record<string, unknown> | null}
     />
   );
 }

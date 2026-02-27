@@ -15,8 +15,13 @@ import {
   Users, 
   BarChart3,
   MessageSquare,
-  Trophy
+  Trophy,
+  BookOpen,
+  Loader2,
+  Sparkles,
 } from "lucide-react";
+import { toast } from "sonner";
+import { FeedbackCard } from "@/components/simulation/FeedbackCard";
 import type { Simulation, Session, Decision, Option, Participant, Team, Response } from "@/types/database";
 
 interface DecisionWithOptions extends Decision {
@@ -31,6 +36,14 @@ interface ReflectionResponseWithQuestion {
   question: { question: string };
 }
 
+interface DebriefGuide {
+  correctCourseOfAction?: string;
+  keyDiscussionPoints?: string[];
+  commonMistakes?: string[];
+  connectionToObjectives?: string;
+  facilitatorTips?: string[];
+}
+
 interface ReportsViewProps {
   simulation: Simulation;
   sessions: Session[];
@@ -40,6 +53,7 @@ interface ReportsViewProps {
   teams: Team[];
   responses: Response[];
   reflectionResponses: ReflectionResponseWithQuestion[];
+  initialDebrief?: Record<string, unknown> | null;
 }
 
 export function ReportsView({
@@ -51,8 +65,33 @@ export function ReportsView({
   teams,
   responses,
   reflectionResponses,
+  initialDebrief,
 }: ReportsViewProps) {
   const router = useRouter();
+  const [debrief, setDebrief] = useState<DebriefGuide | null>(initialDebrief as DebriefGuide | null);
+  const [generatingDebrief, setGeneratingDebrief] = useState(false);
+
+  const generateDebrief = async () => {
+    setGeneratingDebrief(true);
+    try {
+      const res = await fetch("/api/generate-debrief", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ sessionId: selectedSession.id }),
+      });
+      const data = await res.json();
+      if (data.success && data.debrief) {
+        setDebrief(data.debrief);
+        toast.success("Facilitator guide generated!");
+      } else {
+        toast.error(data.error || "Failed to generate guide");
+      }
+    } catch {
+      toast.error("Failed to generate facilitator guide");
+    } finally {
+      setGeneratingDebrief(false);
+    }
+  };
 
   // Calculate distribution for each decision
   const getDistribution = (decisionId: string) => {
@@ -285,10 +324,11 @@ export function ReportsView({
       </div>
 
       <Tabs defaultValue="distribution" className="space-y-4 sm:space-y-6">
-        <TabsList className="grid w-full grid-cols-3 h-auto min-h-[44px] p-1">
+        <TabsList className="grid w-full grid-cols-4 h-auto min-h-[44px] p-1">
           <TabsTrigger value="distribution" className="text-xs sm:text-sm py-2">Distribution</TabsTrigger>
           <TabsTrigger value="scores" className="text-xs sm:text-sm py-2">Scores</TabsTrigger>
           <TabsTrigger value="reflections" className="text-xs sm:text-sm py-2">Reflections</TabsTrigger>
+          <TabsTrigger value="debrief" className="text-xs sm:text-sm py-2">Debrief</TabsTrigger>
         </TabsList>
 
         {/* Distribution Tab */}
@@ -416,6 +456,122 @@ export function ReportsView({
               )}
             </CardContent>
           </Card>
+        </TabsContent>
+
+        {/* Debrief Tab */}
+        <TabsContent value="debrief" className="space-y-4 sm:space-y-6">
+          {!debrief ? (
+            <Card>
+              <CardContent className="py-12 text-center space-y-4">
+                <BookOpen className="h-10 w-10 mx-auto text-muted-foreground" />
+                <div>
+                  <h3 className="font-semibold text-lg mb-1">Facilitator Guide</h3>
+                  <p className="text-muted-foreground text-sm max-w-md mx-auto">
+                    Generate an AI-powered debrief guide with discussion points, correct course of action,
+                    common mistakes, and facilitation tips.
+                  </p>
+                </div>
+                <Button onClick={generateDebrief} disabled={generatingDebrief} className="min-h-[44px]">
+                  {generatingDebrief ? (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  ) : (
+                    <Sparkles className="mr-2 h-4 w-4" />
+                  )}
+                  {generatingDebrief ? "Generating..." : "Generate Facilitator Guide"}
+                </Button>
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="space-y-4">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <BookOpen className="h-5 w-5" />
+                    Correct Course of Action
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-sm leading-relaxed">{debrief.correctCourseOfAction}</p>
+                </CardContent>
+              </Card>
+
+              {debrief.keyDiscussionPoints && debrief.keyDiscussionPoints.length > 0 && (
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Key Discussion Points</CardTitle>
+                    <CardDescription>Topics and questions to raise during the debrief</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <ul className="space-y-2">
+                      {debrief.keyDiscussionPoints.map((point, i) => (
+                        <li key={i} className="flex gap-2 text-sm">
+                          <span className="text-primary font-medium shrink-0">{i + 1}.</span>
+                          <span>{point}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </CardContent>
+                </Card>
+              )}
+
+              {debrief.commonMistakes && debrief.commonMistakes.length > 0 && (
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Common Student Mistakes</CardTitle>
+                    <CardDescription>Patterns to watch for and how to address them</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <ul className="space-y-2">
+                      {debrief.commonMistakes.map((mistake, i) => (
+                        <li key={i} className="flex gap-2 text-sm">
+                          <span className="text-destructive font-medium shrink-0">!</span>
+                          <span>{mistake}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </CardContent>
+                </Card>
+              )}
+
+              {debrief.connectionToObjectives && (
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Connection to Learning Objectives</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <p className="text-sm leading-relaxed">{debrief.connectionToObjectives}</p>
+                  </CardContent>
+                </Card>
+              )}
+
+              {debrief.facilitatorTips && debrief.facilitatorTips.length > 0 && (
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Facilitator Tips</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <ul className="space-y-2">
+                      {debrief.facilitatorTips.map((tip, i) => (
+                        <li key={i} className="flex gap-2 text-sm">
+                          <span className="text-primary shrink-0">-</span>
+                          <span>{tip}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </CardContent>
+                </Card>
+              )}
+            </div>
+          )}
+
+          <Separator />
+
+          <FeedbackCard
+            simulationId={simulation.id}
+            sessionId={selectedSession.id}
+            feedbackType="post_session"
+            role="professor"
+          />
         </TabsContent>
       </Tabs>
     </div>

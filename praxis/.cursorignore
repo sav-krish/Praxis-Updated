@@ -1,9 +1,0 @@
-# Environment files with secrets
-.env.local
-.env
-.env.production
-.env.*.local
-
-# Other sensitive files
-*.pem
-*.key

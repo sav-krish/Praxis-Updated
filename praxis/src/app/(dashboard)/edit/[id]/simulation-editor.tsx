@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef, useCallback, useEffect } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
@@ -27,9 +27,14 @@ import {
   CircleDot,
   MessageSquare,
   ArrowLeft,
-  ArrowRight,
+  ChevronLeft,
+  ChevronRight,
   ChevronDown,
   Share2,
+  Globe,
+  Info,
+  Users,
+  Trash2,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Plus } from "lucide-react";
@@ -40,7 +45,10 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { DataBlockEditor } from "@/components/simulation/DataBlockEditor";
-import type { Simulation, Decision, Option, ReflectionQuestion } from "@/types/database";
+import { DataBlockRenderer } from "@/components/simulation/DataBlockRenderer";
+import { FeedbackCard } from "@/components/simulation/FeedbackCard";
+import { copySimulationToAccount } from "@/app/(dashboard)/share/[id]/actions";
+import type { Simulation, Decision, Option, ReflectionQuestion, SimulationProfile, Json } from "@/types/database";
 import type { SimulationDataBlock, DataBlockType } from "@/types/data-blocks";
 
 interface DecisionWithOptions extends Decision {
@@ -52,6 +60,10 @@ interface SimulationEditorProps {
   decisions: DecisionWithOptions[];
   reflectionQuestions: ReflectionQuestion[];
   dataBlocks: SimulationDataBlock[];
+  profiles: SimulationProfile[];
+  userId?: string;
+  isNewlyGenerated?: boolean;
+  isOwner?: boolean;
 }
 
 const EDITOR_STEPS = [
@@ -75,6 +87,10 @@ export function SimulationEditor({
   decisions: initialDecisions,
   reflectionQuestions: initialQuestions,
   dataBlocks: initialDataBlocks = [],
+  profiles: initialProfiles = [],
+  userId,
+  isNewlyGenerated = false,
+  isOwner = true,
 }: SimulationEditorProps) {
   const router = useRouter();
   const [saving, setSaving] = useState(false);
@@ -82,20 +98,59 @@ export function SimulationEditor({
   const [decisions, setDecisions] = useState(initialDecisions);
   const [reflectionQuestions, setReflectionQuestions] = useState(initialQuestions);
   const [dataBlocks, setDataBlocks] = useState<SimulationDataBlock[]>(initialDataBlocks);
+  const [profiles, setProfiles] = useState<SimulationProfile[]>(initialProfiles);
   const [currentStep, setCurrentStep] = useState(0);
   const [slideDirection, setSlideDirection] = useState(0);
+  const [showFeedbackBanner, setShowFeedbackBanner] = useState(isNewlyGenerated && isOwner);
 
-  const goToStep = (nextIndex: number) => {
-    setSlideDirection(nextIndex > currentStep ? 1 : -1);
-    setCurrentStep(nextIndex);
+  // Dirty tracking: snapshot initial state, compare against current
+  const snapshotRef = useRef(JSON.stringify({
+    simulation: initialSimulation,
+    decisions: initialDecisions,
+    reflectionQuestions: initialQuestions,
+    dataBlocks: initialDataBlocks,
+    profiles: initialProfiles,
+  }));
+
+  const isDirty = useCallback(() => {
+    return JSON.stringify({ simulation, decisions, reflectionQuestions, dataBlocks, profiles }) !== snapshotRef.current;
+  }, [simulation, decisions, reflectionQuestions, dataBlocks, profiles]);
+
+  const markClean = useCallback(() => {
+    snapshotRef.current = JSON.stringify({ simulation, decisions, reflectionQuestions, dataBlocks, profiles });
+  }, [simulation, decisions, reflectionQuestions, dataBlocks, profiles]);
+
+  // Warn on browser close / tab close when dirty
+  useEffect(() => {
+    if (!isOwner) return;
+    const handler = (e: BeforeUnloadEvent) => {
+      if (isDirty()) {
+        e.preventDefault();
+      }
+    };
+    window.addEventListener("beforeunload", handler);
+    return () => window.removeEventListener("beforeunload", handler);
+  }, [isDirty, isOwner]);
+
+  const handleSaveToDashboard = async () => {
+    setSaving(true);
+    const result = await copySimulationToAccount(simulation.id);
+    setSaving(false);
+    if ("error" in result) {
+      toast.error(result.error);
+      return;
+    }
+    toast.success("Added to your dashboard");
+    router.push(`/edit/${result.newId}`);
   };
 
-  const handleSave = async () => {
+  // Core save logic — returns true on success, false on failure
+  const performSave = useCallback(async (silent = false): Promise<boolean> => {
+    if (!isOwner) return true;
     setSaving(true);
     const supabase = createClient();
 
     try {
-      // Update simulation
       const { error: simError } = await supabase
         .from("simulations")
         .update({
@@ -109,23 +164,22 @@ export function SimulationEditor({
           team_assignment: simulation.team_assignment,
           difficulty: simulation.difficulty ?? null,
           estimated_minutes: simulation.estimated_minutes ?? null,
+          is_public: simulation.is_public,
+          hidden_profiles_enabled: simulation.hidden_profiles_enabled,
           updated_at: new Date().toISOString(),
         })
         .eq("id", simulation.id);
 
       if (simError) throw simError;
 
-      // Update decisions and options
-      for (const decision of decisions) {
-        const { error: decError } = await supabase
+      const decisionPromises = decisions.flatMap((decision) => [
+        supabase
           .from("decisions")
           .update({ prompt: decision.prompt })
-          .eq("id", decision.id);
-
-        if (decError) throw decError;
-
-        for (const option of decision.options) {
-          const { error: optError } = await supabase
+          .eq("id", decision.id)
+          .then(({ error }: { error: unknown }) => { if (error) throw error; }),
+        ...decision.options.map((option) =>
+          supabase
             .from("options")
             .update({
               title: option.title,
@@ -133,23 +187,21 @@ export function SimulationEditor({
               consequence: option.consequence,
               score: option.score,
             })
-            .eq("id", option.id);
+            .eq("id", option.id)
+            .then(({ error }: { error: unknown }) => { if (error) throw error; })
+        ),
+      ]);
 
-          if (optError) throw optError;
-        }
-      }
-
-      // Update reflection questions
-      for (const question of reflectionQuestions) {
-        const { error: refError } = await supabase
+      const reflectionPromises = reflectionQuestions.map((question) =>
+        supabase
           .from("reflection_questions")
           .update({ question: question.question })
-          .eq("id", question.id);
+          .eq("id", question.id)
+          .then(({ error }: { error: unknown }) => { if (error) throw error; })
+      );
 
-        if (refError) throw refError;
-      }
+      await Promise.all([...decisionPromises, ...reflectionPromises]);
 
-      // Data blocks: delete removed, update existing, insert new
       const initialIds = new Set(initialDataBlocks.map((b) => b.id));
       for (const id of initialIds) {
         if (!dataBlocks.some((b) => b.id === id)) {
@@ -163,7 +215,7 @@ export function SimulationEditor({
           order_num: i + 1,
           block_type: b.block_type,
           title: b.title || null,
-          data: b.data as unknown as Record<string, unknown>,
+          data: b.data as unknown as Json,
         };
         const isNew = !b.id || b.id.startsWith("new-");
         if (isNew) {
@@ -177,14 +229,70 @@ export function SimulationEditor({
         }
       }
 
-      toast.success("Simulation saved!");
+      if (simulation.hidden_profiles_enabled) {
+        const initialProfileIds = new Set(initialProfiles.map((p) => p.id));
+        for (const pid of initialProfileIds) {
+          if (!profiles.some((p) => p.id === pid)) {
+            await supabase.from("simulation_profiles").delete().eq("id", pid);
+          }
+        }
+        for (let i = 0; i < profiles.length; i++) {
+          const p = profiles[i];
+          const payload = {
+            simulation_id: simulation.id,
+            profile_name: p.profile_name,
+            private_briefing: p.private_briefing,
+            order_num: i + 1,
+          };
+          const isNew = !p.id || p.id.startsWith("new-");
+          if (isNew) {
+            await supabase.from("simulation_profiles").insert(payload);
+          } else {
+            const { error } = await supabase
+              .from("simulation_profiles")
+              .update(payload)
+              .eq("id", p.id);
+            if (error) throw error;
+          }
+        }
+      } else {
+        await supabase.from("simulation_profiles").delete().eq("simulation_id", simulation.id);
+      }
+
+      markClean();
+      if (!silent) toast.success("Simulation saved!");
+      return true;
     } catch (error) {
       console.error(error);
       toast.error("Failed to save simulation");
+      return false;
     } finally {
       setSaving(false);
     }
+  }, [simulation, decisions, reflectionQuestions, dataBlocks, profiles, initialDataBlocks, initialProfiles, isOwner, markClean]);
+
+  // Autosave on step transition (only if owner and dirty)
+  const goToStep = async (nextIndex: number) => {
+    if (isOwner && isDirty()) {
+      const ok = await performSave(true);
+      if (ok) toast.success("Progress saved", { duration: 1500 });
+    }
+    setSlideDirection(nextIndex > currentStep ? 1 : -1);
+    setCurrentStep(nextIndex);
   };
+
+  // Save then navigate to start session
+  const handleStartSession = async () => {
+    if (isOwner && isDirty()) {
+      const ok = await performSave(true);
+      if (!ok) return;
+      toast.success("Simulation saved", { duration: 1500 });
+    }
+    router.push(`/session/${simulation.id}/new`);
+  };
+
+  // Manual save button
+  const handleSave = () => performSave(false);
 
   const updateDecision = (index: number, field: string, value: string) => {
     setDecisions(prev => {
@@ -241,99 +349,94 @@ export function SimulationEditor({
       {/* Header */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between mb-4 sm:mb-6">
         <div className="flex items-center gap-3 min-w-0">
-          <Link href="/dashboard">
-            <Button variant="ghost" size="icon" className="shrink-0 min-h-[44px] min-w-[44px]">
-              <ArrowLeft className="h-5 w-5" />
-            </Button>
-          </Link>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="shrink-0 min-h-[44px] min-w-[44px]"
+            onClick={() => {
+              if (isOwner && isDirty()) {
+                toast.warning("You have unsaved changes. Click Save before leaving, or they will be lost.", { duration: 4000 });
+                return;
+              }
+              router.push(isOwner ? "/dashboard" : "/library");
+            }}
+          >
+            <ArrowLeft className="h-5 w-5" />
+          </Button>
           <div className="min-w-0">
-            <h1 className="text-xl sm:text-2xl font-bold truncate">Edit Simulation</h1>
+            <h1 className="text-xl sm:text-2xl font-bold truncate">
+              {isOwner ? "Edit Simulation" : "View Simulation"}
+            </h1>
             <p className="text-muted-foreground text-sm truncate">{simulation.title}</p>
           </div>
         </div>
         <div className="flex gap-2 flex-wrap">
-          <Button variant="outline" onClick={handleSave} disabled={saving} className="min-h-[44px] flex-1 sm:flex-none">
-            {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
-            Save
-          </Button>
-          <Link href={`/share/${simulation.id}`} className="flex-1 sm:flex-none">
-            <Button variant="outline" className="w-full min-h-[44px]">
-              <Share2 className="mr-2 h-4 w-4 shrink-0" />
-              Share
+          {isOwner ? (
+            <>
+              <Button variant="outline" onClick={handleSave} disabled={saving} className="min-h-[44px] flex-1 sm:flex-none">
+                {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+                Save
+              </Button>
+              <Link href={`/share/${simulation.id}`} className="flex-1 sm:flex-none">
+                <Button variant="outline" className="w-full min-h-[44px]">
+                  <Share2 className="mr-2 h-4 w-4 shrink-0" />
+                  Share
+                </Button>
+              </Link>
+              <Button onClick={handleStartSession} disabled={saving} className="flex-1 sm:flex-none min-h-[44px]">
+                {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Play className="mr-2 h-4 w-4 shrink-0" />}
+                Start Session
+              </Button>
+            </>
+          ) : (
+            <Button onClick={handleSaveToDashboard} disabled={saving} className="min-h-[44px] flex-1 sm:flex-none">
+              {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+              Save to dashboard
             </Button>
-          </Link>
-          <Link href={`/session/${simulation.id}/new`} className="flex-1 sm:flex-none">
-            <Button className="w-full min-h-[44px]">
-              <Play className="mr-2 h-4 w-4 shrink-0" />
-              Start Session
-            </Button>
-          </Link>
+          )}
         </div>
       </div>
 
-      {/* Step indicator: Background → Decisions → Reflection → Settings */}
-      <nav
-        className="mb-6 sm:mb-8 overflow-x-auto pb-2 -mx-2 px-2 sm:mx-0 sm:px-0 scrollbar-thin"
-        aria-label="Editor steps"
-      >
-        <div className="flex flex-nowrap items-center justify-center gap-1 sm:gap-2 text-sm min-w-max sm:min-w-0">
-          {EDITOR_STEPS.map((step, index) => {
-            const Icon = step.icon;
-            const isActive = currentStep === index;
-            const isPast = currentStep > index;
-            return (
-              <span key={step.id} className="flex items-center shrink-0 gap-1 sm:gap-2">
-                <button
-                  type="button"
-                  onClick={() => goToStep(index)}
-                  className={`flex items-center gap-1.5 sm:gap-2 rounded-md px-2 sm:px-3 py-2 transition-colors shrink-0 ${
-                    isActive
-                      ? "bg-primary text-primary-foreground font-medium"
-                      : isPast
-                        ? "text-muted-foreground hover:text-foreground hover:bg-muted"
-                        : "text-muted-foreground hover:text-foreground hover:bg-muted"
-                  }`}
-                >
-                  <Icon className="h-3.5 w-3.5 sm:h-4 sm:w-4 shrink-0" />
-                  <span className="whitespace-nowrap hidden sm:inline">{step.label}</span>
-                </button>
-                {index < EDITOR_STEPS.length - 1 && (
-                  <ArrowRight className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-muted-foreground shrink-0" aria-hidden />
-                )}
-              </span>
-            );
-          })}
+      {/* Progress bar + Previous / Next nav */}
+      <div className="mb-6 sm:mb-8 space-y-3">
+        <div className="flex items-center justify-between gap-3">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => goToStep(currentStep - 1)}
+            disabled={currentStep === 0}
+            className="min-h-[36px] gap-1.5"
+          >
+            <ChevronLeft className="h-4 w-4" />
+            <span className="hidden sm:inline">Previous</span>
+          </Button>
+          <span className="text-sm font-medium text-center">
+            Step {currentStep + 1} of {EDITOR_STEPS.length}: {EDITOR_STEPS[currentStep].label}
+          </span>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => goToStep(currentStep + 1)}
+            disabled={currentStep === EDITOR_STEPS.length - 1}
+            className="min-h-[36px] gap-1.5"
+          >
+            <span className="hidden sm:inline">Next</span>
+            <ChevronRight className="h-4 w-4" />
+          </Button>
         </div>
-      </nav>
-
-      {/* Step content with left/right circular nav */}
-      <div className="flex gap-3 sm:gap-6 items-stretch justify-center">
-        {/* Left nav - circular, sliding animation */}
-        <div className="hidden sm:flex shrink-0 w-12 sm:w-16 items-center justify-center min-h-[200px] sm:min-h-[400px]">
-          <AnimatePresence mode="wait">
-          {currentStep > 0 ? (
-            <motion.button
-              key="nav-left"
-              type="button"
-              onClick={() => goToStep(currentStep - 1)}
-              initial={{ x: -20, opacity: 0 }}
-              animate={{ x: 0, opacity: 1 }}
-              exit={{ x: -20, opacity: 0 }}
-              transition={{ type: "tween", duration: 0.2 }}
-              className="sticky top-[calc(50vh-2rem)] h-14 w-14 sm:h-16 sm:w-16 rounded-full bg-primary text-primary-foreground shadow-lg shadow-primary/25 hover:bg-primary/90 hover:scale-105 active:scale-95 transition-all flex items-center justify-center focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-              title={EDITOR_STEPS[currentStep - 1].label}
-              aria-label={`Go to ${EDITOR_STEPS[currentStep - 1].label}`}
-            >
-              <ArrowLeft className="h-6 w-6 sm:h-7 sm:w-7" />
-            </motion.button>
-          ) : (
-            <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-full border-2 border-dashed border-muted" aria-hidden />
-          )}
-          </AnimatePresence>
+        <div className="w-full bg-muted rounded-full h-2 overflow-hidden">
+          <motion.div
+            className="h-full bg-primary rounded-full"
+            initial={false}
+            animate={{ width: `${((currentStep + 1) / EDITOR_STEPS.length) * 100}%` }}
+            transition={{ type: "spring", stiffness: 300, damping: 30 }}
+          />
         </div>
+      </div>
 
-        {/* Main content - centered, with slide animation */}
-        <div className="flex-1 min-w-0 max-w-3xl mx-auto space-y-6 overflow-hidden">
+      {/* Step content */}
+      <div className="max-w-3xl mx-auto">
+        <div className="space-y-6 overflow-hidden">
         <AnimatePresence mode="wait">
         {/* Step 0: Background */}
         {currentStep === 0 && (
@@ -378,6 +481,7 @@ export function SimulationEditor({
                 onChange={(e) => setSimulation({ ...simulation, background_content: e.target.value })}
                 rows={15}
                 className="font-mono text-sm"
+                disabled={!isOwner}
               />
               <p className="text-xs text-muted-foreground mt-2">
                 Supports Markdown (headings, lists, **bold**, and tables). Aim for 1-2 pages.
@@ -390,56 +494,57 @@ export function SimulationEditor({
             <CardHeader>
               <CardTitle>Data &amp; Visuals</CardTitle>
               <CardDescription>
-                Tables, charts, timelines, and KPI cards shown to students in the background. AI generates these; you can edit or add more.
+                {isOwner
+                  ? "Tables, charts, timelines, and KPI cards shown to students in the background. AI generates these; you can edit or add more."
+                  : "Tables, charts, timelines, and KPI cards shown to students in the background."}
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              {dataBlocks.map((block, index) => (
-                <DataBlockEditor
-                  key={block.id}
-                  block={block}
-                  onUpdate={(updated) => updateDataBlock(index, updated)}
-                  onDelete={() => deleteDataBlock(index)}
-                />
-              ))}
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="outline" size="sm" className="w-fit">
-                    <Plus className="mr-2 h-4 w-4" />
-                    Add data block
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent>
-                  <DropdownMenuItem onClick={() => addDataBlock("table")}>
-                    Table
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => addDataBlock("bar_chart")}>
-                    Bar Chart
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => addDataBlock("line_chart")}>
-                    Line Chart
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => addDataBlock("kpi_cards")}>
-                    KPI Cards
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => addDataBlock("timeline")}>
-                    Timeline
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => addDataBlock("pie_chart")}>
-                    Pie Chart
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
+              {dataBlocks.map((block, index) =>
+                isOwner ? (
+                  <DataBlockEditor
+                    key={block.id}
+                    block={block}
+                    onUpdate={(updated) => updateDataBlock(index, updated)}
+                    onDelete={() => deleteDataBlock(index)}
+                  />
+                ) : (
+                  <DataBlockRenderer key={block.id} block={block} />
+                )
+              )}
+              {isOwner && (
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="outline" size="sm" className="w-fit">
+                      <Plus className="mr-2 h-4 w-4" />
+                      Add data block
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent>
+                    <DropdownMenuItem onClick={() => addDataBlock("table")}>
+                      Table
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => addDataBlock("bar_chart")}>
+                      Bar Chart
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => addDataBlock("line_chart")}>
+                      Line Chart
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => addDataBlock("kpi_cards")}>
+                      KPI Cards
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => addDataBlock("timeline")}>
+                      Timeline
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => addDataBlock("pie_chart")}>
+                      Pie Chart
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
                 </DropdownMenu>
+              )}
             </CardContent>
           </Card>
 
-          {/* Mobile nav - shown when side circles are hidden */}
-          <div className="sm:hidden flex justify-end pt-4">
-            <Button onClick={() => goToStep(1)} className="min-h-[44px]">
-              Decisions
-              <ArrowRight className="ml-2 h-4 w-4 shrink-0" />
-            </Button>
-          </div>
           </motion.div>
         )}
 
@@ -479,6 +584,7 @@ export function SimulationEditor({
                         value={decision.prompt}
                         onChange={(e) => updateDecision(dIndex, "prompt", e.target.value)}
                         rows={3}
+                        disabled={!isOwner}
                       />
                     </div>
 
@@ -495,12 +601,14 @@ export function SimulationEditor({
                               value={option.title}
                               onChange={(e) => updateOption(dIndex, oIndex, "title", e.target.value)}
                               className="flex-1 min-w-[120px]"
+                              disabled={!isOwner}
                             />
                             <div className="flex items-center gap-2 shrink-0">
                               <Label className="text-sm whitespace-nowrap">Score:</Label>
                               <Select
                                 value={String(option.score)}
                                 onValueChange={(value) => updateOption(dIndex, oIndex, "score", parseInt(value))}
+                                disabled={!isOwner}
                               >
                                 <SelectTrigger className="w-20">
                                   <SelectValue />
@@ -520,6 +628,7 @@ export function SimulationEditor({
                               value={option.description || ""}
                               onChange={(e) => updateOption(dIndex, oIndex, "description", e.target.value)}
                               rows={2}
+                              disabled={!isOwner}
                             />
                           </div>
                           <div className="space-y-2">
@@ -529,6 +638,7 @@ export function SimulationEditor({
                               value={option.consequence || ""}
                               onChange={(e) => updateOption(dIndex, oIndex, "consequence", e.target.value)}
                               rows={2}
+                              disabled={!isOwner}
                             />
                           </div>
                         </div>
@@ -540,17 +650,6 @@ export function SimulationEditor({
             </Collapsible>
           ))}
 
-          {/* Mobile nav */}
-          <div className="sm:hidden flex justify-between pt-4">
-            <Button variant="outline" onClick={() => goToStep(0)} className="min-h-[44px]">
-              <ArrowLeft className="mr-2 h-4 w-4 shrink-0" />
-              Background
-            </Button>
-            <Button onClick={() => goToStep(2)} className="min-h-[44px]">
-              Reflection
-              <ArrowRight className="ml-2 h-4 w-4 shrink-0" />
-            </Button>
-          </div>
         </motion.div>
         )}
 
@@ -579,23 +678,13 @@ export function SimulationEditor({
                     value={question.question}
                     onChange={(e) => updateReflectionQuestion(index, e.target.value)}
                     placeholder="Enter reflection question..."
+                    disabled={!isOwner}
                   />
                 </div>
               ))}
             </CardContent>
           </Card>
 
-          {/* Mobile nav */}
-          <div className="sm:hidden flex justify-between pt-4">
-            <Button variant="outline" onClick={() => goToStep(1)} className="min-h-[44px]">
-              <ArrowLeft className="mr-2 h-4 w-4 shrink-0" />
-              Decisions
-            </Button>
-            <Button onClick={() => goToStep(3)} className="min-h-[44px]">
-              Settings
-              <ArrowRight className="ml-2 h-4 w-4 shrink-0" />
-            </Button>
-          </div>
           </motion.div>
         )}
 
@@ -609,6 +698,15 @@ export function SimulationEditor({
             transition={{ type: "tween", duration: 0.2 }}
             className="space-y-6"
           >
+          {showFeedbackBanner && (
+            <FeedbackCard
+              simulationId={simulation.id}
+              userId={userId}
+              feedbackType="post_generation"
+              role="professor"
+              onDismiss={() => setShowFeedbackBanner(false)}
+            />
+          )}
           <Card>
             <CardHeader>
               <CardTitle>Run Settings</CardTitle>
@@ -622,6 +720,7 @@ export function SimulationEditor({
                   onValueChange={(value: "individual" | "teams") => 
                     setSimulation({ ...simulation, mode: value })
                   }
+                  disabled={!isOwner}
                 >
                   <SelectTrigger>
                     <SelectValue />
@@ -642,6 +741,7 @@ export function SimulationEditor({
                       onValueChange={(value: "auto" | "self") => 
                         setSimulation({ ...simulation, team_assignment: value })
                       }
+                      disabled={!isOwner}
                     >
                       <SelectTrigger>
                         <SelectValue />
@@ -664,6 +764,7 @@ export function SimulationEditor({
                         setSimulation({ ...simulation, team_size: parseInt(e.target.value) })
                       }
                       className="w-32"
+                      disabled={!isOwner}
                     />
                     <p className="text-xs text-muted-foreground">
                       Number of students per team (for auto-assign)
@@ -680,40 +781,179 @@ export function SimulationEditor({
             </CardContent>
           </Card>
 
-          {/* Mobile nav */}
-          <div className="sm:hidden flex justify-between pt-4">
-            <Button variant="outline" onClick={() => goToStep(2)} className="min-h-[44px]">
-              <ArrowLeft className="mr-2 h-4 w-4 shrink-0" />
-              Reflection
-            </Button>
-          </div>
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Globe className="h-5 w-5" />
+                Share to Library
+              </CardTitle>
+              <CardDescription>
+                Make this simulation discoverable in the community library
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="flex items-center justify-between gap-3">
+                <div className="space-y-1">
+                  <Label htmlFor="share-library" className="cursor-pointer">
+                    Publish to Simulation Library
+                  </Label>
+                  <p className="text-xs text-muted-foreground">
+                    Other professors and students can browse and favorite your simulation
+                  </p>
+                </div>
+                <button
+                  id="share-library"
+                  type="button"
+                  role="switch"
+                  aria-checked={simulation.is_public}
+                  disabled={!isOwner}
+                  onClick={() => isOwner && setSimulation({ ...simulation, is_public: !simulation.is_public })}
+                  className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full border-2 border-transparent transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ${
+                    !isOwner ? "cursor-not-allowed opacity-60" : "cursor-pointer"
+                  } ${simulation.is_public ? "bg-primary" : "bg-input"}`}
+                >
+                  <span
+                    className={`pointer-events-none block h-5 w-5 rounded-full bg-background shadow-lg ring-0 transition-transform ${
+                      simulation.is_public ? "translate-x-5" : "translate-x-0"
+                    }`}
+                  />
+                </button>
+              </div>
+              {simulation.is_public && (
+                <div className="mt-3 flex items-start gap-2 p-3 bg-muted rounded-lg">
+                  <Info className="h-4 w-4 text-muted-foreground shrink-0 mt-0.5" />
+                  <p className="text-xs text-muted-foreground">
+                    Your simulation will appear in the public library. Community members can favorite it to boost its ranking.
+                  </p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Users className="h-5 w-5" />
+                Hidden Profiles
+              </CardTitle>
+              <CardDescription>
+                Give each participant a unique role with private information only they can see
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex items-center justify-between gap-3">
+                <div className="space-y-1">
+                  <Label htmlFor="hidden-profiles" className="cursor-pointer">
+                    Enable Hidden Profiles
+                  </Label>
+                  <p className="text-xs text-muted-foreground">
+                    Participants receive different briefings based on their assigned role (e.g. CEO, CFO)
+                  </p>
+                </div>
+                <button
+                  id="hidden-profiles"
+                  type="button"
+                  role="switch"
+                  aria-checked={simulation.hidden_profiles_enabled}
+                  disabled={!isOwner}
+                  onClick={() => {
+                    if (!isOwner) return;
+                    const enabling = !simulation.hidden_profiles_enabled;
+                    setSimulation({ ...simulation, hidden_profiles_enabled: enabling });
+                    if (enabling && profiles.length === 0) {
+                      setProfiles([
+                        { id: `new-${Date.now()}-1`, simulation_id: simulation.id, profile_name: "", private_briefing: "", order_num: 1, created_at: "" },
+                        { id: `new-${Date.now()}-2`, simulation_id: simulation.id, profile_name: "", private_briefing: "", order_num: 2, created_at: "" },
+                      ]);
+                    }
+                  }}
+                  className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full border-2 border-transparent transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ${
+                    !isOwner ? "cursor-not-allowed opacity-60" : "cursor-pointer"
+                  } ${simulation.hidden_profiles_enabled ? "bg-primary" : "bg-input"}`}
+                >
+                  <span
+                    className={`pointer-events-none block h-5 w-5 rounded-full bg-background shadow-lg ring-0 transition-transform ${
+                      simulation.hidden_profiles_enabled ? "translate-x-5" : "translate-x-0"
+                    }`}
+                  />
+                </button>
+              </div>
+
+              {simulation.hidden_profiles_enabled && (
+                <div className="space-y-4 pt-2">
+                  {profiles.map((profile, index) => (
+                    <div key={profile.id} className="border rounded-lg p-4 space-y-3">
+                      <div className="flex items-center justify-between gap-2">
+                        <Badge variant="outline">Role {index + 1}</Badge>
+                        {isOwner && profiles.length > 2 && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-7 w-7 text-muted-foreground hover:text-destructive"
+                            onClick={() => {
+                              setProfiles(prev => prev.filter((_, i) => i !== index).map((p, i) => ({ ...p, order_num: i + 1 })));
+                            }}
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </Button>
+                        )}
+                      </div>
+                      <div className="space-y-2">
+                        <Label className="text-sm">Role Name</Label>
+                        <Input
+                          placeholder='e.g. "CEO", "CFO", "Operations Manager"'
+                          value={profile.profile_name}
+                          onChange={(e) => {
+                            setProfiles(prev => prev.map((p, i) => i === index ? { ...p, profile_name: e.target.value } : p));
+                          }}
+                          disabled={!isOwner}
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label className="text-sm">Private Briefing</Label>
+                        <Textarea
+                          placeholder="Information only this role will see (e.g. confidential financials, private context)..."
+                          value={profile.private_briefing}
+                          onChange={(e) => {
+                            setProfiles(prev => prev.map((p, i) => i === index ? { ...p, private_briefing: e.target.value } : p));
+                          }}
+                          rows={4}
+                          disabled={!isOwner}
+                        />
+                      </div>
+                    </div>
+                  ))}
+
+                  {isOwner && profiles.length < 6 && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        setProfiles(prev => [
+                          ...prev,
+                          { id: `new-${Date.now()}`, simulation_id: simulation.id, profile_name: "", private_briefing: "", order_num: prev.length + 1, created_at: "" },
+                        ]);
+                      }}
+                    >
+                      <Plus className="mr-2 h-4 w-4" />
+                      Add Role ({profiles.length}/6)
+                    </Button>
+                  )}
+
+                  <div className="flex items-start gap-2 p-3 bg-muted rounded-lg">
+                    <Info className="h-4 w-4 text-muted-foreground shrink-0 mt-0.5" />
+                    <p className="text-xs text-muted-foreground">
+                      Roles are assigned automatically (round-robin) when the session starts. The professor can reassign roles from the lobby. Everyone sees the shared background; each student also sees only their own private briefing.
+                    </p>
+                  </div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
           </motion.div>
         )}
         </AnimatePresence>
-        </div>
-
-        {/* Right nav - circular, sliding animation */}
-        <div className="hidden sm:flex shrink-0 w-12 sm:w-16 items-center justify-center min-h-[200px] sm:min-h-[400px]">
-          <AnimatePresence mode="wait">
-          {currentStep < 3 ? (
-            <motion.button
-              key="nav-right"
-              type="button"
-              onClick={() => goToStep(currentStep + 1)}
-              initial={{ x: 20, opacity: 0 }}
-              animate={{ x: 0, opacity: 1 }}
-              exit={{ x: 20, opacity: 0 }}
-              transition={{ type: "tween", duration: 0.2 }}
-              className="sticky top-[calc(50vh-2rem)] h-14 w-14 sm:h-16 sm:w-16 rounded-full bg-primary text-primary-foreground shadow-lg shadow-primary/25 hover:bg-primary/90 hover:scale-105 active:scale-95 transition-all flex items-center justify-center focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-              title={EDITOR_STEPS[currentStep + 1].label}
-              aria-label={`Go to ${EDITOR_STEPS[currentStep + 1].label}`}
-            >
-              <ArrowRight className="h-6 w-6 sm:h-7 sm:w-7" />
-            </motion.button>
-          ) : (
-            <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-full border-2 border-dashed border-muted" aria-hidden />
-          )}
-          </AnimatePresence>
         </div>
       </div>
     </div>

@@ -1,7 +1,7 @@
 import OpenAI from "openai";
 import type { DataBlockType } from "@/types/data-blocks";
 
-function getOpenAIClient(): OpenAI {
+export function getOpenAIClient(): OpenAI {
   const key = process.env.OPENAI_API_KEY;
   if (!key) {
     throw new Error("Missing credentials. Please set the OPENAI_API_KEY environment variable.");
@@ -9,8 +9,7 @@ function getOpenAIClient(): OpenAI {
   return new OpenAI({ apiKey: key });
 }
 
-// Default gpt-4o-mini (200k TPM) so long materials work; set OPENAI_MODEL=gpt-4o for 30k TPM tier.
-const getModel = () => process.env.OPENAI_MODEL || "gpt-4o-mini";
+export const getModel = () => process.env.OPENAI_MODEL || "gpt-4o-mini";
 
 export interface GeneratedDataBlock {
   block_type: DataBlockType;
@@ -35,13 +34,20 @@ export interface GeneratedSimulation {
   reflectionQuestions: string[];
 }
 
+export interface GenerationOptions {
+  stayCloseToSource?: boolean;
+  reframeAs?: string;
+  preferences?: Record<string, string[]>;
+}
+
 export async function generateSimulationContent(
   materials: string,
   goal: string,
   targetDecisions: string,
   courseTopic: string,
   aiNotes: string,
-  difficulty: "easy" | "hard" | "challenge" = "hard"
+  difficulty: "easy" | "hard" | "challenge" = "hard",
+  options: GenerationOptions = {}
 ): Promise<GeneratedSimulation> {
   const difficultyGuidance =
     difficulty === "easy"
@@ -49,6 +55,25 @@ export async function generateSimulationContent(
       : difficulty === "challenge"
         ? "CHALLENGE (~40 min): Create a rich, detailed background (1.5-2 pages). Include nuanced decisions with subtle distinctions between options. Use 2-3 data blocks with more depth. Consequence text can be longer. Aim for higher complexity and ambiguity."
         : "HARD (~25 min): Standard length background (1-2 pages). Moderate complexity—decisions with meaningful tradeoffs but not overly obscure. Include 1-3 data blocks. Balance clarity with nuance.";
+
+  // Default: stay close to source material (no UI toggle; always on)
+  const sourceConstraint = options.stayCloseToSource !== false
+    ? `\n\nSOURCE FIDELITY CONSTRAINT: You MUST base ALL decisions, scenarios, background content, and details strictly on the provided source materials. Do NOT introduce new angles, topics, creative interpretations, or details not present in the source. If the source covers a specific case or event, stay faithful to its framing and facts.`
+    : "";
+
+  const preferencesBlock = options.preferences
+    ? Object.entries(options.preferences)
+        .filter(([, values]) => values.length > 0)
+        .map(([category, values]) => `- ${category}: ${values.join(", ")}`)
+        .join("\n")
+    : "";
+  const preferencesConstraint = preferencesBlock
+    ? `\n\nINSTRUCTOR PREFERENCES (tailor the simulation accordingly):\n${preferencesBlock}`
+    : "";
+
+  const reframeConstraint = options.reframeAs
+    ? `\n\nREFRAME / CAMOUFLAGE INSTRUCTION: The instructor wants you to disguise or reframe the original scenario. Rewrite the entire simulation as if it takes place in this alternate setting: "${options.reframeAs}". Preserve all the core dilemmas, decision structures, and learning objectives from the source material, but translate names, organizations, industries, and surface details into the new framing. The students should not immediately recognize the original case.`
+    : "";
 
   const systemPrompt = `You are an expert instructional designer specializing in creating interactive classroom simulations for higher education. Your task is to create engaging decision-based simulations that help students understand complex concepts through realistic scenarios.
 
@@ -62,7 +87,7 @@ You will generate a complete simulation with:
 5. Realistic consequences for each choice
 6. 2 reflection questions
 
-The simulation should be realistic and create genuine dilemmas. Tailor complexity and length to the difficulty level.`;
+The simulation should be realistic and create genuine dilemmas. Tailor complexity and length to the difficulty level.${sourceConstraint}${reframeConstraint}${preferencesConstraint}`;
 
   const userPrompt = `Create a simulation based on the following:
 

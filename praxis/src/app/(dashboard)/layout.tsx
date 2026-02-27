@@ -10,7 +10,7 @@ import {
   DropdownMenuTrigger 
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { LogOut, Plus } from "lucide-react";
+import { LogOut, Plus, BookOpen, User } from "lucide-react";
 
 async function signOut() {
   "use server";
@@ -31,6 +31,14 @@ export default async function DashboardLayout({
     redirect("/login");
   }
 
+  const { data: professor } = await supabase
+    .from("professors")
+    .select("active_role")
+    .eq("id", user.id)
+    .single();
+
+  const isStudentMode = professor?.active_role === "student";
+
   const initials = user.user_metadata?.name
     ? user.user_metadata.name.split(" ").map((n: string) => n[0]).join("").toUpperCase()
     : user.email?.[0].toUpperCase() || "U";
@@ -48,13 +56,21 @@ export default async function DashboardLayout({
           </Link>
           
           <div className="flex items-center gap-2 sm:gap-4 shrink-0">
-            <Link href="/create">
-              <Button className="min-h-[44px] px-3 sm:px-4 text-sm sm:text-base">
-                <Plus className="h-4 w-4 mr-1.5 sm:mr-2 shrink-0" />
-                <span className="sm:inline">New Simulation</span>
-                <span className="sm:hidden">New</span>
+            <Link href="/library">
+              <Button variant="ghost" className="min-h-[44px] px-3 text-sm">
+                <BookOpen className="h-4 w-4 mr-1.5 shrink-0" />
+                <span className="hidden sm:inline">Library</span>
               </Button>
             </Link>
+            {!isStudentMode && (
+              <Link href="/create">
+                <Button className="min-h-[44px] px-3 sm:px-4 text-sm sm:text-base">
+                  <Plus className="h-4 w-4 mr-1.5 sm:mr-2 shrink-0" />
+                  <span className="hidden sm:inline">New Simulation</span>
+                  <span className="sm:hidden">New</span>
+                </Button>
+              </Link>
+            )}
             
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
@@ -73,6 +89,13 @@ export default async function DashboardLayout({
                     <p className="text-sm text-muted-foreground">{user.email}</p>
                   </div>
                 </div>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem asChild>
+                  <Link href="/profile" className="cursor-pointer">
+                    <User className="mr-2 h-4 w-4" />
+                    Profile
+                  </Link>
+                </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <form action={signOut}>
                   <DropdownMenuItem asChild>

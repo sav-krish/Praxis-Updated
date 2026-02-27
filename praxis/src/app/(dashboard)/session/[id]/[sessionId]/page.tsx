@@ -49,6 +49,13 @@ export default async function SessionPage({ params }: PageProps) {
     .select("decision_id, participant_id, team_id")
     .eq("session_id", sessionId);
 
+  // Fetch hidden profiles
+  const { data: profiles } = await supabase
+    .from("simulation_profiles")
+    .select("*")
+    .eq("simulation_id", id)
+    .order("order_num", { ascending: true });
+
   return (
     <SessionLobby
       session={session}
@@ -57,6 +64,7 @@ export default async function SessionPage({ params }: PageProps) {
       teams={teams || []}
       decisions={decisions || []}
       responses={responses || []}
+      profiles={profiles || []}
     />
   );
 }

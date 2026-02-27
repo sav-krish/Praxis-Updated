@@ -32,6 +32,11 @@ pnpm-debug.log*
 # macOS
 .DS_Store
 
+# editor
+.cursor/
+.cursorignore
+.cursorrules
+
 # TypeScript
 *.tsbuildinfo
 next-env.d.ts

@@ -14,20 +14,24 @@ export interface Database {
           id: string
           email: string
           name: string | null
+          active_role: 'professor' | 'student'
           created_at: string
         }
         Insert: {
           id: string
           email: string
           name?: string | null
+          active_role?: 'professor' | 'student'
           created_at?: string
         }
         Update: {
           id?: string
           email?: string
           name?: string | null
+          active_role?: 'professor' | 'student'
           created_at?: string
         }
+        Relationships: []
       }
       simulations: {
         Row: {
@@ -45,6 +49,10 @@ export interface Database {
           difficulty: 'easy' | 'hard' | 'challenge' | null
           estimated_minutes: number | null
           status: 'draft' | 'published'
+          preferences: Json
+          is_public: boolean
+          favorite_count: number
+          hidden_profiles_enabled: boolean
           created_at: string
           updated_at: string
         }
@@ -63,6 +71,10 @@ export interface Database {
           difficulty?: 'easy' | 'hard' | 'challenge' | null
           estimated_minutes?: number | null
           status?: 'draft' | 'published'
+          preferences?: Json
+          is_public?: boolean
+          favorite_count?: number
+          hidden_profiles_enabled?: boolean
           created_at?: string
           updated_at?: string
         }
@@ -81,9 +93,22 @@ export interface Database {
           difficulty?: 'easy' | 'hard' | 'challenge' | null
           estimated_minutes?: number | null
           status?: 'draft' | 'published'
+          preferences?: Json
+          is_public?: boolean
+          favorite_count?: number
+          hidden_profiles_enabled?: boolean
           created_at?: string
           updated_at?: string
         }
+        Relationships: [
+          {
+            foreignKeyName: "simulations_professor_id_fkey"
+            columns: ["professor_id"]
+            isOneToOne: false
+            referencedRelation: "professors"
+            referencedColumns: ["id"]
+          }
+        ]
       }
       decisions: {
         Row: {
@@ -107,6 +132,15 @@ export interface Database {
           prompt?: string
           created_at?: string
         }
+        Relationships: [
+          {
+            foreignKeyName: "decisions_simulation_id_fkey"
+            columns: ["simulation_id"]
+            isOneToOne: false
+            referencedRelation: "simulations"
+            referencedColumns: ["id"]
+          }
+        ]
       }
       options: {
         Row: {
@@ -139,6 +173,15 @@ export interface Database {
           score?: number
           created_at?: string
         }
+        Relationships: [
+          {
+            foreignKeyName: "options_decision_id_fkey"
+            columns: ["decision_id"]
+            isOneToOne: false
+            referencedRelation: "decisions"
+            referencedColumns: ["id"]
+          }
+        ]
       }
       reflection_questions: {
         Row: {
@@ -162,6 +205,7 @@ export interface Database {
           question?: string
           created_at?: string
         }
+        Relationships: []
       }
       sessions: {
         Row: {
@@ -172,6 +216,7 @@ export interface Database {
           current_step: number
           started_at: string | null
           ended_at: string | null
+          debrief_guide: Json | null
           created_at: string
         }
         Insert: {
@@ -182,6 +227,7 @@ export interface Database {
           current_step?: number
           started_at?: string | null
           ended_at?: string | null
+          debrief_guide?: Json | null
           created_at?: string
         }
         Update: {
@@ -192,8 +238,18 @@ export interface Database {
           current_step?: number
           started_at?: string | null
           ended_at?: string | null
+          debrief_guide?: Json | null
           created_at?: string
         }
+        Relationships: [
+          {
+            foreignKeyName: "sessions_simulation_id_fkey"
+            columns: ["simulation_id"]
+            isOneToOne: false
+            referencedRelation: "simulations"
+            referencedColumns: ["id"]
+          }
+        ]
       }
       teams: {
         Row: {
@@ -214,12 +270,14 @@ export interface Database {
           name?: string
           created_at?: string
         }
+        Relationships: []
       }
       participants: {
         Row: {
           id: string
           session_id: string
           team_id: string | null
+          profile_id: string | null
           name: string
           is_voter: boolean
           joined_at: string
@@ -228,6 +286,7 @@ export interface Database {
           id?: string
           session_id: string
           team_id?: string | null
+          profile_id?: string | null
           name: string
           is_voter?: boolean
           joined_at?: string
@@ -236,10 +295,39 @@ export interface Database {
           id?: string
           session_id?: string
           team_id?: string | null
+          profile_id?: string | null
           name?: string
           is_voter?: boolean
           joined_at?: string
         }
+        Relationships: []
+      }
+      simulation_profiles: {
+        Row: {
+          id: string
+          simulation_id: string
+          profile_name: string
+          private_briefing: string
+          order_num: number
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          simulation_id: string
+          profile_name: string
+          private_briefing: string
+          order_num: number
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          simulation_id?: string
+          profile_name?: string
+          private_briefing?: string
+          order_num?: number
+          created_at?: string
+        }
+        Relationships: []
       }
       responses: {
         Row: {
@@ -272,6 +360,7 @@ export interface Database {
           justification?: string | null
           submitted_at?: string
         }
+        Relationships: []
       }
       simulation_data_blocks: {
         Row: {
@@ -301,6 +390,7 @@ export interface Database {
           data?: Json
           created_at?: string
         }
+        Relationships: []
       }
       reflection_responses: {
         Row: {
@@ -330,15 +420,129 @@ export interface Database {
           response?: string
           submitted_at?: string
         }
+        Relationships: [
+          {
+            foreignKeyName: "reflection_responses_question_id_fkey"
+            columns: ["question_id"]
+            isOneToOne: false
+            referencedRelation: "reflection_questions"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
+      feedback: {
+        Row: {
+          id: string
+          simulation_id: string
+          session_id: string | null
+          user_id: string | null
+          participant_id: string | null
+          feedback_type: 'post_generation' | 'post_session'
+          role: 'professor' | 'student'
+          checked_items: string[]
+          freeform_text: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          simulation_id: string
+          session_id?: string | null
+          user_id?: string | null
+          participant_id?: string | null
+          feedback_type: 'post_generation' | 'post_session'
+          role: 'professor' | 'student'
+          checked_items?: string[]
+          freeform_text?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          simulation_id?: string
+          session_id?: string | null
+          user_id?: string | null
+          participant_id?: string | null
+          feedback_type?: 'post_generation' | 'post_session'
+          role?: 'professor' | 'student'
+          checked_items?: string[]
+          freeform_text?: string | null
+          created_at?: string
+        }
+        Relationships: []
+      }
+      knowledge_chunks: {
+        Row: {
+          id: string
+          subject: string
+          source_filename: string
+          chunk_index: number
+          content: string
+          embedding: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          subject: string
+          source_filename: string
+          chunk_index: number
+          content: string
+          embedding?: string | number[] | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          subject?: string
+          source_filename?: string
+          chunk_index?: number
+          content?: string
+          embedding?: string | number[] | null
+          created_at?: string
+        }
+        Relationships: []
+      }
+      simulation_favorites: {
+        Row: {
+          id: string
+          simulation_id: string
+          user_id: string
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          simulation_id: string
+          user_id: string
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          simulation_id?: string
+          user_id?: string
+          created_at?: string
+        }
+        Relationships: []
       }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      match_knowledge_chunks: {
+        Args: {
+          query_embedding: string
+          match_count?: number
+          filter_subject?: string
+        }
+        Returns: {
+          content: string
+          subject: string
+          source_filename: string
+          similarity: number
+        }[]
+      }
     }
     Enums: {
+      [_ in never]: never
+    }
+    CompositeTypes: {
       [_ in never]: never
     }
   }
@@ -355,6 +559,9 @@ export type Team = Database['public']['Tables']['teams']['Row']
 export type Participant = Database['public']['Tables']['participants']['Row']
 export type Response = Database['public']['Tables']['responses']['Row']
 export type ReflectionResponse = Database['public']['Tables']['reflection_responses']['Row']
+export type Feedback = Database['public']['Tables']['feedback']['Row']
+export type SimulationFavorite = Database['public']['Tables']['simulation_favorites']['Row']
+export type SimulationProfile = Database['public']['Tables']['simulation_profiles']['Row']
 
 // Extended types with relations
 export type SimulationWithDecisions = Simulation & {

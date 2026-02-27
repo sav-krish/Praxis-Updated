@@ -129,6 +129,11 @@ In your Supabase project settings:
 - **Authentication > Email Templates**: Customize the confirmation email if desired.
 - Ensure your RLS policies are in place (the schema file handles this).
 
+## Docs
+
+- **[Problem and Fix (Feature Expansion)](docs/PROBLEM_AND_FIX.md)** — User-reported issues (stuck on refresh, AI creative liberty, camouflage, missing debrief) and the fixes and new features (library, feedback, preferences, profile, RAG, facilitator guide).
+- **[Implementation Status & Verification Checklist](docs/IMPLEMENTATION_STATUS_AND_CHECKLIST.md)** — What’s implemented, completion %, and a checklist to verify all fixes and features work correctly.
+
 ## Project Structure
 
 ```

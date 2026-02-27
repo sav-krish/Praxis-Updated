@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { generateSimulationContent } from "@/lib/openai";
 import { extractTextFromFiles } from "@/lib/file-parser";
+import { createClient } from "@/lib/supabase/server";
+import { retrieveRelevantChunks, formatChunksForPrompt } from "@/lib/knowledge-base";
 
 // Cap materials so we stay under the model's TPM. gpt-4o tier 1 = 30k TPM; gpt-4o-mini = 200k TPM (~4 chars/token).
 const MAX_MATERIAL_CHARS_GPT4O = 70_000;
@@ -21,6 +23,12 @@ function truncateMaterials(text: string, maxChars: number): string {
 
 export async function POST(request: NextRequest) {
   try {
+    const supabaseAuth = await createClient();
+    const { data: { user } } = await supabaseAuth.auth.getUser();
+    if (!user) {
+      return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
+    }
+
     const formData = await request.formData();
     
     const title = formData.get("title") as string;
@@ -30,6 +38,16 @@ export async function POST(request: NextRequest) {
     const targetDecisions = formData.get("targetDecisions") as string;
     const pastedText = formData.get("pastedText") as string;
     const aiNotes = formData.get("aiNotes") as string;
+    // Default true: stay close to source (no UI toggle; system default)
+    const stayCloseToSource = formData.get("stayCloseToSource") !== "false";
+    const reframeAs = (formData.get("reframeAs") as string) || "";
+    const preferencesRaw = formData.get("preferences") as string;
+    let preferences: Record<string, string[]> | undefined;
+    if (preferencesRaw) {
+      try {
+        preferences = JSON.parse(preferencesRaw);
+      } catch { /* ignore parse errors */ }
+    }
     
     // Get uploaded files
     const files: File[] = [];
@@ -46,8 +64,24 @@ export async function POST(request: NextRequest) {
       materialText = await extractTextFromFiles(files);
     }
 
-    // Combine with pasted text and truncate to stay under API token limits (TPM)
-    const rawMaterials = [materialText, pastedText].filter(Boolean).join("\n\n");
+    // Retrieve relevant knowledge base chunks (RAG)
+    let knowledgeContext = "";
+    try {
+      const supabase = await createClient();
+      const ragQuery = `${courseTopic} ${goal} ${targetDecisions}`.trim();
+      if (ragQuery) {
+        const chunks = await retrieveRelevantChunks(supabase, ragQuery, {
+          subject: undefined,
+          limit: 8,
+        });
+        knowledgeContext = formatChunksForPrompt(chunks);
+      }
+    } catch (e) {
+      console.warn("[generate-simulation] RAG retrieval failed, proceeding without knowledge base:", e);
+    }
+
+    // Combine with pasted text, knowledge base, and truncate to stay under API token limits (TPM)
+    const rawMaterials = [materialText, pastedText, knowledgeContext].filter(Boolean).join("\n\n");
     const allMaterials = truncateMaterials(rawMaterials, getMaxMaterialChars());
 
     // Generate simulation content using OpenAI
@@ -57,7 +91,8 @@ export async function POST(request: NextRequest) {
       targetDecisions,
       courseTopic,
       aiNotes,
-      difficulty as "easy" | "hard" | "challenge"
+      difficulty as "easy" | "hard" | "challenge",
+      { stayCloseToSource, reframeAs, preferences }
     );
 
     // Override title if provided
