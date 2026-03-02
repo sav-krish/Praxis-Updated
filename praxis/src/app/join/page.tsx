@@ -39,8 +39,8 @@ function JoinForm() {
     if (data && data.status !== "complete") {
       setSession(data);
 
-      // Check if this student already joined this session (localStorage)
-      const storedId = localStorage.getItem(`participant_${data.id}`);
+      // Check if this tab already joined this session (sessionStorage = per-tab identity)
+      const storedId = sessionStorage.getItem(`participant_${data.id}`);
       if (storedId) {
         // Verify the participant still exists in the DB
         const { data: existing } = await supabase
@@ -51,14 +51,14 @@ function JoinForm() {
           .single();
 
         if (existing) {
-          // Student already joined -- send them straight back to play
-          localStorage.setItem(`participant_name_${data.id}`, existing.name);
+          // This tab already joined -- send them straight back to play
+          sessionStorage.setItem(`participant_name_${data.id}`, existing.name);
           router.push(`/play/${joinCode.toUpperCase()}`);
           return;
         } else {
           // Stale entry -- clear it so they can re-join fresh
-          localStorage.removeItem(`participant_${data.id}`);
-          localStorage.removeItem(`participant_name_${data.id}`);
+          sessionStorage.removeItem(`participant_${data.id}`);
+          sessionStorage.removeItem(`participant_name_${data.id}`);
         }
       }
     } else {
@@ -91,9 +91,9 @@ function JoinForm() {
 
       if (error) throw error;
 
-      // Store participant ID in localStorage for the session
-      localStorage.setItem(`participant_${session.id}`, participant.id);
-      localStorage.setItem(`participant_name_${session.id}`, name.trim());
+      // Store participant ID in sessionStorage (per-tab, so each tab can be a different student)
+      sessionStorage.setItem(`participant_${session.id}`, participant.id);
+      sessionStorage.setItem(`participant_name_${session.id}`, name.trim());
 
       // Navigate to play page
       router.push(`/play/${joinCode.toUpperCase()}`);
