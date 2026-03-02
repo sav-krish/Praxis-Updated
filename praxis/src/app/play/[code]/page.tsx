@@ -313,8 +313,6 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
         options: d.options.sort((a: Option, b: Option) => a.label.localeCompare(b.label))
       })));
     }
-    fetch('http://127.0.0.1:7442/ingest/e3c66b5a-7991-4a9b-8675-349b01d5f1fb',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'f8666f'},body:JSON.stringify({sessionId:'f8666f',location:'play/page.tsx:loadSession',message:'loadSession decisionsData',data:{decisionsCount:decisionsData?.length??0,hasDecisions:!!decisionsData},timestamp:Date.now(),hypothesisId:'A'})}).catch(()=>{});
-    // #endregion
 
     // Load reflection questions
     const { data: questionsData } = await supabase
@@ -345,10 +343,7 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
       .eq("session_id", sessionData.id)
       .eq("participant_id", storedParticipantId);
 
-    // #region agent log
     const answeredCount = responsesData?.length || 0;
-    fetch('http://127.0.0.1:7442/ingest/e3c66b5a-7991-4a9b-8675-349b01d5f1fb',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'f8666f'},body:JSON.stringify({sessionId:'f8666f',location:'play/page.tsx:loadSession',message:'loadSession responses',data:{storedParticipantId:storedParticipantId?.slice(0,8),participantName:existingParticipant?.name,responsesCount:responsesData?.length??0,answeredCount,sessionStatus:sessionData.status},timestamp:Date.now(),hypothesisId:'B'})}).catch(()=>{});
-    // #endregion
 
     if (responsesData && responsesData.length > 0) {
       const responseMap = responsesData.map(r => {
@@ -375,9 +370,6 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
     } else {
       stepToSet = 6; // Complete
     }
-    // #region agent log
-    fetch('http://127.0.0.1:7442/ingest/e3c66b5a-7991-4a9b-8675-349b01d5f1fb',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'f8666f'},body:JSON.stringify({sessionId:'f8666f',location:'play/page.tsx:loadSession',message:'loadSession setInitialStep',data:{stepToSet,answeredCount,sessionStatus:sessionData.status},timestamp:Date.now(),hypothesisId:'B'})}).catch(()=>{});
-    // #endregion
     setCurrentStep(stepToSet);
 
     setLoading(false);
@@ -628,13 +620,10 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
     const decisionIndex = currentStep - 2;
     const decision = decisions[decisionIndex];
 
-    // #region agent log
     if (!decision) {
-      fetch('http://127.0.0.1:7442/ingest/e3c66b5a-7991-4a9b-8675-349b01d5f1fb',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'f8666f'},body:JSON.stringify({sessionId:'f8666f',location:'play/page.tsx:decisionBlock',message:'!decision skip to reflection',data:{currentStep,decisionIndex,decisionsLength:decisions.length},timestamp:Date.now(),hypothesisId:'A'})}).catch(()=>{});
       setCurrentStep(5);
       return null;
     }
-    // #endregion
 
     // Show consequence after submission
     if (showConsequence) {
