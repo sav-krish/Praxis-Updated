@@ -7,6 +7,8 @@ type SimInsert = Database["public"]["Tables"]["simulations"]["Insert"];
 type DecInsert = Database["public"]["Tables"]["decisions"]["Insert"];
 type OptInsert = Database["public"]["Tables"]["options"]["Insert"];
 type RQInsert = Database["public"]["Tables"]["reflection_questions"]["Insert"];
+type DataBlockInsert = Database["public"]["Tables"]["simulation_data_blocks"]["Insert"];
+type ProfileInsert = Database["public"]["Tables"]["simulation_profiles"]["Insert"];
 
 export async function copySimulationToAccount(simulationId: string): Promise<{ newId: string } | { error: string }> {
   const supabase = await createClient();
@@ -47,6 +49,18 @@ export async function copySimulationToAccount(simulationId: string): Promise<{ n
 
   const { data: reflectionQuestions } = await supabase
     .from("reflection_questions")
+    .select("*")
+    .eq("simulation_id", simulationId)
+    .order("order_num", { ascending: true });
+
+  const { data: dataBlocks } = await supabase
+    .from("simulation_data_blocks")
+    .select("*")
+    .eq("simulation_id", simulationId)
+    .order("order_num", { ascending: true });
+
+  const { data: profiles } = await supabase
+    .from("simulation_profiles")
     .select("*")
     .eq("simulation_id", simulationId)
     .order("order_num", { ascending: true });
@@ -108,6 +122,26 @@ export async function copySimulationToAccount(simulationId: string): Promise<{ n
         ...rqRest,
         simulation_id: newSimId,
       } as RQInsert);
+  }
+
+  for (const block of dataBlocks ?? []) {
+    const { id: _bid, simulation_id: _bsid, created_at: _bca, ...blockRest } = block as Record<string, unknown>;
+    await supabase
+      .from("simulation_data_blocks")
+      .insert({
+        ...blockRest,
+        simulation_id: newSimId,
+      } as DataBlockInsert);
+  }
+
+  for (const profile of profiles ?? []) {
+    const { id: _pid, simulation_id: _psid, created_at: _pca, ...profileRest } = profile as Record<string, unknown>;
+    await supabase
+      .from("simulation_profiles")
+      .insert({
+        ...profileRest,
+        simulation_id: newSimId,
+      } as ProfileInsert);
   }
 
   return { newId: newSimId };

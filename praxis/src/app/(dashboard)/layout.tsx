@@ -10,7 +10,10 @@ import {
   DropdownMenuTrigger 
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { LogOut, Plus, BookOpen, User } from "lucide-react";
+import { LogOut, Plus, BookOpen, User, Mail, MessageSquareHeart, CreditCard } from "lucide-react";
+import { createServiceRoleClient } from "@/lib/supabase/server";
+
+export const dynamic = "force-dynamic";
 
 async function signOut() {
   "use server";
@@ -31,13 +34,33 @@ export default async function DashboardLayout({
     redirect("/login");
   }
 
-  const { data: professor } = await supabase
+  let professor: { active_role?: string; is_admin?: boolean } | null = null;
+  const { data: profById } = await supabase
     .from("professors")
-    .select("active_role")
+    .select("active_role, is_admin")
     .eq("id", user.id)
     .single();
+  professor = profById;
+
+  if (!professor && user.email) {
+    try {
+      const adminSupabase = createServiceRoleClient();
+      const { data: profByEmail } = await adminSupabase
+        .from("professors")
+        .select("active_role, is_admin")
+        .eq("email", user.email.toLowerCase())
+        .maybeSingle();
+      if (profByEmail) professor = profByEmail;
+    } catch {
+      /* service role not configured */
+    }
+  }
 
   const isStudentMode = professor?.active_role === "student";
+  const adminEmails = (process.env.ADMIN_EMAILS ?? "").split(",").map((e) => e.trim().toLowerCase()).filter(Boolean);
+  const admin =
+    !isStudentMode &&
+    (adminEmails.includes(user.email?.toLowerCase() ?? "") || professor?.is_admin === true);
 
   const initials = user.user_metadata?.name
     ? user.user_metadata.name.split(" ").map((n: string) => n[0]).join("").toUpperCase()
@@ -90,6 +113,28 @@ export default async function DashboardLayout({
                   </div>
                 </div>
                 <DropdownMenuSeparator />
+                {admin && (
+                  <>
+                    <DropdownMenuItem asChild>
+                      <Link href="/admin/feedback" className="cursor-pointer">
+                        <MessageSquareHeart className="mr-2 h-4 w-4" />
+                        Admin – Feedback
+                      </Link>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem asChild>
+                      <Link href="/admin/emails" className="cursor-pointer">
+                        <Mail className="mr-2 h-4 w-4" />
+                        Admin – Emails
+                      </Link>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem asChild>
+                      <Link href="/pricing" className="cursor-pointer">
+                        <CreditCard className="mr-2 h-4 w-4" />
+                        Pricing
+                      </Link>
+                    </DropdownMenuItem>
+                  </>
+                )}
                 <DropdownMenuItem asChild>
                   <Link href="/profile" className="cursor-pointer">
                     <User className="mr-2 h-4 w-4" />

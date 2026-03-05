@@ -10,6 +10,7 @@ import {
   DropdownMenuTrigger 
 } from "@/components/ui/dropdown-menu";
 import { Plus, MoreVertical, Edit, Play, BarChart3, BookOpen, FolderOpen, Share2 } from "lucide-react";
+import { PreviewSimulationButton } from "@/components/simulation/PreviewSimulationButton";
 
 interface DashboardPageProps {
   searchParams: Promise<{ course?: string }>;
@@ -151,6 +152,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
                           Share
                         </Link>
                       </DropdownMenuItem>
+                      <PreviewSimulationButton simulationId={simulation.id} asDropdownItem />
                       {simulationsWithReports.has(simulation.id) && (
                         <DropdownMenuItem asChild>
                           <Link href={`/reports/${simulation.id}`}>

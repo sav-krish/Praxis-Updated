@@ -32,6 +32,9 @@ pnpm-debug.log*
 # macOS
 .DS_Store
 
+# Supabase local
+praxis/supabase/.temp/
+
 # editor
 .cursor/
 .cursorignore

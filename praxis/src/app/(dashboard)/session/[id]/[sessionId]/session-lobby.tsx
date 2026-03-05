@@ -20,6 +20,7 @@ import {
   BarChart3
 } from "lucide-react";
 import { toast } from "sonner";
+import { createProfessorPreviewParticipant } from "../actions";
 import {
   Select,
   SelectContent,
@@ -214,6 +215,18 @@ export function SessionLobby({
     } else {
       setSession(prev => ({ ...prev, status: "running", current_step: 1, started_at: now }));
       toast.success("Simulation started!");
+      const result = await createProfessorPreviewParticipant(session.id);
+      if ("participantId" in result) {
+        const params = new URLSearchParams({
+          participantId: result.participantId,
+          participantName: result.participantName,
+        });
+        const playUrl = `${window.location.origin}/play/${session.join_code}?${params.toString()}`;
+        window.open(playUrl, "_blank", "noopener,noreferrer");
+      } else {
+        const playUrl = `${window.location.origin}/play/${session.join_code}`;
+        window.open(playUrl, "_blank", "noopener,noreferrer");
+      }
     }
     setLoading(false);
   };

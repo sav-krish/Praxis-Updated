@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -8,7 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
-import { Save, Loader2, GraduationCap, BookOpen } from "lucide-react";
+import { Save, Loader2, GraduationCap, BookOpen, Shield, MessageSquareHeart, Mail } from "lucide-react";
 import { toast } from "sonner";
 
 type ActiveRole = "professor" | "student";
@@ -18,9 +19,10 @@ interface ProfileFormProps {
   email: string;
   name: string;
   activeRole: ActiveRole;
+  isAdmin?: boolean;
 }
 
-export function ProfileForm({ userId, email, name: initialName, activeRole: initialRole }: ProfileFormProps) {
+export function ProfileForm({ userId, email, name: initialName, activeRole: initialRole, isAdmin }: ProfileFormProps) {
   const router = useRouter();
   const [saving, setSaving] = useState(false);
   const [name, setName] = useState(initialName);
@@ -129,6 +131,34 @@ export function ProfileForm({ userId, email, name: initialName, activeRole: init
           )}
         </CardContent>
       </Card>
+
+      {isAdmin && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Shield className="h-5 w-5" />
+              Admin
+            </CardTitle>
+            <CardDescription>
+              View feedback and manage email campaigns
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="flex flex-wrap gap-2">
+            <Button variant="outline" asChild>
+              <Link href="/admin/feedback">
+                <MessageSquareHeart className="h-4 w-4 mr-2" />
+                Feedback
+              </Link>
+            </Button>
+            <Button variant="outline" asChild>
+              <Link href="/admin/emails">
+                <Mail className="h-4 w-4 mr-2" />
+                Emails
+              </Link>
+            </Button>
+          </CardContent>
+        </Card>
+      )}
 
       <Separator />
 

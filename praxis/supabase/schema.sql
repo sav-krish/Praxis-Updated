@@ -10,6 +10,7 @@ CREATE TABLE IF NOT EXISTS professors (
   email TEXT NOT NULL UNIQUE,
   name TEXT,
   active_role TEXT DEFAULT 'professor' CHECK (active_role IN ('professor', 'student')),
+  is_admin BOOLEAN DEFAULT false,
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
@@ -93,6 +94,17 @@ CREATE TABLE IF NOT EXISTS simulation_data_blocks (
   UNIQUE(simulation_id, order_num)
 );
 
+-- Simulation uploaded files (links to storage bucket simulation-uploads)
+CREATE TABLE IF NOT EXISTS simulation_uploaded_files (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  simulation_id UUID NOT NULL REFERENCES simulations(id) ON DELETE CASCADE,
+  storage_path TEXT NOT NULL,
+  original_name TEXT NOT NULL,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_simulation_uploaded_files_simulation ON simulation_uploaded_files(simulation_id);
+
 -- Sessions table (live classroom sessions)
 CREATE TABLE IF NOT EXISTS sessions (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
@@ -103,6 +115,7 @@ CREATE TABLE IF NOT EXISTS sessions (
   started_at TIMESTAMPTZ,
   ended_at TIMESTAMPTZ,
   debrief_guide JSONB,
+  is_preview BOOLEAN DEFAULT false,
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
@@ -244,7 +257,7 @@ DO $$
 DECLARE
   tbl TEXT;
 BEGIN
-  FOREACH tbl IN ARRAY '{professors,simulations,decisions,options,reflection_questions,sessions,teams,participants,responses,reflection_responses,simulation_data_blocks,feedback,simulation_favorites,knowledge_chunks,simulation_profiles}'::TEXT[]
+  FOREACH tbl IN ARRAY '{professors,simulations,decisions,options,reflection_questions,sessions,teams,participants,responses,reflection_responses,simulation_data_blocks,simulation_uploaded_files,feedback,simulation_favorites,knowledge_chunks,simulation_profiles}'::TEXT[]
   LOOP
     IF EXISTS (
       SELECT 1 FROM pg_class c
@@ -269,6 +282,10 @@ DROP POLICY IF EXISTS "Professors can insert own profile" ON professors;
 CREATE POLICY "Professors can insert own profile" ON professors
   FOR INSERT WITH CHECK (auth.uid() = id);
 
+-- Note: No "Admins can view all professors" - it caused infinite recursion (policy
+-- queried professors to check is_admin). "Professors can view own profile" suffices.
+-- Admin email API uses service role to fetch all professors.
+
 -- Professors can only see/edit their own simulations
 DROP POLICY IF EXISTS "Professors can view own simulations" ON simulations;
 CREATE POLICY "Professors can view own simulations" ON simulations
@@ -285,6 +302,12 @@ CREATE POLICY "Professors can update own simulations" ON simulations
 DROP POLICY IF EXISTS "Professors can delete own simulations" ON simulations;
 CREATE POLICY "Professors can delete own simulations" ON simulations
   FOR DELETE USING (professor_id = auth.uid());
+
+DROP POLICY IF EXISTS "Admins can view all simulations" ON simulations;
+CREATE POLICY "Admins can view all simulations" ON simulations
+  FOR SELECT USING (
+    EXISTS (SELECT 1 FROM professors p WHERE p.id = auth.uid() AND p.is_admin = true)
+  );
 
 -- Decisions inherit access from simulations
 DROP POLICY IF EXISTS "Access decisions via simulation" ON decisions;
@@ -321,6 +344,25 @@ CREATE POLICY "Access data blocks via simulation" ON simulation_data_blocks
 DROP POLICY IF EXISTS "Anyone can read data blocks" ON simulation_data_blocks;
 CREATE POLICY "Anyone can read data blocks" ON simulation_data_blocks
   FOR SELECT USING (true);
+
+-- Simulation uploaded files: professors can INSERT only (link when creating); admins can SELECT
+DROP POLICY IF EXISTS "Professors can manage own simulation files" ON simulation_uploaded_files;
+DROP POLICY IF EXISTS "Professors can insert simulation file links" ON simulation_uploaded_files;
+DROP POLICY IF EXISTS "Admins can view simulation uploaded files" ON simulation_uploaded_files;
+
+CREATE POLICY "Professors can insert simulation file links"
+ON simulation_uploaded_files FOR INSERT
+TO authenticated
+WITH CHECK (
+  simulation_id IN (SELECT id FROM simulations WHERE professor_id = auth.uid())
+);
+
+CREATE POLICY "Admins can view simulation uploaded files"
+ON simulation_uploaded_files FOR SELECT
+TO authenticated
+USING (
+  EXISTS (SELECT 1 FROM professors p WHERE p.id = auth.uid() AND p.is_admin = true)
+);
 
 -- Sessions: professors can manage, anyone can read with join code
 DROP POLICY IF EXISTS "Professors can manage own sessions" ON sessions;
@@ -388,6 +430,12 @@ DROP POLICY IF EXISTS "Professors can view feedback for own simulations" ON feed
 CREATE POLICY "Professors can view feedback for own simulations" ON feedback
   FOR SELECT USING (
     simulation_id IN (SELECT id FROM simulations WHERE professor_id = auth.uid())
+  );
+
+DROP POLICY IF EXISTS "Admins can view all feedback" ON feedback;
+CREATE POLICY "Admins can view all feedback" ON feedback
+  FOR SELECT USING (
+    EXISTS (SELECT 1 FROM professors p WHERE p.id = auth.uid() AND p.is_admin = true)
   );
 
 -- Simulation favorites: authenticated users can manage their own

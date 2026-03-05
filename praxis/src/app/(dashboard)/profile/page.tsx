@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { isAdmin } from "@/lib/admin";
 import { ProfileForm } from "./profile-form";
 
 export default async function ProfilePage() {
@@ -16,6 +17,8 @@ export default async function ProfilePage() {
     .eq("id", user.id)
     .single();
 
+  const admin = await isAdmin(user);
+
   return (
     <div className="max-w-2xl mx-auto">
       <div className="mb-6 sm:mb-8">
@@ -30,6 +33,7 @@ export default async function ProfilePage() {
         email={user.email || ""}
         name={professor?.name || user.user_metadata?.name || ""}
         activeRole={professor?.active_role || "professor"}
+        isAdmin={admin}
       />
     </div>
   );

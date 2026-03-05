@@ -1,8 +1,23 @@
 import { NextRequest, NextResponse } from "next/server";
+import { randomUUID } from "crypto";
 import { generateSimulationContent } from "@/lib/openai";
 import { extractTextFromFiles } from "@/lib/file-parser";
 import { createClient } from "@/lib/supabase/server";
 import { retrieveRelevantChunks, formatChunksForPrompt } from "@/lib/knowledge-base";
+
+const BUCKET = "simulation-uploads";
+const ALLOWED_MIMES = [
+  "application/pdf",
+  "application/x-pdf",
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  "application/msword",
+  "text/plain",
+];
+
+function sanitizeFilename(name: string): string {
+  const base = name.replace(/^.*[/\\]/, "").replace(/[^\w.-]/g, "_");
+  return base || "file";
+}
 
 // Cap materials so we stay under the model's TPM. gpt-4o tier 1 = 30k TPM; gpt-4o-mini = 200k TPM (~4 chars/token).
 const MAX_MATERIAL_CHARS_GPT4O = 70_000;
@@ -58,6 +73,29 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    // Upload files to storage and collect paths
+    const uploadedFilePaths: { path: string; originalName: string }[] = [];
+    if (files.length > 0) {
+      const uploadId = randomUUID();
+      const supabaseStorage = await createClient();
+      for (const file of files) {
+        const mime = file.type?.toLowerCase();
+        if (!mime || !ALLOWED_MIMES.includes(mime)) continue;
+        const sanitized = sanitizeFilename(file.name);
+        const storagePath = `${user.id}/${uploadId}/${sanitized}`;
+        const buffer = Buffer.from(await file.arrayBuffer());
+        const { error } = await supabaseStorage.storage
+          .from(BUCKET)
+          .upload(storagePath, buffer, {
+            contentType: mime,
+            upsert: false,
+          });
+        if (!error) {
+          uploadedFilePaths.push({ path: storagePath, originalName: file.name });
+        }
+      }
+    }
+
     // Extract text from files
     let materialText = "";
     if (files.length > 0) {
@@ -100,7 +138,11 @@ export async function POST(request: NextRequest) {
       generated.title = title;
     }
 
-    return NextResponse.json({ success: true, simulation: generated });
+    return NextResponse.json({
+      success: true,
+      simulation: generated,
+      uploadedFilePaths,
+    });
   } catch (error) {
     const err = error as { message?: string; status?: number; code?: string; error?: { message?: string } };
     const rawMessage = err?.message || err?.error?.message || String(error);

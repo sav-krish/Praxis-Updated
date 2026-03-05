@@ -48,6 +48,7 @@ import { DataBlockEditor } from "@/components/simulation/DataBlockEditor";
 import { DataBlockRenderer } from "@/components/simulation/DataBlockRenderer";
 import { FeedbackCard } from "@/components/simulation/FeedbackCard";
 import { copySimulationToAccount } from "@/app/(dashboard)/share/[id]/actions";
+import { PreviewSimulationButton } from "@/components/simulation/PreviewSimulationButton";
 import type { Simulation, Decision, Option, ReflectionQuestion, SimulationProfile, Json } from "@/types/database";
 import type { SimulationDataBlock, DataBlockType } from "@/types/data-blocks";
 
@@ -383,6 +384,7 @@ export function SimulationEditor({
                   Share
                 </Button>
               </Link>
+              <PreviewSimulationButton simulationId={simulation.id} variant="outline" className="min-h-[44px] flex-1 sm:flex-none" />
               <Button onClick={handleStartSession} disabled={saving} className="flex-1 sm:flex-none min-h-[44px]">
                 {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Play className="mr-2 h-4 w-4 shrink-0" />}
                 Start Session

@@ -15,6 +15,7 @@ export interface Database {
           email: string
           name: string | null
           active_role: 'professor' | 'student'
+          is_admin: boolean
           created_at: string
         }
         Insert: {
@@ -22,6 +23,7 @@ export interface Database {
           email: string
           name?: string | null
           active_role?: 'professor' | 'student'
+          is_admin?: boolean
           created_at?: string
         }
         Update: {
@@ -29,6 +31,7 @@ export interface Database {
           email?: string
           name?: string | null
           active_role?: 'professor' | 'student'
+          is_admin?: boolean
           created_at?: string
         }
         Relationships: []
@@ -217,6 +220,7 @@ export interface Database {
           started_at: string | null
           ended_at: string | null
           debrief_guide: Json | null
+          is_preview: boolean
           created_at: string
         }
         Insert: {
@@ -228,6 +232,7 @@ export interface Database {
           started_at?: string | null
           ended_at?: string | null
           debrief_guide?: Json | null
+          is_preview?: boolean
           created_at?: string
         }
         Update: {
@@ -239,6 +244,7 @@ export interface Database {
           started_at?: string | null
           ended_at?: string | null
           debrief_guide?: Json | null
+          is_preview?: boolean
           created_at?: string
         }
         Relationships: [
@@ -389,6 +395,78 @@ export interface Database {
           title?: string | null
           data?: Json
           created_at?: string
+        }
+        Relationships: []
+      }
+      simulation_uploaded_files: {
+        Row: {
+          id: string
+          simulation_id: string
+          storage_path: string
+          original_name: string
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          simulation_id: string
+          storage_path: string
+          original_name: string
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          simulation_id?: string
+          storage_path?: string
+          original_name?: string
+          created_at?: string
+        }
+        Relationships: []
+      }
+      subscriptions: {
+        Row: {
+          id: string
+          user_id: string
+          stripe_customer_id: string
+          stripe_subscription_id: string
+          stripe_price_id: string
+          plan_name: string
+          status: string
+          current_period_start: string
+          current_period_end: string
+          cancel_at_period_end: boolean
+          canceled_at: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          stripe_customer_id: string
+          stripe_subscription_id: string
+          stripe_price_id: string
+          plan_name: string
+          status: string
+          current_period_start: string
+          current_period_end: string
+          cancel_at_period_end?: boolean
+          canceled_at?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          stripe_customer_id?: string
+          stripe_subscription_id?: string
+          stripe_price_id?: string
+          plan_name?: string
+          status?: string
+          current_period_start?: string
+          current_period_end?: string
+          cancel_at_period_end?: boolean
+          canceled_at?: string | null
+          created_at?: string
+          updated_at?: string
         }
         Relationships: []
       }

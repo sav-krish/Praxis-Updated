@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useRef, use } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -53,6 +53,7 @@ interface Session {
   id: string;
   status: string;
   current_step: number;
+  is_preview?: boolean;
   simulation: {
     id: string;
     title: string;
@@ -77,6 +78,7 @@ interface ReflectionQuestion {
 export default function PlayPage({ params }: { params: Promise<{ code: string }> }) {
   const { code } = use(params);
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [session, setSession] = useState<Session | null>(null);
@@ -214,6 +216,7 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
         id,
         status,
         current_step,
+        is_preview,
         simulation:simulations(id, title, background_content, mode, estimated_minutes, hidden_profiles_enabled)
       `)
       .eq("join_code", code.toUpperCase())
@@ -245,6 +248,7 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
       id: sessionData.id,
       status: sessionData.status,
       current_step: sessionData.current_step,
+      is_preview: (sessionData as { is_preview?: boolean }).is_preview ?? false,
       simulation: simulationData
     };
 
@@ -257,10 +261,23 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
       .eq("session_id", sessionData.id);
     setParticipantCount(count ?? 0);
 
-    // Get participant ID from sessionStorage (per-tab identity)
-    const storedParticipantId = sessionStorage.getItem(`participant_${sessionData.id}`);
-    const storedName = sessionStorage.getItem(`participant_name_${sessionData.id}`);
-    
+    // Get participant ID: URL params first (professor preview from Start Simulation), then sessionStorage
+    const urlParticipantId = searchParams.get("participantId");
+    const urlParticipantName = searchParams.get("participantName");
+
+    let storedParticipantId = sessionStorage.getItem(`participant_${sessionData.id}`);
+    let storedName = sessionStorage.getItem(`participant_name_${sessionData.id}`);
+
+    if (urlParticipantId && urlParticipantName) {
+      sessionStorage.setItem(`participant_${sessionData.id}`, urlParticipantId);
+      sessionStorage.setItem(`participant_name_${sessionData.id}`, urlParticipantName);
+      storedParticipantId = urlParticipantId;
+      storedName = urlParticipantName;
+      if (typeof window !== "undefined") {
+        window.history.replaceState(null, "", `/play/${code}`);
+      }
+    }
+
     if (!storedParticipantId) {
       router.push(`/join?code=${code}`);
       return;
@@ -385,26 +402,28 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
     if (!selectedOption || !session || !participantId) return;
     setSubmitting(true);
 
-    const supabase = createClient();
     const decisionIndex = currentStep - 2;
     const decision = decisions[decisionIndex];
     const option = decision.options.find(o => o.id === selectedOption);
 
-    // Save response
-    const { error } = await supabase
-      .from("responses")
-      .insert({
-        session_id: session.id,
-        participant_id: participantId,
-        decision_id: decision.id,
-        option_id: selectedOption,
-        justification: justification,
-      });
+    // Skip DB insert for professor preview sessions
+    if (!session.is_preview) {
+      const supabase = createClient();
+      const { error } = await supabase
+        .from("responses")
+        .insert({
+          session_id: session.id,
+          participant_id: participantId,
+          decision_id: decision.id,
+          option_id: selectedOption,
+          justification: justification,
+        });
 
-    if (error) {
-      toast.error("Failed to submit response");
-      setSubmitting(false);
-      return;
+      if (error) {
+        toast.error("Failed to submit response");
+        setSubmitting(false);
+        return;
+      }
     }
 
     // Add to my responses
@@ -432,19 +451,21 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
     if (!session || !participantId) return;
     setSubmitting(true);
 
-    const supabase = createClient();
-
-    for (const question of reflectionQuestions) {
-      const answer = reflectionAnswers[question.id];
-      if (answer) {
-        await supabase
-          .from("reflection_responses")
-          .insert({
-            session_id: session.id,
-            participant_id: participantId,
-            question_id: question.id,
-            response: answer,
-          });
+    // Skip DB insert for professor preview sessions
+    if (!session.is_preview) {
+      const supabase = createClient();
+      for (const question of reflectionQuestions) {
+        const answer = reflectionAnswers[question.id];
+        if (answer) {
+          await supabase
+            .from("reflection_responses")
+            .insert({
+              session_id: session.id,
+              participant_id: participantId,
+              question_id: question.id,
+              response: answer,
+            });
+        }
       }
     }
 

@@ -115,7 +115,10 @@ export default function CreateSimulationPage() {
   };
 
   // Save generated content to database
-  const saveGeneratedSimulation = async (generated: GeneratedSimulation) => {
+  const saveGeneratedSimulation = async (
+    generated: GeneratedSimulation,
+    uploadedFilePaths?: { path: string; originalName: string }[]
+  ) => {
     const supabase = createClient();
     const { data: { user } } = await supabase.auth.getUser();
 
@@ -164,6 +167,20 @@ export default function CreateSimulationPage() {
       .single();
 
     if (simError) throw new Error(simError.message || "Could not create simulation");
+
+    // Link uploaded files to simulation
+    if (uploadedFilePaths?.length) {
+      for (const { path, originalName } of uploadedFilePaths) {
+        const { error: fileError } = await supabase
+          .from("simulation_uploaded_files")
+          .insert({
+            simulation_id: simulation.id,
+            storage_path: path,
+            original_name: originalName,
+          });
+        if (fileError) console.warn("Could not link uploaded file:", fileError);
+      }
+    }
 
     const decisions = Array.isArray(generated.decisions) ? generated.decisions : [];
     if (decisions.length === 0) throw new Error("Generated simulation has no decisions");
@@ -271,7 +288,12 @@ export default function CreateSimulationPage() {
         body: formPayload,
       });
 
-      let data: { success?: boolean; error?: string; simulation?: unknown };
+      let data: {
+        success?: boolean;
+        error?: string;
+        simulation?: unknown;
+        uploadedFilePaths?: { path: string; originalName: string }[];
+      };
       try {
         data = await response.json();
       } catch {
@@ -286,7 +308,10 @@ export default function CreateSimulationPage() {
       }
 
       toast.info("Saving simulation…");
-      const simulationId = await saveGeneratedSimulation(data.simulation as GeneratedSimulation);
+      const simulationId = await saveGeneratedSimulation(
+        data.simulation as GeneratedSimulation,
+        data.uploadedFilePaths
+      );
 
       toast.success("Simulation generated! Review and edit the content.");
       router.push(`/edit/${simulationId}?generated=1`);
