@@ -13,6 +13,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Separator } from "@/components/ui/separator";
 import { Upload, Loader2, Sparkles, FileText, X, Wand2, PenLine } from "lucide-react";
 import { toast } from "sonner";
+import { PrivacyNotice } from "@/components/ui/privacy-notice";
+import { SubjectSelector } from "@/components/ui/subject-selector";
 
 const PREFERENCE_CATEGORIES = {
   style: {
@@ -33,17 +35,6 @@ const PREFERENCE_CATEGORIES = {
   },
 } as const;
 
-const COURSE_TOPICS = [
-  "Power & Influence",
-  "Change Management",
-  "Leadership",
-  "Organizational Behavior",
-  "Strategic Management",
-  "Business Ethics",
-  "Negotiation",
-  "Team Dynamics",
-  "Other",
-];
 
 interface GeneratedDataBlock {
   block_type: string;
@@ -76,7 +67,7 @@ export default function CreateSimulationPage() {
   
   const [formData, setFormData] = useState({
     title: "",
-    courseTopic: "Power & Influence",
+    courseTopic: "",
     difficulty: "hard" as "easy" | "hard" | "challenge",
     goal: "",
     targetDecisions: "",
@@ -154,7 +145,7 @@ export default function CreateSimulationPage() {
       .insert({
         professor_id: user.id,
         title: (generated.title || formData.title) || "Untitled Simulation",
-        course_topic: formData.courseTopic || "Power & Influence",
+        course_topic: formData.courseTopic || "General",
         difficulty: formData.difficulty || "hard",
         estimated_minutes: difficultyEstimates[formData.difficulty] ?? 25,
         goal: formData.goal || null,
@@ -250,6 +241,28 @@ export default function CreateSimulationPage() {
           data: block.data as unknown as Json,
         });
       if (blockError) console.warn("Could not save data block:", blockError);
+    }
+
+    // Auto-save sources from uploaded files and pasted text
+    const fileSources: { simulation_id: string; label: string; source_type: "file" | "text" }[] = [];
+    if (uploadedFilePaths?.length) {
+      for (const { originalName } of uploadedFilePaths) {
+        fileSources.push({
+          simulation_id: simulation.id,
+          label: originalName,
+          source_type: "file" as const,
+        });
+      }
+    }
+    if (formData.pastedText?.trim()) {
+      fileSources.push({
+        simulation_id: simulation.id,
+        label: "Pasted course material",
+        source_type: "text" as const,
+      });
+    }
+    if (fileSources.length > 0) {
+      await supabase.from("simulation_sources").insert(fileSources);
     }
 
     return simulation.id;
@@ -471,24 +484,10 @@ export default function CreateSimulationPage() {
                 required
               />
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="topic">Course / Topic</Label>
-              <Select
-                value={formData.courseTopic}
-                onValueChange={(value) => setFormData({ ...formData, courseTopic: value })}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select a topic" />
-                </SelectTrigger>
-                <SelectContent>
-                  {COURSE_TOPICS.map((topic) => (
-                    <SelectItem key={topic} value={topic}>
-                      {topic}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+            <SubjectSelector
+              value={formData.courseTopic}
+              onChange={(value) => setFormData({ ...formData, courseTopic: value })}
+            />
             <div className="space-y-2">
               <Label htmlFor="difficulty">Difficulty / Length</Label>
               <Select
@@ -631,6 +630,8 @@ export default function CreateSimulationPage() {
                 ))}
               </div>
             )}
+
+            <PrivacyNotice />
 
             <Separator />
 

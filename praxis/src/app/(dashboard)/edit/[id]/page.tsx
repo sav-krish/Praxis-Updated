@@ -58,6 +58,13 @@ export default async function EditSimulationPage({ params, searchParams }: PageP
     .eq("simulation_id", id)
     .order("order_num", { ascending: true });
 
+  // Fetch sources
+  const { data: sources } = await supabase
+    .from("simulation_sources")
+    .select("*")
+    .eq("simulation_id", id)
+    .order("created_at", { ascending: true });
+
   // Sort options within each decision
   const sortedDecisions = decisions?.map(d => ({
     ...d,
@@ -71,6 +78,10 @@ export default async function EditSimulationPage({ params, searchParams }: PageP
       reflectionQuestions={reflectionQuestions || []}
       dataBlocks={(dataBlocks || []).map((b) => ({ ...b, block_type: b.block_type as SimulationDataBlock["block_type"], data: b.data as unknown as SimulationDataBlock["data"] }))}
       profiles={profiles || []}
+      sources={(sources || []).map((s) => ({
+        ...s,
+        source_type: s.source_type as "file" | "url" | "text" | "manual",
+      }))}
       userId={user?.id}
       isNewlyGenerated={generated === "1"}
       isOwner={isOwner}

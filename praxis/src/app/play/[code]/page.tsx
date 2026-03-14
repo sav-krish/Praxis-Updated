@@ -85,6 +85,7 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
   const [decisions, setDecisions] = useState<Decision[]>([]);
   const [reflectionQuestions, setReflectionQuestions] = useState<ReflectionQuestion[]>([]);
   const [dataBlocks, setDataBlocks] = useState<Array<{ id: string; block_type: string; title: string | null; data: unknown }>>([]);
+  const [sources, setSources] = useState<Array<{ id: string; label: string; url?: string | null }>>([]);
   const [participantId, setParticipantId] = useState<string | null>(null);
   const [participantName, setParticipantName] = useState<string>("");
   const [playerProfile, setPlayerProfile] = useState<PlayerProfile | null>(null);
@@ -353,6 +354,17 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
       setDataBlocks(blocksData);
     }
 
+    // Load sources / references
+    const { data: sourcesData } = await supabase
+      .from("simulation_sources")
+      .select("id, label, url")
+      .eq("simulation_id", simulationData.id)
+      .order("created_at", { ascending: true });
+
+    if (sourcesData) {
+      setSources(sourcesData);
+    }
+
     // Load existing responses
     const { data: responsesData } = await supabase
       .from("responses")
@@ -594,6 +606,31 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
                       block={block as Parameters<typeof DataBlockRenderer>[0]["block"]}
                     />
                   ))}
+                </div>
+              )}
+              {sources.length > 0 && (
+                <div className="mt-6 pt-4 border-t border-border">
+                  <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">
+                    References
+                  </h4>
+                  <ul className="space-y-1">
+                    {sources.map((s) => (
+                      <li key={s.id} className="text-xs text-muted-foreground">
+                        {s.url ? (
+                          <a
+                            href={s.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="underline hover:text-foreground"
+                          >
+                            {s.label}
+                          </a>
+                        ) : (
+                          s.label
+                        )}
+                      </li>
+                    ))}
+                  </ul>
                 </div>
               )}
               <Separator className="my-4 sm:my-6" />

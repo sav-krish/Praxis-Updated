@@ -35,6 +35,8 @@ import {
   Info,
   Users,
   Trash2,
+  Undo2,
+  Redo2,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Plus } from "lucide-react";
@@ -49,8 +51,12 @@ import { DataBlockRenderer } from "@/components/simulation/DataBlockRenderer";
 import { FeedbackCard } from "@/components/simulation/FeedbackCard";
 import { copySimulationToAccount } from "@/app/(dashboard)/share/[id]/actions";
 import { PreviewSimulationButton } from "@/components/simulation/PreviewSimulationButton";
-import type { Simulation, Decision, Option, ReflectionQuestion, SimulationProfile, Json } from "@/types/database";
+import type { Simulation, Decision, Option, ReflectionQuestion, SimulationProfile, SimulationSource, Json } from "@/types/database";
 import type { SimulationDataBlock, DataBlockType } from "@/types/data-blocks";
+import { SourcesEditor } from "@/components/simulation/sources-editor";
+import { AiSectionTrigger } from "@/components/copilot/ai-section-trigger";
+import { CopilotPanel, type FocusedSection } from "@/components/copilot/copilot-panel";
+import { useAiEdit } from "@/hooks/use-ai-edit";
 
 interface DecisionWithOptions extends Decision {
   options: Option[];
@@ -62,6 +68,7 @@ interface SimulationEditorProps {
   reflectionQuestions: ReflectionQuestion[];
   dataBlocks: SimulationDataBlock[];
   profiles: SimulationProfile[];
+  sources: SimulationSource[];
   userId?: string;
   isNewlyGenerated?: boolean;
   isOwner?: boolean;
@@ -89,6 +96,7 @@ export function SimulationEditor({
   reflectionQuestions: initialQuestions,
   dataBlocks: initialDataBlocks = [],
   profiles: initialProfiles = [],
+  sources: initialSources = [],
   userId,
   isNewlyGenerated = false,
   isOwner = true,
@@ -103,6 +111,13 @@ export function SimulationEditor({
   const [currentStep, setCurrentStep] = useState(0);
   const [slideDirection, setSlideDirection] = useState(0);
   const [showFeedbackBanner, setShowFeedbackBanner] = useState(isNewlyGenerated && isOwner);
+  const [copilotOpen, setCopilotOpen] = useState(false);
+  const [focusedSection, setFocusedSection] = useState<FocusedSection | null>(null);
+
+  const handleFocusSection = useCallback((label: string, sectionContext: string) => {
+    setFocusedSection({ label, sectionContext });
+    setCopilotOpen(true);
+  }, []);
 
   // Dirty tracking: snapshot initial state, compare against current
   const snapshotRef = useRef(JSON.stringify({
@@ -144,6 +159,26 @@ export function SimulationEditor({
     toast.success("Added to your dashboard");
     router.push(`/edit/${result.newId}`);
   };
+
+  const handleSaveSources = useCallback(async (updated: SimulationSource[]) => {
+    const supabase = createClient();
+    await supabase
+      .from("simulation_sources")
+      .delete()
+      .eq("simulation_id", simulation.id);
+    if (updated.length > 0) {
+      await supabase.from("simulation_sources").insert(
+        updated.map(({ id, simulation_id, label, url, source_type }) => ({
+          id,
+          simulation_id,
+          label,
+          url,
+          source_type,
+        }))
+      );
+    }
+    toast.success("Sources saved");
+  }, [simulation.id]);
 
   // Core save logic — returns true on success, false on failure
   const performSave = useCallback(async (silent = false): Promise<boolean> => {
@@ -295,15 +330,15 @@ export function SimulationEditor({
   // Manual save button
   const handleSave = () => performSave(false);
 
-  const updateDecision = (index: number, field: string, value: string) => {
+  const updateDecision = useCallback((index: number, field: string, value: string) => {
     setDecisions(prev => {
       const updated = [...prev];
       updated[index] = { ...updated[index], [field]: value };
       return updated;
     });
-  };
+  }, []);
 
-  const updateOption = (decisionIndex: number, optionIndex: number, field: string, value: string | number) => {
+  const updateOption = useCallback((decisionIndex: number, optionIndex: number, field: string, value: string | number) => {
     setDecisions(prev => {
       const updated = [...prev];
       const options = [...updated[decisionIndex].options];
@@ -311,15 +346,69 @@ export function SimulationEditor({
       updated[decisionIndex] = { ...updated[decisionIndex], options };
       return updated;
     });
-  };
+  }, []);
 
-  const updateReflectionQuestion = (index: number, value: string) => {
+  const updateReflectionQuestion = useCallback((index: number, value: string) => {
     setReflectionQuestions(prev => {
       const updated = [...prev];
       updated[index] = { ...updated[index], question: value };
       return updated;
     });
-  };
+  }, []);
+
+  const setField = useCallback((field: string, value: string, opts?: { decisionIndex?: number; optionIndex?: number; questionIndex?: number }) => {
+    switch (field) {
+      case "background_content":
+        setSimulation((prev) => ({ ...prev, background_content: value }));
+        break;
+      case "title":
+        setSimulation((prev) => ({ ...prev, title: value }));
+        break;
+      case "decision_prompt":
+        if (opts?.decisionIndex != null) updateDecision(opts.decisionIndex, "prompt", value);
+        break;
+      case "option_title":
+        if (opts?.decisionIndex != null && opts?.optionIndex != null) updateOption(opts.decisionIndex, opts.optionIndex, "title", value);
+        break;
+      case "option_description":
+        if (opts?.decisionIndex != null && opts?.optionIndex != null) updateOption(opts.decisionIndex, opts.optionIndex, "description", value);
+        break;
+      case "option_consequence":
+        if (opts?.decisionIndex != null && opts?.optionIndex != null) updateOption(opts.decisionIndex, opts.optionIndex, "consequence", value);
+        break;
+      case "reflection_question":
+        if (opts?.questionIndex != null) updateReflectionQuestion(opts.questionIndex, value);
+        break;
+    }
+  }, [updateDecision, updateOption, updateReflectionQuestion]);
+
+  const getField = useCallback((field: string, opts?: { decisionIndex?: number; optionIndex?: number; questionIndex?: number }): string => {
+    switch (field) {
+      case "background_content": return simulation.background_content || "";
+      case "title": return simulation.title;
+      case "decision_prompt":
+        if (opts?.decisionIndex != null && opts.decisionIndex < decisions.length) return decisions[opts.decisionIndex].prompt;
+        return "";
+      case "option_title":
+        if (opts?.decisionIndex != null && opts?.optionIndex != null && opts.decisionIndex < decisions.length && opts.optionIndex < decisions[opts.decisionIndex].options.length)
+          return decisions[opts.decisionIndex].options[opts.optionIndex].title;
+        return "";
+      case "option_description":
+        if (opts?.decisionIndex != null && opts?.optionIndex != null && opts.decisionIndex < decisions.length && opts.optionIndex < decisions[opts.decisionIndex].options.length)
+          return decisions[opts.decisionIndex].options[opts.optionIndex].description || "";
+        return "";
+      case "option_consequence":
+        if (opts?.decisionIndex != null && opts?.optionIndex != null && opts.decisionIndex < decisions.length && opts.optionIndex < decisions[opts.decisionIndex].options.length)
+          return decisions[opts.decisionIndex].options[opts.optionIndex].consequence || "";
+        return "";
+      case "reflection_question":
+        if (opts?.questionIndex != null && opts.questionIndex < reflectionQuestions.length) return reflectionQuestions[opts.questionIndex].question;
+        return "";
+      default: return "";
+    }
+  }, [simulation, decisions, reflectionQuestions]);
+
+  const { applyActions: handleCopilotAction, undo: aiUndo, redo: aiRedo, typing: aiTyping, canUndo: aiCanUndo, canRedo: aiCanRedo } = useAiEdit(setField, getField);
 
   const updateDataBlock = (index: number, block: SimulationDataBlock) => {
     setDataBlocks((prev) => {
@@ -346,7 +435,9 @@ export function SimulationEditor({
   };
 
   return (
-    <div className="max-w-5xl mx-auto px-0 sm:px-4">
+    <div className="flex gap-0 items-stretch -mx-3 sm:-mx-4">
+      {/* Editor content */}
+      <div className="flex-1 min-w-0 max-w-5xl mx-auto px-3 sm:px-4">
       {/* Header */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between mb-4 sm:mb-6">
         <div className="flex items-center gap-3 min-w-0">
@@ -374,6 +465,30 @@ export function SimulationEditor({
         <div className="flex gap-2 flex-wrap">
           {isOwner ? (
             <>
+              {(aiCanUndo || aiCanRedo) && (
+                <div className="flex gap-0.5 shrink-0">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={aiUndo}
+                    disabled={!aiCanUndo || aiTyping}
+                    className="min-h-[44px] min-w-[44px]"
+                    title="Undo AI edit"
+                  >
+                    <Undo2 className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={aiRedo}
+                    disabled={!aiCanRedo || aiTyping}
+                    className="min-h-[44px] min-w-[44px]"
+                    title="Redo AI edit"
+                  >
+                    <Redo2 className="h-4 w-4" />
+                  </Button>
+                </div>
+              )}
               <Button variant="outline" onClick={handleSave} disabled={saving} className="min-h-[44px] flex-1 sm:flex-none">
                 {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
                 Save
@@ -469,83 +584,124 @@ export function SimulationEditor({
             </CardContent>
           </Card>
 
-          <Card className="mt-6">
-            <CardHeader>
-              <CardTitle>Background Content</CardTitle>
-              <CardDescription>
-                The scenario and context students will read before making decisions (1-2 pages)
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <Textarea
-                placeholder="Write the background scenario here. This is what students will read to understand the context before making decisions..."
-                value={simulation.background_content || ""}
-                onChange={(e) => setSimulation({ ...simulation, background_content: e.target.value })}
-                rows={15}
-                className="font-mono text-sm"
-                disabled={!isOwner}
-              />
-              <p className="text-xs text-muted-foreground mt-2">
-                Supports Markdown (headings, lists, **bold**, and tables). Aim for 1-2 pages.
-              </p>
-            </CardContent>
-          </Card>
+          {isOwner ? (
+            <AiSectionTrigger
+              sectionLabel="Background Content"
+              sectionContext={`Background content:\n${(simulation.background_content || "").slice(0, 4000)}`}
+              onFocusSection={handleFocusSection}
+              active={focusedSection?.label === "Background Content"}
+            >
+              {(trigger) => (
+                <Card className="mt-6">
+                  <CardHeader>
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="space-y-1.5 min-w-0">
+                        <CardTitle>Background Content</CardTitle>
+                        <CardDescription>
+                          The scenario and context students will read before making decisions (1-2 pages)
+                        </CardDescription>
+                      </div>
+                      {trigger}
+                    </div>
+                  </CardHeader>
+                  <CardContent>
+                    <Textarea
+                      placeholder="Write the background scenario here. This is what students will read to understand the context before making decisions..."
+                      value={simulation.background_content || ""}
+                      onChange={(e) => setSimulation({ ...simulation, background_content: e.target.value })}
+                      rows={15}
+                      className="font-mono text-sm"
+                    />
+                    <p className="text-xs text-muted-foreground mt-2">
+                      Supports Markdown (headings, lists, **bold**, and tables). Aim for 1-2 pages.
+                    </p>
+                  </CardContent>
+                </Card>
+              )}
+            </AiSectionTrigger>
+          ) : (
+            <Card className="mt-6">
+              <CardHeader>
+                <CardTitle>Background Content</CardTitle>
+                <CardDescription>
+                  The scenario and context students will read before making decisions (1-2 pages)
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <Textarea
+                  placeholder="Write the background scenario here..."
+                  value={simulation.background_content || ""}
+                  rows={15}
+                  className="font-mono text-sm"
+                  disabled
+                />
+              </CardContent>
+            </Card>
+          )}
 
           {/* Data blocks: tables, charts, timelines */}
-          <Card className="mt-6">
-            <CardHeader>
-              <CardTitle>Data &amp; Visuals</CardTitle>
-              <CardDescription>
-                {isOwner
-                  ? "Tables, charts, timelines, and KPI cards shown to students in the background. AI generates these; you can edit or add more."
-                  : "Tables, charts, timelines, and KPI cards shown to students in the background."}
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {dataBlocks.map((block, index) =>
-                isOwner ? (
-                  <DataBlockEditor
-                    key={block.id}
-                    block={block}
-                    onUpdate={(updated) => updateDataBlock(index, updated)}
-                    onDelete={() => deleteDataBlock(index)}
-                  />
-                ) : (
+          {isOwner ? (
+            <AiSectionTrigger
+              sectionLabel="Data & Visuals"
+              sectionContext={`Data blocks:\n${dataBlocks.map((b, i) => `Block ${i + 1} (${b.block_type}): ${b.title || "Untitled"} — ${JSON.stringify(b.data).slice(0, 500)}`).join("\n")}`}
+              onFocusSection={handleFocusSection}
+              active={focusedSection?.label === "Data & Visuals"}
+            >
+              {(trigger) => (
+                <Card className="mt-6">
+                  <CardHeader>
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="space-y-1.5 min-w-0">
+                        <CardTitle>Data &amp; Visuals</CardTitle>
+                        <CardDescription>
+                          Tables, charts, timelines, and KPI cards shown to students in the background. AI generates these; you can edit or add more.
+                        </CardDescription>
+                      </div>
+                      {trigger}
+                    </div>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    {dataBlocks.map((block, index) => (
+                      <DataBlockEditor
+                        key={block.id}
+                        block={block}
+                        onUpdate={(updated) => updateDataBlock(index, updated)}
+                        onDelete={() => deleteDataBlock(index)}
+                      />
+                    ))}
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="outline" size="sm" className="w-fit">
+                          <Plus className="mr-2 h-4 w-4" />
+                          Add data block
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent>
+                        <DropdownMenuItem onClick={() => addDataBlock("table")}>Table</DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => addDataBlock("bar_chart")}>Bar Chart</DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => addDataBlock("line_chart")}>Line Chart</DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => addDataBlock("kpi_cards")}>KPI Cards</DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => addDataBlock("timeline")}>Timeline</DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => addDataBlock("pie_chart")}>Pie Chart</DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </CardContent>
+                </Card>
+              )}
+            </AiSectionTrigger>
+          ) : (
+            <Card className="mt-6">
+              <CardHeader>
+                <CardTitle>Data &amp; Visuals</CardTitle>
+                <CardDescription>Tables, charts, timelines, and KPI cards shown to students in the background.</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {dataBlocks.map((block) => (
                   <DataBlockRenderer key={block.id} block={block} />
-                )
-              )}
-              {isOwner && (
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant="outline" size="sm" className="w-fit">
-                      <Plus className="mr-2 h-4 w-4" />
-                      Add data block
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent>
-                    <DropdownMenuItem onClick={() => addDataBlock("table")}>
-                      Table
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => addDataBlock("bar_chart")}>
-                      Bar Chart
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => addDataBlock("line_chart")}>
-                      Line Chart
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => addDataBlock("kpi_cards")}>
-                      KPI Cards
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => addDataBlock("timeline")}>
-                      Timeline
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => addDataBlock("pie_chart")}>
-                      Pie Chart
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              )}
-            </CardContent>
-          </Card>
+                ))}
+              </CardContent>
+            </Card>
+          )}
 
           </motion.div>
         )}
@@ -561,95 +717,117 @@ export function SimulationEditor({
           className="space-y-4"
         >
           {decisions.map((decision, dIndex) => (
-            <Collapsible key={decision.id} defaultOpen={false} className="group/decision">
-              <Card className="overflow-hidden p-0 gap-0">
-                <CollapsibleTrigger asChild>
-                  <button
-                    type="button"
-                    className="w-full text-left px-4 sm:px-6 py-4 flex items-center justify-between gap-3 bg-transparent hover:bg-muted transition-colors duration-150 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 min-w-0"
-                  >
-                    <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
-                      <Badge variant="outline" className="shrink-0">Decision {decision.order_num}</Badge>
-                      <span className="text-sm text-muted-foreground break-words min-w-0">
-                        {decision.prompt || "No prompt yet"}
-                      </span>
-                    </div>
-                    <ChevronDown className="h-5 w-5 shrink-0 text-muted-foreground transition-transform group-data-[state=open]/decision:rotate-180 ml-2" />
-                  </button>
-                </CollapsibleTrigger>
-                <CollapsibleContent>
-                  <CardContent className="space-y-6 border-t pt-6">
-                    <div className="space-y-2">
-                      <Label>Decision Prompt</Label>
-                      <Textarea
-                        placeholder="What decision does the student need to make?"
-                        value={decision.prompt}
-                        onChange={(e) => updateDecision(dIndex, "prompt", e.target.value)}
-                        rows={3}
-                        disabled={!isOwner}
-                      />
-                    </div>
-
-                    <Separator />
-
-                    <div className="space-y-4">
-                      <Label>Options</Label>
-                      {decision.options.map((option, oIndex) => (
-                        <div key={option.id} className="border rounded-lg p-4 space-y-4">
-                          <div className="flex flex-wrap items-center gap-2">
-                            <Badge className="shrink-0">{option.label}</Badge>
-                            <Input
-                              placeholder="Option title"
-                              value={option.title}
-                              onChange={(e) => updateOption(dIndex, oIndex, "title", e.target.value)}
-                              className="flex-1 min-w-[120px]"
-                              disabled={!isOwner}
-                            />
-                            <div className="flex items-center gap-2 shrink-0">
-                              <Label className="text-sm whitespace-nowrap">Score:</Label>
-                              <Select
-                                value={String(option.score)}
-                                onValueChange={(value) => updateOption(dIndex, oIndex, "score", parseInt(value))}
-                                disabled={!isOwner}
-                              >
-                                <SelectTrigger className="w-20">
-                                  <SelectValue />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  <SelectItem value="1">1</SelectItem>
-                                  <SelectItem value="2">2</SelectItem>
-                                  <SelectItem value="3">3</SelectItem>
-                                </SelectContent>
-                              </Select>
-                            </div>
+            <AiSectionTrigger
+              key={decision.id}
+              sectionLabel={`Decision ${decision.order_num}`}
+              sectionContext={
+                `Decision ${decision.order_num} (index ${dIndex}):\nPrompt: ${decision.prompt}\n\n` +
+                decision.options.map((o, oi) =>
+                  `Option ${o.label} (index ${oi}): ${o.title}\n  Description: ${o.description || "(empty)"}\n  Consequence: ${o.consequence || "(empty)"}\n  Score: ${o.score}`
+                ).join("\n\n")
+              }
+              onFocusSection={handleFocusSection}
+              active={focusedSection?.label === `Decision ${decision.order_num}`}
+            >
+              {(trigger) => (
+                <Collapsible defaultOpen={false} className="group/decision">
+                  <Card className="overflow-hidden p-0 gap-0">
+                    <div className="flex items-center gap-0">
+                      <CollapsibleTrigger asChild>
+                        <button
+                          type="button"
+                          className="flex-1 text-left px-4 sm:px-6 py-4 flex items-center justify-between gap-3 bg-transparent hover:bg-muted transition-colors duration-150 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 min-w-0"
+                        >
+                          <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
+                            <Badge variant="outline" className="shrink-0">Decision {decision.order_num}</Badge>
+                            <span className="text-sm text-muted-foreground wrap-break-word min-w-0 line-clamp-1">
+                              {decision.prompt || "No prompt yet"}
+                            </span>
                           </div>
-                          <div className="space-y-2">
-                            <Label className="text-sm">Description</Label>
-                            <Textarea
-                              placeholder="Describe this option..."
-                              value={option.description || ""}
-                              onChange={(e) => updateOption(dIndex, oIndex, "description", e.target.value)}
-                              rows={2}
-                              disabled={!isOwner}
-                            />
-                          </div>
-                          <div className="space-y-2">
-                            <Label className="text-sm">Consequence</Label>
-                            <Textarea
-                              placeholder="What happens when this option is chosen?"
-                              value={option.consequence || ""}
-                              onChange={(e) => updateOption(dIndex, oIndex, "consequence", e.target.value)}
-                              rows={2}
-                              disabled={!isOwner}
-                            />
-                          </div>
+                          <ChevronDown className="h-5 w-5 shrink-0 text-muted-foreground transition-transform group-data-[state=open]/decision:rotate-180 ml-2" />
+                        </button>
+                      </CollapsibleTrigger>
+                      {isOwner && (
+                        <div className="pr-3 sm:pr-4 shrink-0">
+                          {trigger}
                         </div>
-                      ))}
+                      )}
                     </div>
-                  </CardContent>
-                </CollapsibleContent>
-              </Card>
-            </Collapsible>
+                    <CollapsibleContent>
+                      <CardContent className="space-y-6 border-t pt-6">
+                        <div className="space-y-2">
+                          <Label>Decision Prompt</Label>
+                          <Textarea
+                            placeholder="What decision does the student need to make?"
+                            value={decision.prompt}
+                            onChange={(e) => updateDecision(dIndex, "prompt", e.target.value)}
+                            rows={3}
+                            disabled={!isOwner}
+                          />
+                        </div>
+
+                        <Separator />
+
+                        <div className="space-y-4">
+                          <Label>Options</Label>
+                          {decision.options.map((option, oIndex) => (
+                            <div key={option.id} className="border rounded-lg p-3 sm:p-4 space-y-4">
+                              <div className="flex flex-wrap items-center gap-2">
+                                <Badge className="shrink-0">{option.label}</Badge>
+                                <Input
+                                  placeholder="Option title"
+                                  value={option.title}
+                                  onChange={(e) => updateOption(dIndex, oIndex, "title", e.target.value)}
+                                  className="flex-1 min-w-[120px]"
+                                  disabled={!isOwner}
+                                />
+                                <div className="flex items-center gap-2 shrink-0">
+                                  <Label className="text-sm whitespace-nowrap">Score:</Label>
+                                  <Select
+                                    value={String(option.score)}
+                                    onValueChange={(value) => updateOption(dIndex, oIndex, "score", parseInt(value))}
+                                    disabled={!isOwner}
+                                  >
+                                    <SelectTrigger className="w-20">
+                                      <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      <SelectItem value="1">1</SelectItem>
+                                      <SelectItem value="2">2</SelectItem>
+                                      <SelectItem value="3">3</SelectItem>
+                                    </SelectContent>
+                                  </Select>
+                                </div>
+                              </div>
+                              <div className="space-y-2">
+                                <Label className="text-sm">Description</Label>
+                                <Textarea
+                                  placeholder="Describe this option..."
+                                  value={option.description || ""}
+                                  onChange={(e) => updateOption(dIndex, oIndex, "description", e.target.value)}
+                                  rows={2}
+                                  disabled={!isOwner}
+                                />
+                              </div>
+                              <div className="space-y-2">
+                                <Label className="text-sm">Consequence</Label>
+                                <Textarea
+                                  placeholder="What happens when this option is chosen?"
+                                  value={option.consequence || ""}
+                                  onChange={(e) => updateOption(dIndex, oIndex, "consequence", e.target.value)}
+                                  rows={2}
+                                  disabled={!isOwner}
+                                />
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </CardContent>
+                    </CollapsibleContent>
+                  </Card>
+                </Collapsible>
+              )}
+            </AiSectionTrigger>
           ))}
 
         </motion.div>
@@ -665,27 +843,67 @@ export function SimulationEditor({
             transition={{ type: "tween", duration: 0.2 }}
             className="space-y-6"
           >
-          <Card>
-            <CardHeader>
-              <CardTitle>Reflection Questions</CardTitle>
-              <CardDescription>
-                Questions students will answer after completing all decisions
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {reflectionQuestions.map((question, index) => (
-                <div key={question.id} className="space-y-2">
-                  <Label>Question {index + 1}</Label>
-                  <Input
-                    value={question.question}
-                    onChange={(e) => updateReflectionQuestion(index, e.target.value)}
-                    placeholder="Enter reflection question..."
-                    disabled={!isOwner}
-                  />
-                </div>
-              ))}
-            </CardContent>
-          </Card>
+          {isOwner ? (
+            <AiSectionTrigger
+              sectionLabel="Reflection Questions"
+              sectionContext={reflectionQuestions.map((q, i) =>
+                `Question ${i + 1} (index ${i}): ${q.question}`
+              ).join("\n")}
+              onFocusSection={handleFocusSection}
+              active={focusedSection?.label === "Reflection Questions"}
+            >
+              {(trigger) => (
+                <Card>
+                  <CardHeader>
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="space-y-1.5 min-w-0">
+                        <CardTitle>Reflection Questions</CardTitle>
+                        <CardDescription>
+                          Questions students will answer after completing all decisions
+                        </CardDescription>
+                      </div>
+                      {trigger}
+                    </div>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    {reflectionQuestions.map((question, index) => (
+                      <div key={question.id} className="space-y-2">
+                        <Label>Question {index + 1}</Label>
+                        <Textarea
+                          value={question.question}
+                          onChange={(e) => updateReflectionQuestion(index, e.target.value)}
+                          placeholder="Enter reflection question..."
+                          rows={2}
+                        />
+                      </div>
+                    ))}
+                  </CardContent>
+                </Card>
+              )}
+            </AiSectionTrigger>
+          ) : (
+            <Card>
+              <CardHeader>
+                <CardTitle>Reflection Questions</CardTitle>
+                <CardDescription>
+                  Questions students will answer after completing all decisions
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {reflectionQuestions.map((question, index) => (
+                  <div key={question.id} className="space-y-2">
+                    <Label>Question {index + 1}</Label>
+                    <Textarea
+                      value={question.question}
+                      placeholder="Enter reflection question..."
+                      rows={2}
+                      disabled
+                    />
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
+          )}
 
           </motion.div>
         )}
@@ -953,11 +1171,53 @@ export function SimulationEditor({
             </CardContent>
           </Card>
 
+          {isOwner && (
+            <Card>
+              <CardContent className="pt-6">
+                <SourcesEditor
+                  simulationId={simulation.id}
+                  sources={initialSources}
+                  onSave={handleSaveSources}
+                />
+              </CardContent>
+            </Card>
+          )}
+
           </motion.div>
         )}
         </AnimatePresence>
         </div>
       </div>
+
+      </div>
+
+      {isOwner && (
+        <CopilotPanel
+          context={{
+            page: "editor",
+            simulationTitle: simulation.title,
+            subject: simulation.course_topic,
+            backgroundContent: simulation.background_content || undefined,
+            decisions: decisions.map((d, i) =>
+              `Decision ${i + 1} (index ${i}): ${d.prompt}\n` +
+              d.options.map((o, oi) =>
+                `  Option ${o.label} (index ${oi}): ${o.title} (score ${o.score})\n` +
+                `    Description: ${o.description || "(empty)"}\n` +
+                `    Consequence: ${o.consequence || "(empty)"}`
+              ).join("\n")
+            ).join("\n\n") || undefined,
+            reflectionQuestions: reflectionQuestions.map((q, i) =>
+              `Question ${i + 1} (index ${i}): ${q.question}`
+            ).join("\n") || undefined,
+          }}
+          onAction={handleCopilotAction}
+          onUndo={aiUndo}
+          open={copilotOpen}
+          onToggle={() => setCopilotOpen((o) => !o)}
+          focusedSection={focusedSection}
+          onClearFocus={() => setFocusedSection(null)}
+        />
+      )}
     </div>
   );
 }

@@ -577,6 +577,41 @@ export interface Database {
         }
         Relationships: []
       }
+      simulation_sources: {
+        Row: {
+          id: string
+          simulation_id: string
+          label: string
+          url: string | null
+          source_type: string
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          simulation_id: string
+          label: string
+          url?: string | null
+          source_type?: string
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          simulation_id?: string
+          label?: string
+          url?: string | null
+          source_type?: string
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "simulation_sources_simulation_id_fkey"
+            columns: ["simulation_id"]
+            isOneToOne: false
+            referencedRelation: "simulations"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
       simulation_favorites: {
         Row: {
           id: string
@@ -624,6 +659,15 @@ export interface Database {
       [_ in never]: never
     }
   }
+}
+
+export interface SimulationSource {
+  id: string;
+  simulation_id: string;
+  label: string;
+  url?: string | null;
+  source_type: "file" | "url" | "text" | "manual";
+  created_at: string;
 }
 
 // Helper types for easier usage

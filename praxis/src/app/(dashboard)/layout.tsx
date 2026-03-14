@@ -12,6 +12,7 @@ import {
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { LogOut, Plus, BookOpen, User, Mail, MessageSquareHeart, CreditCard } from "lucide-react";
 import { createServiceRoleClient } from "@/lib/supabase/server";
+import { CopilotWrapper } from "@/components/copilot/copilot-wrapper";
 
 export const dynamic = "force-dynamic";
 
@@ -160,6 +161,8 @@ export default async function DashboardLayout({
       <main className="container mx-auto px-3 sm:px-4 py-4 sm:py-8">
         {children}
       </main>
+
+      {!isStudentMode && <CopilotWrapper />}
     </div>
   );
 }

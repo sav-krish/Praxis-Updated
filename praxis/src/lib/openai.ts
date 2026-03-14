@@ -91,7 +91,8 @@ The simulation should be realistic and create genuine dilemmas. Tailor complexit
 
   const userPrompt = `Create a simulation based on the following:
 
-**Course/Topic:** ${courseTopic}
+**Course subject / discipline:** ${courseTopic}
+Please use discipline-appropriate terminology, real-world examples, realistic roles, and professional language conventions specific to the ${courseTopic} field.
 
 **Difficulty / Target Length:** ${difficulty} (~${difficulty === "easy" ? "15" : difficulty === "challenge" ? "40" : "25"} min) — tailor scenario length and decision complexity accordingly.
 
