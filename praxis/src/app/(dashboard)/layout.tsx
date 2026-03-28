@@ -10,9 +10,9 @@ import {
   DropdownMenuTrigger 
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { LogOut, Plus, BookOpen, User, Mail, MessageSquareHeart, CreditCard } from "lucide-react";
+import { LogOut, Plus, BookOpen, User, Mail, MessageSquareHeart, CreditCard, Home } from "lucide-react";
 import { createServiceRoleClient } from "@/lib/supabase/server";
-import { CopilotWrapper } from "@/components/copilot/copilot-wrapper";
+import { CopilotLazy } from "@/components/copilot/copilot-lazy";
 
 export const dynamic = "force-dynamic";
 
@@ -80,6 +80,12 @@ export default async function DashboardLayout({
           </Link>
           
           <div className="flex items-center gap-2 sm:gap-4 shrink-0">
+            <Link href="/dashboard" title="Your simulations">
+              <Button variant="ghost" className="min-h-[44px] px-3 text-sm">
+                <Home className="h-4 w-4 mr-1.5 shrink-0" />
+                <span className="hidden sm:inline">Home</span>
+              </Button>
+            </Link>
             <Link href="/library">
               <Button variant="ghost" className="min-h-[44px] px-3 text-sm">
                 <BookOpen className="h-4 w-4 mr-1.5 shrink-0" />
@@ -162,7 +168,7 @@ export default async function DashboardLayout({
         {children}
       </main>
 
-      {!isStudentMode && <CopilotWrapper />}
+      {!isStudentMode && <CopilotLazy />}
     </div>
   );
 }

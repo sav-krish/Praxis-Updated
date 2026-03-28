@@ -1,6 +1,14 @@
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { ReportsView } from "./reports-view";
+import {
+  SIMULATION_REPORTS_HEADER,
+  SESSION_REPORTS_LIST,
+  SESSION_REPORTS_SELECTED,
+  PARTICIPANT_REPORTS_ROW,
+  TEAM_REPORTS_ROW,
+  RESPONSE_REPORTS_ROW,
+} from "@/lib/supabase-query-columns";
 
 interface PageProps {
   params: Promise<{ id: string }>;
@@ -15,7 +23,7 @@ export default async function ReportsPage({ params, searchParams }: PageProps) {
   // Fetch simulation
   const { data: simulation, error } = await supabase
     .from("simulations")
-    .select("*")
+    .select(SIMULATION_REPORTS_HEADER)
     .eq("id", id)
     .single();
 
@@ -26,7 +34,7 @@ export default async function ReportsPage({ params, searchParams }: PageProps) {
   // Fetch all completed sessions for this simulation
   const { data: sessions } = await supabase
     .from("sessions")
-    .select("*")
+    .select(SESSION_REPORTS_LIST)
     .eq("simulation_id", id)
     .eq("status", "complete")
     .order("ended_at", { ascending: false });
@@ -48,7 +56,7 @@ export default async function ReportsPage({ params, searchParams }: PageProps) {
   // Fetch session data
   const { data: selectedSession } = await supabase
     .from("sessions")
-    .select("*")
+    .select(SESSION_REPORTS_SELECTED)
     .eq("id", selectedSessionId)
     .single();
 
@@ -76,19 +84,19 @@ export default async function ReportsPage({ params, searchParams }: PageProps) {
   // Fetch participants
   const { data: participants } = await supabase
     .from("participants")
-    .select("*")
+    .select(PARTICIPANT_REPORTS_ROW)
     .eq("session_id", selectedSessionId);
 
   // Fetch teams
   const { data: teams } = await supabase
     .from("teams")
-    .select("*")
+    .select(TEAM_REPORTS_ROW)
     .eq("session_id", selectedSessionId);
 
   // Fetch responses
   const { data: responses } = await supabase
     .from("responses")
-    .select("*")
+    .select(RESPONSE_REPORTS_ROW)
     .eq("session_id", selectedSessionId);
 
   // Fetch reflection responses

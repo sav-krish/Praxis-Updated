@@ -20,6 +20,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { SUBJECT_CATEGORIES } from "@/lib/subjects";
+import { FieldInfoHint } from "@/components/ui/field-info-hint";
 
 interface SubjectSelectorProps {
   value: string;
@@ -43,7 +44,12 @@ export function SubjectSelector({ value, onChange }: SubjectSelectorProps) {
 
   return (
     <div className="space-y-2">
-      <Label htmlFor="subject">Course Subject / Discipline</Label>
+      <div className="flex items-center gap-1.5">
+        <Label htmlFor="subject">Course Subject / Discipline</Label>
+        <FieldInfoHint>
+          Helps the AI tailor terminology, examples, and context to your discipline.
+        </FieldInfoHint>
+      </div>
       <Popover open={open} onOpenChange={setOpen}>
         <PopoverTrigger asChild>
           <Button
@@ -94,9 +100,6 @@ export function SubjectSelector({ value, onChange }: SubjectSelectorProps) {
           className="mt-2"
         />
       )}
-      <p className="text-xs text-muted-foreground">
-        Helps the AI tailor terminology, examples, and context to your discipline.
-      </p>
     </div>
   );
 }

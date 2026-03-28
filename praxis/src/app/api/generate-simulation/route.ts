@@ -63,6 +63,7 @@ export async function POST(request: NextRequest) {
         preferences = JSON.parse(preferencesRaw);
       } catch { /* ignore parse errors */ }
     }
+    const hiddenProfilesWanted = formData.get("hiddenProfilesEnabled") === "true";
     
     // Get uploaded files
     const files: File[] = [];
@@ -130,7 +131,7 @@ export async function POST(request: NextRequest) {
       courseTopic,
       aiNotes,
       difficulty as "easy" | "hard" | "challenge",
-      { stayCloseToSource, reframeAs, preferences }
+      { stayCloseToSource, reframeAs, preferences, hiddenProfilesWanted }
     );
 
     // Override title if provided

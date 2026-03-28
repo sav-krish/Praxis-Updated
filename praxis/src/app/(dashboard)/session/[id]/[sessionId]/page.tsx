@@ -1,6 +1,13 @@
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { SessionLobby } from "./session-lobby";
+import {
+  SESSION_LOBBY_ROW,
+  SESSION_LOBBY_SIMULATION,
+  PARTICIPANT_LOBBY_ROW,
+  TEAM_LOBBY_ROW,
+  SIMULATION_PROFILE_LOBBY_ROW,
+} from "@/lib/supabase-query-columns";
 
 interface PageProps {
   params: Promise<{ id: string; sessionId: string }>;
@@ -14,8 +21,8 @@ export default async function SessionPage({ params }: PageProps) {
   const { data: session, error } = await supabase
     .from("sessions")
     .select(`
-      *,
-      simulation:simulations(*)
+      ${SESSION_LOBBY_ROW},
+      simulation:simulations(${SESSION_LOBBY_SIMULATION})
     `)
     .eq("id", sessionId)
     .single();
@@ -27,14 +34,14 @@ export default async function SessionPage({ params }: PageProps) {
   // Fetch participants
   const { data: participants } = await supabase
     .from("participants")
-    .select("*")
+    .select(PARTICIPANT_LOBBY_ROW)
     .eq("session_id", sessionId)
     .order("joined_at", { ascending: true });
 
   // Fetch teams if team mode
   const { data: teams } = await supabase
     .from("teams")
-    .select("*")
+    .select(TEAM_LOBBY_ROW)
     .eq("session_id", sessionId);
 
   // Fetch decisions for progress tracking
@@ -52,7 +59,7 @@ export default async function SessionPage({ params }: PageProps) {
   // Fetch hidden profiles
   const { data: profiles } = await supabase
     .from("simulation_profiles")
-    .select("*")
+    .select(SIMULATION_PROFILE_LOBBY_ROW)
     .eq("simulation_id", id)
     .order("order_num", { ascending: true });
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useCallback, useEffect } from "react";
+import { useState, useRef, useCallback, useEffect, useMemo, useLayoutEffect } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
@@ -9,7 +9,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { FieldInfoHint } from "@/components/ui/field-info-hint";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
@@ -32,14 +33,13 @@ import {
   ChevronDown,
   Share2,
   Globe,
-  Info,
   Users,
   Trash2,
   Undo2,
   Redo2,
+  Plus,
 } from "lucide-react";
 import { toast } from "sonner";
-import { Plus } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -62,7 +62,7 @@ interface DecisionWithOptions extends Decision {
   options: Option[];
 }
 
-interface SimulationEditorProps {
+export interface SimulationEditorProps {
   simulation: Simulation;
   decisions: DecisionWithOptions[];
   reflectionQuestions: ReflectionQuestion[];
@@ -102,7 +102,10 @@ export function SimulationEditor({
   isOwner = true,
 }: SimulationEditorProps) {
   const router = useRouter();
-  const [saving, setSaving] = useState(false);
+  /** idle | manual = explicit save / tab save; autosave = debounced background save */
+  const [saveUi, setSaveUi] = useState<"idle" | "manual" | "autosave">("idle");
+  const saveInFlight = saveUi !== "idle";
+  const [lastSavedAt, setLastSavedAt] = useState<Date | null>(null);
   const [simulation, setSimulation] = useState(initialSimulation);
   const [decisions, setDecisions] = useState(initialDecisions);
   const [reflectionQuestions, setReflectionQuestions] = useState(initialQuestions);
@@ -119,21 +122,45 @@ export function SimulationEditor({
     setCopilotOpen(true);
   }, []);
 
-  // Dirty tracking: snapshot initial state, compare against current
-  const snapshotRef = useRef(JSON.stringify({
-    simulation: initialSimulation,
-    decisions: initialDecisions,
-    reflectionQuestions: initialQuestions,
-    dataBlocks: initialDataBlocks,
-    profiles: initialProfiles,
-  }));
+  // Dirty tracking: one stringify per state change (useMemo); beforeunload reads a ref (no stringify on each call)
+  const cleanSignatureRef = useRef(
+    JSON.stringify({
+      simulation: initialSimulation,
+      decisions: initialDecisions,
+      reflectionQuestions: initialQuestions,
+      dataBlocks: initialDataBlocks,
+      profiles: initialProfiles,
+    })
+  );
+  const dirtyRef = useRef(false);
 
-  const isDirty = useCallback(() => {
-    return JSON.stringify({ simulation, decisions, reflectionQuestions, dataBlocks, profiles }) !== snapshotRef.current;
-  }, [simulation, decisions, reflectionQuestions, dataBlocks, profiles]);
+  const editorStateSignature = useMemo(
+    () =>
+      JSON.stringify({
+        simulation,
+        decisions,
+        reflectionQuestions,
+        dataBlocks,
+        profiles,
+      }),
+    [simulation, decisions, reflectionQuestions, dataBlocks, profiles]
+  );
+
+  useLayoutEffect(() => {
+    dirtyRef.current = editorStateSignature !== cleanSignatureRef.current;
+  }, [editorStateSignature]);
+
+  const isDirty = useCallback(() => dirtyRef.current, []);
 
   const markClean = useCallback(() => {
-    snapshotRef.current = JSON.stringify({ simulation, decisions, reflectionQuestions, dataBlocks, profiles });
+    cleanSignatureRef.current = JSON.stringify({
+      simulation,
+      decisions,
+      reflectionQuestions,
+      dataBlocks,
+      profiles,
+    });
+    dirtyRef.current = false;
   }, [simulation, decisions, reflectionQuestions, dataBlocks, profiles]);
 
   // Warn on browser close / tab close when dirty
@@ -149,9 +176,9 @@ export function SimulationEditor({
   }, [isDirty, isOwner]);
 
   const handleSaveToDashboard = async () => {
-    setSaving(true);
+    setSaveUi("manual");
     const result = await copySimulationToAccount(simulation.id);
-    setSaving(false);
+    setSaveUi("idle");
     if ("error" in result) {
       toast.error(result.error);
       return;
@@ -181,9 +208,11 @@ export function SimulationEditor({
   }, [simulation.id]);
 
   // Core save logic — returns true on success, false on failure
-  const performSave = useCallback(async (silent = false): Promise<boolean> => {
+  const performSave = useCallback(async (opts?: { silent?: boolean; autosave?: boolean }): Promise<boolean> => {
+    const silent = opts?.silent ?? false;
+    const autosave = opts?.autosave ?? false;
     if (!isOwner) return true;
-    setSaving(true);
+    setSaveUi(autosave ? "autosave" : "manual");
     const supabase = createClient();
 
     try {
@@ -296,21 +325,34 @@ export function SimulationEditor({
       }
 
       markClean();
-      if (!silent) toast.success("Simulation saved!");
+      setLastSavedAt(new Date());
+      if (!silent && !autosave) toast.success("Simulation saved!");
       return true;
     } catch (error) {
       console.error(error);
-      toast.error("Failed to save simulation");
+      toast.error(autosave ? "Auto-save failed — try Save" : "Failed to save simulation");
       return false;
     } finally {
-      setSaving(false);
+      setSaveUi("idle");
     }
   }, [simulation, decisions, reflectionQuestions, dataBlocks, profiles, initialDataBlocks, initialProfiles, isOwner, markClean]);
+
+  const performSaveRef = useRef(performSave);
+  performSaveRef.current = performSave;
+
+  useEffect(() => {
+    if (!isOwner) return;
+    if (editorStateSignature === cleanSignatureRef.current) return;
+    const t = setTimeout(() => {
+      void performSaveRef.current({ silent: true, autosave: true });
+    }, 1800);
+    return () => clearTimeout(t);
+  }, [editorStateSignature, isOwner]);
 
   // Autosave on step transition (only if owner and dirty)
   const goToStep = async (nextIndex: number) => {
     if (isOwner && isDirty()) {
-      const ok = await performSave(true);
+      const ok = await performSave({ silent: true });
       if (ok) toast.success("Progress saved", { duration: 1500 });
     }
     setSlideDirection(nextIndex > currentStep ? 1 : -1);
@@ -320,7 +362,7 @@ export function SimulationEditor({
   // Save then navigate to start session
   const handleStartSession = async () => {
     if (isOwner && isDirty()) {
-      const ok = await performSave(true);
+      const ok = await performSave({ silent: true });
       if (!ok) return;
       toast.success("Simulation saved", { duration: 1500 });
     }
@@ -328,7 +370,7 @@ export function SimulationEditor({
   };
 
   // Manual save button
-  const handleSave = () => performSave(false);
+  const handleSave = () => performSave({ silent: false });
 
   const updateDecision = useCallback((index: number, field: string, value: string) => {
     setDecisions(prev => {
@@ -356,7 +398,7 @@ export function SimulationEditor({
     });
   }, []);
 
-  const setField = useCallback((field: string, value: string, opts?: { decisionIndex?: number; optionIndex?: number; questionIndex?: number }) => {
+  const setField = useCallback((field: string, value: string, opts?: { decisionIndex?: number; optionIndex?: number; questionIndex?: number; blockIndex?: number }) => {
     switch (field) {
       case "background_content":
         setSimulation((prev) => ({ ...prev, background_content: value }));
@@ -379,10 +421,54 @@ export function SimulationEditor({
       case "reflection_question":
         if (opts?.questionIndex != null) updateReflectionQuestion(opts.questionIndex, value);
         break;
+      case "data_block": {
+        if (opts?.blockIndex == null) break;
+        const i = opts.blockIndex;
+        if (value === "") {
+          setDataBlocks((prev) => {
+            if (i < 0 || i >= prev.length) return prev;
+            const next = prev.filter((_, j) => j !== i);
+            return next.map((b, j) => ({ ...b, order_num: j + 1 }));
+          });
+          break;
+        }
+        let parsed: { block_type?: DataBlockType; title?: string | null; data?: unknown };
+        try {
+          parsed = JSON.parse(value) as typeof parsed;
+        } catch {
+          break;
+        }
+        const validTypes: DataBlockType[] = ["table", "bar_chart", "line_chart", "kpi_cards", "timeline", "pie_chart"];
+        setDataBlocks((prev) => {
+          const next = [...prev];
+          if (i >= next.length) {
+            const type = (parsed.block_type && validTypes.includes(parsed.block_type) ? parsed.block_type : "table") as DataBlockType;
+            next.push({
+              id: `new-${Date.now()}`,
+              simulation_id: simulation.id,
+              order_num: next.length + 1,
+              block_type: type,
+              title: parsed.title ?? null,
+              data: (parsed.data ?? DEFAULT_BLOCK_DATA[type]) as SimulationDataBlock["data"],
+            });
+          } else {
+            const cur = next[i];
+            const type = (parsed.block_type && validTypes.includes(parsed.block_type) ? parsed.block_type : cur.block_type) as DataBlockType;
+            next[i] = {
+              ...cur,
+              block_type: type,
+              title: parsed.title !== undefined ? parsed.title : cur.title,
+              data: (parsed.data !== undefined ? parsed.data : cur.data) as SimulationDataBlock["data"],
+            };
+          }
+          return next.map((b, j) => ({ ...b, order_num: j + 1 }));
+        });
+        break;
+      }
     }
-  }, [updateDecision, updateOption, updateReflectionQuestion]);
+  }, [simulation.id, updateDecision, updateOption, updateReflectionQuestion]);
 
-  const getField = useCallback((field: string, opts?: { decisionIndex?: number; optionIndex?: number; questionIndex?: number }): string => {
+  const getField = useCallback((field: string, opts?: { decisionIndex?: number; optionIndex?: number; questionIndex?: number; blockIndex?: number }): string => {
     switch (field) {
       case "background_content": return simulation.background_content || "";
       case "title": return simulation.title;
@@ -404,9 +490,15 @@ export function SimulationEditor({
       case "reflection_question":
         if (opts?.questionIndex != null && opts.questionIndex < reflectionQuestions.length) return reflectionQuestions[opts.questionIndex].question;
         return "";
+      case "data_block":
+        if (opts?.blockIndex != null && opts.blockIndex < dataBlocks.length) {
+          const b = dataBlocks[opts.blockIndex];
+          return JSON.stringify({ block_type: b.block_type, title: b.title, data: b.data });
+        }
+        return "";
       default: return "";
     }
-  }, [simulation, decisions, reflectionQuestions]);
+  }, [simulation, decisions, reflectionQuestions, dataBlocks]);
 
   const { applyActions: handleCopilotAction, undo: aiUndo, redo: aiRedo, typing: aiTyping, canUndo: aiCanUndo, canRedo: aiCanRedo } = useAiEdit(setField, getField);
 
@@ -462,55 +554,62 @@ export function SimulationEditor({
             <p className="text-muted-foreground text-sm truncate">{simulation.title}</p>
           </div>
         </div>
-        <div className="flex gap-2 flex-wrap">
-          {isOwner ? (
-            <>
-              {(aiCanUndo || aiCanRedo) && (
-                <div className="flex gap-0.5 shrink-0">
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={aiUndo}
-                    disabled={!aiCanUndo || aiTyping}
-                    className="min-h-[44px] min-w-[44px]"
-                    title="Undo AI edit"
-                  >
-                    <Undo2 className="h-4 w-4" />
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={aiRedo}
-                    disabled={!aiCanRedo || aiTyping}
-                    className="min-h-[44px] min-w-[44px]"
-                    title="Redo AI edit"
-                  >
-                    <Redo2 className="h-4 w-4" />
-                  </Button>
-                </div>
-              )}
-              <Button variant="outline" onClick={handleSave} disabled={saving} className="min-h-[44px] flex-1 sm:flex-none">
-                {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
-                Save
-              </Button>
-              <Link href={`/share/${simulation.id}`} className="flex-1 sm:flex-none">
-                <Button variant="outline" className="w-full min-h-[44px]">
-                  <Share2 className="mr-2 h-4 w-4 shrink-0" />
-                  Share
+        <div className="flex flex-col gap-1.5 items-stretch sm:items-end w-full sm:w-auto min-w-0">
+          <div className="flex gap-2 flex-wrap justify-end">
+            {isOwner ? (
+              <>
+                {(aiCanUndo || aiCanRedo) && (
+                  <div className="flex gap-0.5 shrink-0">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={aiUndo}
+                      disabled={!aiCanUndo || aiTyping}
+                      className="min-h-[44px] min-w-[44px]"
+                      title="Undo AI edit"
+                    >
+                      <Undo2 className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={aiRedo}
+                      disabled={!aiCanRedo || aiTyping}
+                      className="min-h-[44px] min-w-[44px]"
+                      title="Redo AI edit"
+                    >
+                      <Redo2 className="h-4 w-4" />
+                    </Button>
+                  </div>
+                )}
+                <Button variant="outline" onClick={handleSave} disabled={saveInFlight} className="min-h-[44px] flex-1 sm:flex-none">
+                  {saveInFlight ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+                  {saveUi === "autosave" ? "Auto-saving…" : saveUi === "manual" ? "Saving…" : "Save"}
                 </Button>
-              </Link>
-              <PreviewSimulationButton simulationId={simulation.id} variant="outline" className="min-h-[44px] flex-1 sm:flex-none" />
-              <Button onClick={handleStartSession} disabled={saving} className="flex-1 sm:flex-none min-h-[44px]">
-                {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Play className="mr-2 h-4 w-4 shrink-0" />}
-                Start Session
+                <Link href={`/share/${simulation.id}`} className="flex-1 sm:flex-none">
+                  <Button variant="outline" className="w-full min-h-[44px]">
+                    <Share2 className="mr-2 h-4 w-4 shrink-0" />
+                    Share
+                  </Button>
+                </Link>
+                <PreviewSimulationButton simulationId={simulation.id} variant="outline" className="min-h-[44px] flex-1 sm:flex-none" />
+                <Button onClick={handleStartSession} disabled={saveInFlight} className="flex-1 sm:flex-none min-h-[44px]">
+                  {saveInFlight ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Play className="mr-2 h-4 w-4 shrink-0" />}
+                  Start Session
+                </Button>
+              </>
+            ) : (
+              <Button onClick={handleSaveToDashboard} disabled={saveInFlight} className="min-h-[44px] flex-1 sm:flex-none">
+                {saveInFlight ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+                Save to dashboard
               </Button>
-            </>
-          ) : (
-            <Button onClick={handleSaveToDashboard} disabled={saving} className="min-h-[44px] flex-1 sm:flex-none">
-              {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
-              Save to dashboard
-            </Button>
-          )}
+            )}
+          </div>
+          {isOwner && lastSavedAt && !saveInFlight ? (
+            <p className="text-xs text-muted-foreground text-right">
+              Last saved {lastSavedAt.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit", second: "2-digit" })}
+            </p>
+          ) : null}
         </div>
       </div>
 
@@ -567,8 +666,9 @@ export function SimulationEditor({
           >
           <Card>
             <CardHeader>
-              <CardTitle>Simulation Intent</CardTitle>
-              <CardDescription>The learning objectives for this simulation (read-only reference)</CardDescription>
+              <div className="flex items-start justify-between gap-2">
+                <CardTitle className="flex-1">Simulation Intent</CardTitle>
+              </div>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="p-4 bg-muted rounded-lg space-y-2">
@@ -595,16 +695,20 @@ export function SimulationEditor({
                 <Card className="mt-6">
                   <CardHeader>
                     <div className="flex items-start justify-between gap-2">
-                      <div className="space-y-1.5 min-w-0">
-                        <CardTitle>Background Content</CardTitle>
-                        <CardDescription>
-                          The scenario and context students will read before making decisions (1-2 pages)
-                        </CardDescription>
+                      <div className="space-y-1.5 min-w-0 flex-1">
+                        <div className="flex items-start gap-1.5">
+                          <CardTitle className="flex-1">Background Content</CardTitle>
+                          <FieldInfoHint className="shrink-0">
+                            The scenario and context students will read before making decisions (1-2 pages)
+                          </FieldInfoHint>
+                        </div>
                       </div>
                       {trigger}
                     </div>
                   </CardHeader>
                   <CardContent>
+                    <div className="flex justify-end -mb-1">
+                    </div>
                     <Textarea
                       placeholder="Write the background scenario here. This is what students will read to understand the context before making decisions..."
                       value={simulation.background_content || ""}
@@ -612,9 +716,6 @@ export function SimulationEditor({
                       rows={15}
                       className="font-mono text-sm"
                     />
-                    <p className="text-xs text-muted-foreground mt-2">
-                      Supports Markdown (headings, lists, **bold**, and tables). Aim for 1-2 pages.
-                    </p>
                   </CardContent>
                 </Card>
               )}
@@ -622,10 +723,12 @@ export function SimulationEditor({
           ) : (
             <Card className="mt-6">
               <CardHeader>
-                <CardTitle>Background Content</CardTitle>
-                <CardDescription>
-                  The scenario and context students will read before making decisions (1-2 pages)
-                </CardDescription>
+                <div className="flex items-start justify-between gap-2">
+                  <CardTitle className="flex-1">Background Content</CardTitle>
+                  <FieldInfoHint className="shrink-0">
+                    The scenario and context students will read before making decisions (1-2 pages)
+                  </FieldInfoHint>
+                </div>
               </CardHeader>
               <CardContent>
                 <Textarea
@@ -651,11 +754,13 @@ export function SimulationEditor({
                 <Card className="mt-6">
                   <CardHeader>
                     <div className="flex items-start justify-between gap-2">
-                      <div className="space-y-1.5 min-w-0">
-                        <CardTitle>Data &amp; Visuals</CardTitle>
-                        <CardDescription>
-                          Tables, charts, timelines, and KPI cards shown to students in the background. AI generates these; you can edit or add more.
-                        </CardDescription>
+                      <div className="space-y-1.5 min-w-0 flex-1">
+                        <div className="flex items-start gap-1.5">
+                          <CardTitle className="flex-1">Data &amp; Visuals</CardTitle>
+                          <FieldInfoHint className="shrink-0">
+                            Tables, charts, timelines, and KPI cards shown to students in the background. AI generates these; you can edit or add more.
+                          </FieldInfoHint>
+                        </div>
                       </div>
                       {trigger}
                     </div>
@@ -692,8 +797,12 @@ export function SimulationEditor({
           ) : (
             <Card className="mt-6">
               <CardHeader>
-                <CardTitle>Data &amp; Visuals</CardTitle>
-                <CardDescription>Tables, charts, timelines, and KPI cards shown to students in the background.</CardDescription>
+                <div className="flex items-start justify-between gap-2">
+                  <CardTitle className="flex-1">Data &amp; Visuals</CardTitle>
+                  <FieldInfoHint className="shrink-0">
+                    Tables, charts, timelines, and KPI cards shown to students in the background.
+                  </FieldInfoHint>
+                </div>
               </CardHeader>
               <CardContent className="space-y-4">
                 {dataBlocks.map((block) => (
@@ -740,9 +849,6 @@ export function SimulationEditor({
                         >
                           <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
                             <Badge variant="outline" className="shrink-0">Decision {decision.order_num}</Badge>
-                            <span className="text-sm text-muted-foreground wrap-break-word min-w-0 line-clamp-1">
-                              {decision.prompt || "No prompt yet"}
-                            </span>
                           </div>
                           <ChevronDown className="h-5 w-5 shrink-0 text-muted-foreground transition-transform group-data-[state=open]/decision:rotate-180 ml-2" />
                         </button>
@@ -856,11 +962,13 @@ export function SimulationEditor({
                 <Card>
                   <CardHeader>
                     <div className="flex items-start justify-between gap-2">
-                      <div className="space-y-1.5 min-w-0">
-                        <CardTitle>Reflection Questions</CardTitle>
-                        <CardDescription>
-                          Questions students will answer after completing all decisions
-                        </CardDescription>
+                      <div className="space-y-1.5 min-w-0 flex-1">
+                        <div className="flex items-start gap-1.5">
+                          <CardTitle className="flex-1">Reflection Questions</CardTitle>
+                          <FieldInfoHint className="shrink-0">
+                            Questions students will answer after completing all decisions
+                          </FieldInfoHint>
+                        </div>
                       </div>
                       {trigger}
                     </div>
@@ -884,10 +992,12 @@ export function SimulationEditor({
           ) : (
             <Card>
               <CardHeader>
-                <CardTitle>Reflection Questions</CardTitle>
-                <CardDescription>
-                  Questions students will answer after completing all decisions
-                </CardDescription>
+                <div className="flex items-start justify-between gap-2">
+                  <CardTitle className="flex-1">Reflection Questions</CardTitle>
+                  <FieldInfoHint className="shrink-0">
+                    Questions students will answer after completing all decisions
+                  </FieldInfoHint>
+                </div>
               </CardHeader>
               <CardContent className="space-y-4">
                 {reflectionQuestions.map((question, index) => (
@@ -929,8 +1039,12 @@ export function SimulationEditor({
           )}
           <Card>
             <CardHeader>
-              <CardTitle>Run Settings</CardTitle>
-              <CardDescription>Configure how students participate in this simulation</CardDescription>
+              <div className="flex items-start justify-between gap-2">
+                <CardTitle className="flex-1">Run Settings</CardTitle>
+                <FieldInfoHint className="shrink-0">
+                  Configure how students participate in this simulation
+                </FieldInfoHint>
+              </div>
             </CardHeader>
             <CardContent className="space-y-6">
               <div className="space-y-2">
@@ -955,7 +1069,12 @@ export function SimulationEditor({
               {simulation.mode === "teams" && (
                 <>
                   <div className="space-y-2">
-                    <Label>Team Assignment</Label>
+                    <div className="flex items-center gap-1.5">
+                      <Label>Team Assignment</Label>
+                      <FieldInfoHint>
+                        In team mode, only one designated voter per team can submit responses.
+                      </FieldInfoHint>
+                    </div>
                     <Select
                       value={simulation.team_assignment || "auto"}
                       onValueChange={(value: "auto" | "self") => 
@@ -974,7 +1093,12 @@ export function SimulationEditor({
                   </div>
 
                   <div className="space-y-2">
-                    <Label>Team Size</Label>
+                    <div className="flex items-center gap-1.5">
+                      <Label>Team Size</Label>
+                      <FieldInfoHint>
+                        Number of students per team (for auto-assign)
+                      </FieldInfoHint>
+                    </div>
                     <Input
                       type="number"
                       min={2}
@@ -986,15 +1110,6 @@ export function SimulationEditor({
                       className="w-32"
                       disabled={!isOwner}
                     />
-                    <p className="text-xs text-muted-foreground">
-                      Number of students per team (for auto-assign)
-                    </p>
-                  </div>
-
-                  <div className="p-4 bg-muted rounded-lg">
-                    <p className="text-sm">
-                      <strong>Note:</strong> In team mode, only one designated voter per team can submit responses.
-                    </p>
                   </div>
                 </>
               )}
@@ -1003,23 +1118,26 @@ export function SimulationEditor({
 
           <Card>
             <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Globe className="h-5 w-5" />
-                Share to Library
-              </CardTitle>
-              <CardDescription>
-                Make this simulation discoverable in the community library
-              </CardDescription>
+              <div className="flex items-start justify-between gap-2">
+                <CardTitle className="flex flex-1 items-center gap-2 min-w-0">
+                  <Globe className="h-5 w-5 shrink-0" />
+                  <span>Share to Library</span>
+                  <FieldInfoHint>
+                      Other professors and students can browse and favorite your simulation. When published, your simulation appears in the public library and community members can favorite it to boost its ranking.
+                  </FieldInfoHint>
+                </CardTitle>
+
+              </div>
             </CardHeader>
             <CardContent>
               <div className="flex items-center justify-between gap-3">
                 <div className="space-y-1">
-                  <Label htmlFor="share-library" className="cursor-pointer">
-                    Publish to Simulation Library
-                  </Label>
-                  <p className="text-xs text-muted-foreground">
-                    Other professors and students can browse and favorite your simulation
-                  </p>
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <Label htmlFor="share-library" className="cursor-pointer">
+                      Publish to Simulation Library
+                    </Label>
+
+                  </div>
                 </div>
                 <button
                   id="share-library"
@@ -1039,36 +1157,29 @@ export function SimulationEditor({
                   />
                 </button>
               </div>
-              {simulation.is_public && (
-                <div className="mt-3 flex items-start gap-2 p-3 bg-muted rounded-lg">
-                  <Info className="h-4 w-4 text-muted-foreground shrink-0 mt-0.5" />
-                  <p className="text-xs text-muted-foreground">
-                    Your simulation will appear in the public library. Community members can favorite it to boost its ranking.
-                  </p>
-                </div>
-              )}
             </CardContent>
           </Card>
 
           <Card>
             <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Users className="h-5 w-5" />
-                Hidden Profiles
-              </CardTitle>
-              <CardDescription>
-                Give each participant a unique role with private information only they can see
-              </CardDescription>
+              <div className="flex items-start justify-between gap-2">
+                <CardTitle className="flex flex-1 items-center gap-2 min-w-0">
+                  <Users className="h-5 w-5 shrink-0" />
+                  <span>Hidden Profiles</span>
+                </CardTitle>
+                <FieldInfoHint className="shrink-0">
+                  Give each participant a unique role with private information only they can see. Roles are assigned automatically (round-robin) when the session starts. The professor can reassign roles from the lobby. Everyone sees the shared background; each student also sees only their own private briefing.
+                </FieldInfoHint>
+              </div>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="flex items-center justify-between gap-3">
                 <div className="space-y-1">
-                  <Label htmlFor="hidden-profiles" className="cursor-pointer">
-                    Enable Hidden Profiles
-                  </Label>
-                  <p className="text-xs text-muted-foreground">
-                    Participants receive different briefings based on their assigned role (e.g. CEO, CFO)
-                  </p>
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <Label htmlFor="hidden-profiles" className="cursor-pointer">
+                      Enable Hidden Profiles
+                    </Label>
+                  </div>
                 </div>
                 <button
                   id="hidden-profiles"
@@ -1159,13 +1270,6 @@ export function SimulationEditor({
                       Add Role ({profiles.length}/6)
                     </Button>
                   )}
-
-                  <div className="flex items-start gap-2 p-3 bg-muted rounded-lg">
-                    <Info className="h-4 w-4 text-muted-foreground shrink-0 mt-0.5" />
-                    <p className="text-xs text-muted-foreground">
-                      Roles are assigned automatically (round-robin) when the session starts. The professor can reassign roles from the lobby. Everyone sees the shared background; each student also sees only their own private briefing.
-                    </p>
-                  </div>
                 </div>
               )}
             </CardContent>
@@ -1209,6 +1313,16 @@ export function SimulationEditor({
             reflectionQuestions: reflectionQuestions.map((q, i) =>
               `Question ${i + 1} (index ${i}): ${q.question}`
             ).join("\n") || undefined,
+            dataBlocks:
+              dataBlocks.length > 0
+                ? dataBlocks
+                    .map((b, i) => {
+                      const payload = JSON.stringify({ block_type: b.block_type, title: b.title, data: b.data });
+                      const clipped = payload.length > 1200 ? `${payload.slice(0, 1200)}…` : payload;
+                      return `Block index ${i} (${b.block_type}, title: ${b.title ?? "(none)"}): ${clipped}`;
+                    })
+                    .join("\n\n")
+                : "No data blocks yet. To add one via [ACTION], use blockIndex 0 with a full block JSON.",
           }}
           onAction={handleCopilotAction}
           onUndo={aiUndo}

@@ -8,6 +8,7 @@ interface FieldSetter {
     decisionIndex?: number;
     optionIndex?: number;
     questionIndex?: number;
+    blockIndex?: number;
   }): void;
 }
 
@@ -16,6 +17,7 @@ interface FieldGetter {
     decisionIndex?: number;
     optionIndex?: number;
     questionIndex?: number;
+    blockIndex?: number;
   }): string;
 }
 
@@ -42,13 +44,20 @@ export function useAiEdit(setField: FieldSetter, getField: FieldGetter) {
 
   const typewriterApply = useCallback(
     (action: CopilotAction): Promise<void> => {
+      const opts = {
+        decisionIndex: action.decisionIndex,
+        optionIndex: action.optionIndex,
+        questionIndex: action.questionIndex,
+        blockIndex: action.blockIndex,
+      };
+      if (action.field === "data_block") {
+        return new Promise((resolve) => {
+          setField(action.field, action.value, opts);
+          resolve();
+        });
+      }
       return new Promise((resolve) => {
         const target = action.value;
-        const opts = {
-          decisionIndex: action.decisionIndex,
-          optionIndex: action.optionIndex,
-          questionIndex: action.questionIndex,
-        };
         let pos = 0;
         let cancelled = false;
 
@@ -84,6 +93,7 @@ export function useAiEdit(setField: FieldSetter, getField: FieldGetter) {
           decisionIndex: a.decisionIndex,
           optionIndex: a.optionIndex,
           questionIndex: a.questionIndex,
+          blockIndex: a.blockIndex,
         });
         previous.push({ action: a, oldValue });
       }
@@ -111,6 +121,7 @@ export function useAiEdit(setField: FieldSetter, getField: FieldGetter) {
           decisionIndex: action.decisionIndex,
           optionIndex: action.optionIndex,
           questionIndex: action.questionIndex,
+          blockIndex: action.blockIndex,
         });
       }
       setRedoStack((r) => [...r, last]);
@@ -127,6 +138,7 @@ export function useAiEdit(setField: FieldSetter, getField: FieldGetter) {
           decisionIndex: a.decisionIndex,
           optionIndex: a.optionIndex,
           questionIndex: a.questionIndex,
+          blockIndex: a.blockIndex,
         });
       }
       setUndoStack((u) => [...u, last]);

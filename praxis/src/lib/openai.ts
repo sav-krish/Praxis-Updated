@@ -17,6 +17,11 @@ export interface GeneratedDataBlock {
   data: Record<string, unknown>;
 }
 
+export interface GeneratedHiddenProfile {
+  profile_name: string;
+  private_briefing: string;
+}
+
 export interface GeneratedSimulation {
   title: string;
   backgroundContent: string;
@@ -32,12 +37,15 @@ export interface GeneratedSimulation {
     }[];
   }[];
   reflectionQuestions: string[];
+  /** Present when instructor requested asymmetric / hidden roles */
+  hiddenProfiles?: GeneratedHiddenProfile[];
 }
 
 export interface GenerationOptions {
   stayCloseToSource?: boolean;
   reframeAs?: string;
   preferences?: Record<string, string[]>;
+  hiddenProfilesWanted?: boolean;
 }
 
 export async function generateSimulationContent(
@@ -49,6 +57,11 @@ export async function generateSimulationContent(
   difficulty: "easy" | "hard" | "challenge" = "hard",
   options: GenerationOptions = {}
 ): Promise<GeneratedSimulation> {
+  const wantHiddenProfiles = options.hiddenProfilesWanted === true;
+  const hiddenProfilesGuidance = wantHiddenProfiles
+    ? `\n\nHIDDEN STUDENT ROLES (required): Include a "hiddenProfiles" array with exactly 3 distinct roles. Each has a short profile_name and a private_briefing (1–3 short paragraphs, Markdown allowed). Each role must see different private facts, constraints, or incentives aligned with the scenario and source materials — asymmetric information for classroom play. Roles must be editable later by the instructor.`
+    : "";
+
   const difficultyGuidance =
     difficulty === "easy"
       ? "EASY (~15 min): Keep the background scenario concise (roughly half a page). Use simpler, more straightforward decisions with clearer tradeoffs. Fewer data blocks (1-2) with essential info only."
@@ -87,7 +100,7 @@ You will generate a complete simulation with:
 5. Realistic consequences for each choice
 6. 2 reflection questions
 
-The simulation should be realistic and create genuine dilemmas. Tailor complexity and length to the difficulty level.${sourceConstraint}${reframeConstraint}${preferencesConstraint}`;
+The simulation should be realistic and create genuine dilemmas. Tailor complexity and length to the difficulty level.${sourceConstraint}${reframeConstraint}${preferencesConstraint}${hiddenProfilesGuidance}`;
 
   const userPrompt = `Create a simulation based on the following:
 
@@ -107,6 +120,7 @@ ${materials || "No specific materials provided - create a realistic scenario bas
 ${aiNotes || "None specified"}
 
 Generate a complete simulation in this JSON format. Include 1-3 dataBlocks that fit the scenario (e.g., financials table, stakeholder list, timeline of events, bar chart comparing options, pie chart for budget/share breakdown, KPI cards for key metrics).
+${wantHiddenProfiles ? `You MUST include "hiddenProfiles" as an array of exactly 3 objects: { "profile_name": "...", "private_briefing": "..." }.` : `Do NOT include "hiddenProfiles" in the JSON.`}
 
 {
   "title": "Simulation title",
@@ -156,7 +170,12 @@ Generate a complete simulation in this JSON format. Include 1-3 dataBlocks that 
       ]
     }
   ],
-  "reflectionQuestions": ["First question", "Second question"]
+  "reflectionQuestions": ["First question", "Second question"]${wantHiddenProfiles ? `,
+  "hiddenProfiles": [
+    { "profile_name": "CFO", "private_briefing": "You alone know..." },
+    { "profile_name": "Union lead", "private_briefing": "Your members expect..." },
+    { "profile_name": "Board liaison", "private_briefing": "The board told you privately..." }
+  ]` : ""}
 }
 
 Block type must be one of: table, bar_chart, line_chart, kpi_cards, timeline, pie_chart.
@@ -200,6 +219,25 @@ Generate exactly 3 decisions with exactly 3 options each. Include 1-3 dataBlocks
       .slice(0, 5); // Cap at 5 blocks
   } else {
     parsed.dataBlocks = [];
+  }
+
+  if (wantHiddenProfiles) {
+    let hp = Array.isArray(parsed.hiddenProfiles) ? parsed.hiddenProfiles : [];
+    hp = hp
+      .filter(
+        (p: GeneratedHiddenProfile) =>
+          p && typeof p.profile_name === "string" && typeof p.private_briefing === "string"
+      )
+      .slice(0, 6);
+    while (hp.length < 3) {
+      hp.push({
+        profile_name: `Role ${hp.length + 1}`,
+        private_briefing: "Edit this private briefing in Run Settings after generation.",
+      });
+    }
+    parsed.hiddenProfiles = hp.slice(0, 6);
+  } else {
+    delete parsed.hiddenProfiles;
   }
 
   return parsed;

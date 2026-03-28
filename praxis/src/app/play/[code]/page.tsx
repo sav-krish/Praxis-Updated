@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useRef, use } from "react";
+import dynamic from "next/dynamic";
 import { useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -26,12 +27,24 @@ import {
   ChevronDown,
   ChevronRight,
   RefreshCw,
+  LogOut,
 } from "lucide-react";
 import { toast } from "sonner";
-import ReactMarkdown from "react-markdown";
-import remarkGfm from "remark-gfm";
+import { endPreviewSession } from "@/app/(dashboard)/session/[id]/actions";
 import { DataBlockRenderer } from "@/components/simulation/DataBlockRenderer";
 import { FeedbackCard } from "@/components/simulation/FeedbackCard";
+import { sourceTypeDisplayLabel } from "@/lib/source-display";
+
+const MarkdownBody = dynamic(
+  () =>
+    import("@/components/ui/markdown-body").then((m) => m.MarkdownBody),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="h-20 animate-pulse rounded-md bg-muted/40" aria-hidden />
+    ),
+  }
+);
 
 interface Option {
   id: string;
@@ -85,7 +98,7 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
   const [decisions, setDecisions] = useState<Decision[]>([]);
   const [reflectionQuestions, setReflectionQuestions] = useState<ReflectionQuestion[]>([]);
   const [dataBlocks, setDataBlocks] = useState<Array<{ id: string; block_type: string; title: string | null; data: unknown }>>([]);
-  const [sources, setSources] = useState<Array<{ id: string; label: string; url?: string | null }>>([]);
+  const [sources, setSources] = useState<Array<{ id: string; label: string; url?: string | null; source_type?: string | null }>>([]);
   const [participantId, setParticipantId] = useState<string | null>(null);
   const [participantName, setParticipantName] = useState<string>("");
   const [playerProfile, setPlayerProfile] = useState<PlayerProfile | null>(null);
@@ -102,6 +115,7 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
   const [returnToStep, setReturnToStep] = useState<number | null>(null);
   const [returnToConsequence, setReturnToConsequence] = useState(false);
   const [manualRefreshing, setManualRefreshing] = useState(false);
+  const [leavingPreview, setLeavingPreview] = useState(false);
 
   // Ref to always have latest currentStep in callbacks without re-subscribing
   const currentStepRef = useRef(currentStep);
@@ -357,7 +371,7 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
     // Load sources / references
     const { data: sourcesData } = await supabase
       .from("simulation_sources")
-      .select("id, label, url")
+      .select("id, label, url, source_type")
       .eq("simulation_id", simulationData.id)
       .order("created_at", { ascending: true });
 
@@ -503,6 +517,18 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
     setManualRefreshing(false);
   };
 
+  const handleLeaveStudentView = async () => {
+    if (!session?.is_preview) return;
+    setLeavingPreview(true);
+    const result = await endPreviewSession(session.id);
+    if ("error" in result) {
+      console.warn(result.error);
+    }
+    sessionStorage.removeItem(`participant_${session.id}`);
+    sessionStorage.removeItem(`participant_name_${session.id}`);
+    router.push("/dashboard");
+  };
+
   const totalScore = myResponses.reduce((sum, r) => sum + r.score, 0);
   const maxScore = decisions.length * 3;
 
@@ -514,10 +540,35 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
     );
   }
 
+  const showPreviewBar = Boolean(session?.is_preview);
+  const previewBar = showPreviewBar ? (
+    <header className="safe-area-inset-top flex shrink-0 items-center justify-between gap-2 border-b bg-background/95 px-3 py-2 backdrop-blur-sm">
+      <span className="truncate text-xs text-muted-foreground sm:text-sm">Student preview</span>
+      <Button
+        type="button"
+        size="sm"
+        variant="outline"
+        className="min-h-10 shrink-0"
+        disabled={leavingPreview}
+        onClick={() => void handleLeaveStudentView()}
+      >
+        {leavingPreview ? (
+          <Loader2 className="mr-2 h-4 w-4 shrink-0 animate-spin" />
+        ) : (
+          <LogOut className="mr-2 h-4 w-4 shrink-0" />
+        )}
+        Leave student view
+      </Button>
+    </header>
+  ) : null;
+
   // Waiting screen
   if (currentStep === 0) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-muted/50 px-4 py-6">
+      <div className="flex min-h-dvh flex-col">
+        {previewBar}
+        <div className="flex min-h-0 flex-1 flex-col overflow-y-auto bg-muted/50">
+        <div className="flex flex-1 items-center justify-center px-4 py-6">
         <Card className="w-full max-w-md text-center">
           <CardHeader className="px-4 sm:px-6">
             <div className="flex items-center justify-center gap-2 mb-4">
@@ -551,13 +602,18 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
           </CardContent>
         </Card>
       </div>
+        </div>
+      </div>
     );
   }
 
   // Background screen
   if (currentStep === 1) {
     return (
-      <div className="min-h-screen bg-muted/50 py-4 sm:py-8 px-3 sm:px-4">
+      <div className="flex min-h-dvh flex-col">
+        {previewBar}
+        <div className="flex min-h-0 flex-1 flex-col overflow-y-auto bg-muted/50">
+        <div className="px-3 py-4 sm:px-4 sm:py-8">
         <div className="max-w-3xl mx-auto">
           <Card>
             <CardHeader className="px-4 sm:px-6">
@@ -579,25 +635,21 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
                   <div className="flex items-center gap-2">
                     <Badge>Your Role: {playerProfile.profile_name}</Badge>
                   </div>
-                  <div className="prose prose-sm max-w-none text-sm">
-                    <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                      {playerProfile.private_briefing}
-                    </ReactMarkdown>
-                  </div>
+                  <MarkdownBody className="prose prose-sm max-w-none text-sm">
+                    {playerProfile.private_briefing}
+                  </MarkdownBody>
                   <p className="text-[11px] text-muted-foreground italic">
                     This briefing is private to your role. Other participants have different information.
                   </p>
                 </div>
               )}
-              <div className="prose prose-sm max-w-none text-sm sm:text-base prose-table:overflow-x-auto prose-td:border prose-td:px-3 prose-td:py-2 prose-th:border prose-th:px-3 prose-th:py-2 prose-th:bg-muted/50">
-                {session?.simulation.background_content ? (
-                  <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                    {session.simulation.background_content}
-                  </ReactMarkdown>
-                ) : (
-                  <p className="text-muted-foreground">No background content provided.</p>
-                )}
-              </div>
+              {session?.simulation.background_content ? (
+                <MarkdownBody className="prose prose-sm max-w-none text-sm sm:text-base prose-table:overflow-x-auto prose-td:border prose-td:px-3 prose-td:py-2 prose-th:border prose-th:px-3 prose-th:py-2 prose-th:bg-muted/50">
+                  {session.simulation.background_content}
+                </MarkdownBody>
+              ) : (
+                <p className="text-muted-foreground">No background content provided.</p>
+              )}
               {dataBlocks.length > 0 && (
                 <div className="mt-6 space-y-4">
                   {dataBlocks.map((block) => (
@@ -610,26 +662,32 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
               )}
               {sources.length > 0 && (
                 <div className="mt-6 pt-4 border-t border-border">
-                  <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">
-                    References
+                  <h4 className="text-sm font-semibold text-foreground mb-2">
+                    Sources & references
                   </h4>
-                  <ul className="space-y-1">
-                    {sources.map((s) => (
-                      <li key={s.id} className="text-xs text-muted-foreground">
-                        {s.url ? (
-                          <a
-                            href={s.url}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="underline hover:text-foreground"
-                          >
-                            {s.label}
-                          </a>
-                        ) : (
-                          s.label
-                        )}
-                      </li>
-                    ))}
+                  <ul className="space-y-2">
+                    {sources.map((s) => {
+                      const typeLabel = sourceTypeDisplayLabel(s.source_type);
+                      return (
+                        <li key={s.id} className="text-sm text-foreground/90 leading-relaxed">
+                          {typeLabel ? (
+                            <span className="text-xs font-medium text-muted-foreground mr-2">{typeLabel}</span>
+                          ) : null}
+                          {s.url ? (
+                            <a
+                              href={s.url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="underline underline-offset-2 hover:text-foreground"
+                            >
+                              {s.label}
+                            </a>
+                          ) : (
+                            <span>{s.label}</span>
+                          )}
+                        </li>
+                      );
+                    })}
                   </ul>
                 </div>
               )}
@@ -664,6 +722,8 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
           </Card>
         </div>
       </div>
+        </div>
+      </div>
     );
   }
 
@@ -686,7 +746,10 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
     // Show consequence after submission
     if (showConsequence) {
       return (
-        <div className="min-h-screen bg-muted/50 py-4 sm:py-8 px-3 sm:px-4">
+        <div className="flex min-h-dvh flex-col">
+          {previewBar}
+          <div className="flex min-h-0 flex-1 flex-col overflow-y-auto bg-muted/50">
+          <div className="px-3 py-4 sm:px-4 sm:py-8">
           <div className="max-w-3xl mx-auto space-y-4">
             <Card>
               <CardHeader className="px-4 sm:px-6">
@@ -715,11 +778,16 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
             </Card>
           </div>
         </div>
+          </div>
+        </div>
       );
     }
 
     return (
-      <div className="min-h-screen bg-linear-to-b from-muted/30 to-muted/60 py-4 sm:py-8 px-3 sm:px-4">
+      <div className="flex min-h-dvh flex-col">
+        {previewBar}
+        <div className="flex min-h-0 flex-1 flex-col overflow-y-auto bg-linear-to-b from-muted/30 to-muted/60">
+        <div className="px-3 py-4 sm:px-4 sm:py-8">
         <div className="max-w-2xl mx-auto space-y-4">
           <Button
             variant="outline"
@@ -734,32 +802,25 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
           <Collapsible defaultOpen={true} className="group">
             <Card className="border-muted/80 bg-card/95 shadow-sm overflow-hidden p-0 gap-0">
               <CollapsibleTrigger asChild>
-                <button
-                  type="button"
-                  className="w-full text-left px-4 sm:px-6 py-4 min-h-[48px] flex items-center justify-between gap-3 bg-transparent hover:bg-muted/50 transition-colors duration-150 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 rounded-t-xl"
+                <span
+                  className="w-full text-left px-4 sm:px-6 py-4 min-h-[48px] flex items-start justify-between gap-3 bg-transparent hover:bg-muted/50 transition-colors duration-150 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 rounded-t-xl"
                 >
-                  <div className="flex items-center gap-3 min-w-0 flex-1">
-                    <Badge variant="secondary" className="shrink-0">Decision {decision.order_num} of 3</Badge>
-                    <span className="font-medium text-foreground/90 truncate group-data-[state=open]:inline group-data-[state=closed]:hidden">What decision do you need to make?</span>
-                    <span className="font-medium text-muted-foreground truncate group-data-[state=open]:hidden group-data-[state=closed]:inline">Tap to view question</span>
+                  <div className="flex flex-col sm:flex-row sm:items-start gap-2 sm:gap-3 min-w-0 flex-1 text-left">
+                    <Badge variant="secondary" className="shrink-0 w-fit">Decision {decision.order_num} of 3</Badge>
+                    <span className="font-bold text-base sm:text-lg leading-snug text-foreground break-words min-w-0">
+                      {decision.prompt}
+                    </span>
                   </div>
-                  <ChevronDown className="h-5 w-5 shrink-0 text-muted-foreground transition-transform group-data-[state=open]:rotate-180" />
-                </button>
+                </span>
               </CollapsibleTrigger>
-              <CollapsibleContent>
-                <div className="px-4 sm:px-6 pb-5 pt-0 border-t border-border/50">
-                  <p className="text-sm sm:text-[15px] leading-relaxed text-foreground/90 break-words">{decision.prompt}</p>
-                  <p className="text-xs sm:text-sm text-muted-foreground mt-3">Select an option below and add justification if you like.</p>
-                </div>
-              </CollapsibleContent>
+
             </Card>
           </Collapsible>
 
           {/* Options – each option is collapsible (title visible, expand for description) */}
           <Card className="border-muted/80 bg-card/95 shadow-sm">
-            <CardHeader className="pb-3 px-4 sm:px-6">
+            <CardHeader className="px-4 sm:px-6">
               <CardTitle className="text-base sm:text-lg font-medium">Choose an option</CardTitle>
-              <CardDescription className="text-xs sm:text-sm">Pick one and optionally expand to read more</CardDescription>
             </CardHeader>
             <CardContent className="space-y-3 px-4 sm:px-6">
               <RadioGroup value={selectedOption || ""} onValueChange={setSelectedOption}>
@@ -849,13 +910,18 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
           </div>
         </div>
       </div>
+        </div>
+      </div>
     );
   }
 
   // Reflection screen
   if (currentStep === 5) {
     return (
-      <div className="min-h-screen bg-muted/50 py-4 sm:py-8 px-3 sm:px-4">
+      <div className="flex min-h-dvh flex-col">
+        {previewBar}
+        <div className="flex min-h-0 flex-1 flex-col overflow-y-auto bg-muted/50">
+        <div className="px-3 py-4 sm:px-4 sm:py-8">
         <div className="max-w-3xl mx-auto space-y-4">
           <Button
             variant="outline"
@@ -900,12 +966,17 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
           </Card>
         </div>
       </div>
+        </div>
+      </div>
     );
   }
 
   // Results screen
   return (
-    <div className="min-h-screen bg-muted/50 py-4 sm:py-8 px-3 sm:px-4">
+    <div className="flex min-h-dvh flex-col">
+      {previewBar}
+      <div className="flex min-h-0 flex-1 flex-col overflow-y-auto bg-muted/50">
+      <div className="px-3 py-4 sm:px-4 sm:py-8">
       <div className="max-w-3xl mx-auto">
         <Card>
           <CardHeader className="text-center px-4 sm:px-6">
@@ -959,6 +1030,8 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
             />
           </CardContent>
         </Card>
+      </div>
+    </div>
       </div>
     </div>
   );

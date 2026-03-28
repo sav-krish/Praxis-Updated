@@ -15,6 +15,7 @@ export interface CopilotContext {
   backgroundContent?: string;
   decisions?: string;
   reflectionQuestions?: string;
+  dataBlocks?: string;
   sectionContent?: string;
 }
 
@@ -23,6 +24,8 @@ export interface CopilotAction {
   decisionIndex?: number;
   optionIndex?: number;
   questionIndex?: number;
+  /** 0-based index; use index === current block count to append a new block */
+  blockIndex?: number;
   value: string;
 }
 
@@ -33,8 +36,13 @@ export function parseCopilotActions(text: string): { clean: string; actions: Cop
       const parsed = JSON.parse(json.trim());
       const items = Array.isArray(parsed) ? parsed : [parsed];
       for (const item of items) {
-        if (item.field && typeof item.value === "string") {
-          actions.push(item as CopilotAction);
+        if (!item.field) continue;
+        let value = item.value;
+        if (typeof value === "object" && value !== null) {
+          value = JSON.stringify(value);
+        }
+        if (typeof value === "string") {
+          actions.push({ ...item, value } as CopilotAction);
         }
       }
     } catch {

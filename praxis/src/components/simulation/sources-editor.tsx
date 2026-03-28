@@ -13,6 +13,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import type { SimulationSource } from "@/types/database";
+import { FieldInfoHint } from "@/components/ui/field-info-hint";
 
 interface SourcesEditorProps {
   simulationId: string;
@@ -56,12 +57,12 @@ export function SourcesEditor({ simulationId, sources: initial, onSave }: Source
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <div>
-          <h3 className="font-semibold text-sm">Sources & References</h3>
-          <p className="text-xs text-muted-foreground">
-            Displayed to students on the background screen as academic references.
-          </p>
+      <div className="flex items-center justify-between gap-2">
+        <div className="flex items-center gap-1.5 min-w-0">
+          <h3 className="text-sm font-semibold text-foreground">Sources & references</h3>
+          <FieldInfoHint>
+            Shown on the scenario screen under this heading. Type labels (File, Link, Text, Manual) match the student view.
+          </FieldInfoHint>
         </div>
         <Button size="sm" variant="outline" onClick={addSource}>
           <Plus className="h-4 w-4 mr-1" /> Add Source
@@ -94,9 +95,9 @@ export function SourcesEditor({ simulationId, sources: initial, onSave }: Source
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="manual">Manual</SelectItem>
-                  <SelectItem value="file">Uploaded File</SelectItem>
-                  <SelectItem value="url">URL / Link</SelectItem>
-                  <SelectItem value="text">Pasted Text</SelectItem>
+                  <SelectItem value="file">File</SelectItem>
+                  <SelectItem value="url">Link (URL)</SelectItem>
+                  <SelectItem value="text">Text</SelectItem>
                 </SelectContent>
               </Select>
             </div>

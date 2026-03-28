@@ -4,7 +4,8 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { FieldInfoHint } from "@/components/ui/field-info-hint";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -44,14 +45,31 @@ interface DebriefGuide {
   facilitatorTips?: string[];
 }
 
+type ReportsSimulation = Pick<Simulation, "id" | "title" | "mode">;
+type ReportsSessionListItem = Pick<Session, "id" | "ended_at">;
+type ReportsSelectedSession = Pick<Session, "id" | "simulation_id" | "debrief_guide">;
+type ReportsParticipant = Pick<Participant, "id" | "session_id" | "team_id" | "name">;
+type ReportsTeam = Pick<Team, "id" | "session_id" | "name">;
+type ReportsResponse = Pick<
+  Response,
+  | "id"
+  | "session_id"
+  | "participant_id"
+  | "team_id"
+  | "decision_id"
+  | "option_id"
+  | "justification"
+  | "submitted_at"
+>;
+
 interface ReportsViewProps {
-  simulation: Simulation;
-  sessions: Session[];
-  selectedSession: Session;
+  simulation: ReportsSimulation;
+  sessions: ReportsSessionListItem[];
+  selectedSession: ReportsSelectedSession;
   decisions: DecisionWithOptions[];
-  participants: Participant[];
-  teams: Team[];
-  responses: Response[];
+  participants: ReportsParticipant[];
+  teams: ReportsTeam[];
+  responses: ReportsResponse[];
   reflectionResponses: ReflectionResponseWithQuestion[];
   initialDebrief?: Record<string, unknown> | null;
 }
@@ -374,10 +392,12 @@ export function ReportsView({
         <TabsContent value="scores">
           <Card>
             <CardHeader>
-              <CardTitle>Score Breakdown</CardTitle>
-              <CardDescription>
-                Scores per {simulation.mode === "teams" ? "team" : "participant"} (max: {maxScore})
-              </CardDescription>
+              <div className="flex items-start justify-between gap-2">
+                <CardTitle className="flex-1">Score Breakdown</CardTitle>
+                <FieldInfoHint className="shrink-0">
+                  Scores per {simulation.mode === "teams" ? "team" : "participant"} (max: {maxScore})
+                </FieldInfoHint>
+              </div>
             </CardHeader>
             <CardContent>
               <div className="space-y-3">
@@ -464,12 +484,14 @@ export function ReportsView({
             <Card>
               <CardContent className="py-12 text-center space-y-4">
                 <BookOpen className="h-10 w-10 mx-auto text-muted-foreground" />
-                <div>
-                  <h3 className="font-semibold text-lg mb-1">Facilitator Guide</h3>
-                  <p className="text-muted-foreground text-sm max-w-md mx-auto">
-                    Generate an AI-powered debrief guide with discussion points, correct course of action,
-                    common mistakes, and facilitation tips.
-                  </p>
+                <div className="flex flex-col items-center gap-2">
+                  <div className="flex items-center justify-center gap-1.5">
+                    <h3 className="font-semibold text-lg">Facilitator Guide</h3>
+                    <FieldInfoHint side="bottom" align="start">
+                      Generate an AI-powered debrief guide with discussion points, correct course of action,
+                      common mistakes, and facilitation tips.
+                    </FieldInfoHint>
+                  </div>
                 </div>
                 <Button onClick={generateDebrief} disabled={generatingDebrief} className="min-h-[44px]">
                   {generatingDebrief ? (
@@ -498,8 +520,12 @@ export function ReportsView({
               {debrief.keyDiscussionPoints && debrief.keyDiscussionPoints.length > 0 && (
                 <Card>
                   <CardHeader>
-                    <CardTitle>Key Discussion Points</CardTitle>
-                    <CardDescription>Topics and questions to raise during the debrief</CardDescription>
+                    <div className="flex items-start justify-between gap-2">
+                      <CardTitle className="flex-1">Key Discussion Points</CardTitle>
+                      <FieldInfoHint className="shrink-0">
+                        Topics and questions to raise during the debrief
+                      </FieldInfoHint>
+                    </div>
                   </CardHeader>
                   <CardContent>
                     <ul className="space-y-2">
@@ -517,8 +543,12 @@ export function ReportsView({
               {debrief.commonMistakes && debrief.commonMistakes.length > 0 && (
                 <Card>
                   <CardHeader>
-                    <CardTitle>Common Student Mistakes</CardTitle>
-                    <CardDescription>Patterns to watch for and how to address them</CardDescription>
+                    <div className="flex items-start justify-between gap-2">
+                      <CardTitle className="flex-1">Common Student Mistakes</CardTitle>
+                      <FieldInfoHint className="shrink-0">
+                        Patterns to watch for and how to address them
+                      </FieldInfoHint>
+                    </div>
                   </CardHeader>
                   <CardContent>
                     <ul className="space-y-2">

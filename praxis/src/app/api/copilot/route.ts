@@ -36,16 +36,26 @@ The [ACTION] block format (must be valid JSON):
   {"field": "option_description", "decisionIndex": 0, "optionIndex": 1, "value": "New description..."},
   {"field": "option_consequence", "decisionIndex": 0, "optionIndex": 1, "value": "New consequence..."},
   {"field": "reflection_question", "questionIndex": 0, "value": "New reflection question 1"},
-  {"field": "title", "value": "New simulation title"}
+  {"field": "title", "value": "New simulation title"},
+  {"field": "data_block", "blockIndex": 0, "value": "{\"block_type\":\"bar_chart\",\"title\":\"Q3 comparison\",\"data\":{\"labels\":[\"A\",\"B\",\"C\"],\"values\":[12,19,8]}}"}
 ]
 [/ACTION]
+
+### DATA BLOCKS (tables, charts, KPI cards, timelines, pie charts)
+
+Use field \`data_block\` with \`blockIndex\` (0-based) and \`value\` = a JSON string whose parsed shape is:
+\`{"block_type":"table"|"bar_chart"|"line_chart"|"kpi_cards"|"timeline"|"pie_chart", "title": string|null, "data": { ... } }\`
+
+- **Replace** an existing block: use blockIndex from context (0 .. n-1) and supply full \`block_type\`, \`title\`, and \`data\` (same shapes as in simulation generation).
+- **Append** a new block: set \`blockIndex\` to **n** where n is the current number of blocks (e.g. 2 blocks → use blockIndex 2).
+- **Remove** a block: use \`data_block\` with the target \`blockIndex\` and \`value\` as an empty string \`""\` (undo can restore it).
 
 ### RULES FOR ACTIONS:
 1. Include a 1-2 sentence explanation BEFORE the [ACTION] block (what you changed and why).
 2. Use 0-based indexes matching the context. Decision 1 = decisionIndex 0, Option A = optionIndex 0, etc.
 3. You can include multiple actions in one block to change several fields at once.
 4. Only modify the fields the professor asked about — don't rewrite unrelated fields.
-5. Values must be complete strings — include the FULL field content, not just the changed part.
+5. Values must be complete strings — include the FULL field content, not just the changed part. For \`data_block\`, \`value\` is one string containing valid JSON for the whole block.
 6. For operations like "remove paragraph 2", read the current content from context, remove the paragraph, and return the full updated text.
 
 ## WHAT YOU CANNOT DO (structural changes only)
@@ -54,7 +64,6 @@ These operations are structurally impossible — they require adding/removing da
 - Add or delete decisions (can only rewrite existing 3)
 - Add or delete options within decisions (can only rewrite existing A/B/C)
 - Add or delete reflection questions (can only rewrite existing ones)
-- Add, edit, or delete data blocks (tables, charts, KPIs, timelines)
 - Change option scores (1-3 scoring — this is a numeric field, not text)
 - Upload files or manage sources
 - Publish, share, or delete the simulation
@@ -97,6 +106,7 @@ export async function POST(req: NextRequest) {
     }
     if (context.decisions) parts.push(`Current decisions:\n${context.decisions.slice(0, 3000)}`);
     if (context.reflectionQuestions) parts.push(`Current reflection questions:\n${context.reflectionQuestions.slice(0, 1500)}`);
+    if (context.dataBlocks) parts.push(`Current data blocks (graphs/tables):\n${context.dataBlocks.slice(0, 8000)}`);
     if (context.sectionContent) parts.push(`Section being edited ("${context.currentField || "unknown"}"):\n${context.sectionContent.slice(0, 4000)}`);
     if (parts.length > 0) {
       contextMessage = `[SIMULATION CONTEXT — reference this to give relevant, specific answers. Use the indexes shown to target the correct fields in your [ACTION] blocks.]\n${parts.join("\n\n")}`;

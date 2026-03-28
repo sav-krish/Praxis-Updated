@@ -7,7 +7,8 @@ import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { FieldInfoHint } from "@/components/ui/field-info-hint";
 import { Separator } from "@/components/ui/separator";
 import { Save, Loader2, GraduationCap, BookOpen, Shield, MessageSquareHeart, Mail } from "lucide-react";
 import { toast } from "sonner";
@@ -51,8 +52,10 @@ export function ProfileForm({ userId, email, name: initialName, activeRole: init
     <div className="space-y-6">
       <Card>
         <CardHeader>
-          <CardTitle>Account Details</CardTitle>
-          <CardDescription>Your basic information</CardDescription>
+          <div className="flex items-start justify-between gap-2">
+            <CardTitle className="flex-1">Account Details</CardTitle>
+            <FieldInfoHint className="shrink-0">Your basic information</FieldInfoHint>
+          </div>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="space-y-2">
@@ -73,10 +76,12 @@ export function ProfileForm({ userId, email, name: initialName, activeRole: init
 
       <Card>
         <CardHeader>
-          <CardTitle>Viewing Mode</CardTitle>
-          <CardDescription>
-            Switch between Professor and Student mode to change your dashboard experience
-          </CardDescription>
+          <div className="flex items-start justify-between gap-2">
+            <CardTitle className="flex-1">Viewing Mode</CardTitle>
+            <FieldInfoHint className="shrink-0">
+              Switch between Professor and Student mode to change your dashboard experience. Professor: create, edit, and run simulations. Student: browse the library and join simulations. In Student mode, your dashboard shows the Simulation Library instead of your personal simulations and the New Simulation button is hidden.
+            </FieldInfoHint>
+          </div>
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-2 gap-3">
@@ -93,9 +98,6 @@ export function ProfileForm({ userId, email, name: initialName, activeRole: init
               <div className="text-center">
                 <p className={`font-medium text-sm ${activeRole === "professor" ? "text-primary" : ""}`}>
                   Professor
-                </p>
-                <p className="text-xs text-muted-foreground mt-1">
-                  Create, edit, and run simulations
                 </p>
               </div>
             </button>
@@ -114,34 +116,24 @@ export function ProfileForm({ userId, email, name: initialName, activeRole: init
                 <p className={`font-medium text-sm ${activeRole === "student" ? "text-primary" : ""}`}>
                   Student
                 </p>
-                <p className="text-xs text-muted-foreground mt-1">
-                  Browse library and join simulations
-                </p>
               </div>
             </button>
           </div>
-
-          {activeRole === "student" && (
-            <div className="mt-4 p-3 bg-muted rounded-lg">
-              <p className="text-sm text-muted-foreground">
-                In Student mode, your dashboard will show the Simulation Library instead of your personal simulations.
-                The &quot;New Simulation&quot; button will be hidden.
-              </p>
-            </div>
-          )}
         </CardContent>
       </Card>
 
       {isAdmin && (
         <Card>
           <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Shield className="h-5 w-5" />
-              Admin
-            </CardTitle>
-            <CardDescription>
-              View feedback and manage email campaigns
-            </CardDescription>
+            <div className="flex items-start justify-between gap-2">
+              <CardTitle className="flex flex-1 items-center gap-2 min-w-0">
+                <Shield className="h-5 w-5 shrink-0" />
+                <span>Admin</span>
+              </CardTitle>
+              <FieldInfoHint className="shrink-0">
+                View feedback and manage email campaigns
+              </FieldInfoHint>
+            </div>
           </CardHeader>
           <CardContent className="flex flex-wrap gap-2">
             <Button variant="outline" asChild>

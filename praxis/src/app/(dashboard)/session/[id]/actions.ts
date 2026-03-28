@@ -82,6 +82,47 @@ export async function createPreviewSession(
   };
 }
 
+/** Mark a preview session complete so it does not clutter the DB (optional cleanup on exit). */
+export async function endPreviewSession(sessionId: string): Promise<{ ok: true } | { error: string }> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) {
+    return { error: "You must be logged in." };
+  }
+
+  const { data: session } = await supabase
+    .from("sessions")
+    .select("id, simulation_id, is_preview")
+    .eq("id", sessionId)
+    .single();
+
+  if (!session || !session.is_preview) {
+    return { error: "Not a preview session." };
+  }
+
+  const { data: sim } = await supabase
+    .from("simulations")
+    .select("professor_id")
+    .eq("id", session.simulation_id)
+    .single();
+
+  if (!sim || sim.professor_id !== user.id) {
+    return { error: "You do not own this session." };
+  }
+
+  const { error } = await supabase
+    .from("sessions")
+    .update({ status: "complete", ended_at: new Date().toISOString() })
+    .eq("id", sessionId);
+
+  if (error) {
+    return { error: error.message };
+  }
+  return { ok: true };
+}
+
 /** Create a professor participant for the running session so they can preview as student without joining. */
 export async function createProfessorPreviewParticipant(
   sessionId: string

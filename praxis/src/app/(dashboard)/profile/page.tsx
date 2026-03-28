@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { isAdmin } from "@/lib/admin";
 import { ProfileForm } from "./profile-form";
+import { PROFILE_PAGE_ROW } from "@/lib/supabase-query-columns";
 
 export default async function ProfilePage() {
   const supabase = await createClient();
@@ -13,7 +14,7 @@ export default async function ProfilePage() {
 
   const { data: professor } = await supabase
     .from("professors")
-    .select("*")
+    .select(PROFILE_PAGE_ROW)
     .eq("id", user.id)
     .single();
 

@@ -8,13 +8,15 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import { Upload, Loader2, Sparkles, FileText, X, Wand2, PenLine } from "lucide-react";
 import { toast } from "sonner";
 import { PrivacyNotice } from "@/components/ui/privacy-notice";
 import { SubjectSelector } from "@/components/ui/subject-selector";
+import { FieldInfoHint } from "@/components/ui/field-info-hint";
+import type { GeneratedSimulation } from "@/lib/openai";
 
 const PREFERENCE_CATEGORIES = {
   style: {
@@ -34,30 +36,6 @@ const PREFERENCE_CATEGORIES = {
     options: ["Clear Right/Wrong", "Nuanced Tradeoffs", "No Correct Answer"],
   },
 } as const;
-
-
-interface GeneratedDataBlock {
-  block_type: string;
-  title: string;
-  data: Record<string, unknown>;
-}
-
-interface GeneratedSimulation {
-  title: string;
-  backgroundContent: string;
-  dataBlocks?: GeneratedDataBlock[];
-  decisions: {
-    prompt: string;
-    options: {
-      label: "A" | "B" | "C";
-      title: string;
-      description: string;
-      consequence: string;
-      score: number;
-    }[];
-  }[];
-  reflectionQuestions: string[];
-}
 
 export default function CreateSimulationPage() {
   const router = useRouter();
@@ -81,6 +59,7 @@ export default function CreateSimulationPage() {
     focus: [],
     assessment: [],
   });
+  const [hiddenProfilesEnabled, setHiddenProfilesEnabled] = useState(false);
 
   const togglePreference = (category: string, option: string) => {
     setPreferences((prev) => {
@@ -134,9 +113,7 @@ export default function CreateSimulationPage() {
       }
     }
 
-    const bgContent = (generated as { backgroundContent?: string; background_content?: string }).backgroundContent
-      ?? (generated as { background_content?: string }).background_content
-      ?? "";
+    const bgContent = generated.backgroundContent ?? "";
 
     // Create the simulation
     const difficultyEstimates = { easy: 15, hard: 25, challenge: 40 } as const;
@@ -153,6 +130,7 @@ export default function CreateSimulationPage() {
         background_content: bgContent,
         ai_notes: formData.aiNotes || null,
         status: "draft",
+        hidden_profiles_enabled: hiddenProfilesEnabled,
       })
       .select()
       .single();
@@ -265,6 +243,30 @@ export default function CreateSimulationPage() {
       await supabase.from("simulation_sources").insert(fileSources);
     }
 
+    if (hiddenProfilesEnabled) {
+      const hp = Array.isArray(generated.hiddenProfiles) ? generated.hiddenProfiles : [];
+      const roles =
+        hp.length > 0
+          ? hp.filter((p) => p?.profile_name?.trim() && p?.private_briefing != null).slice(0, 6)
+          : [];
+      const toInsert =
+        roles.length > 0
+          ? roles
+          : [
+              { profile_name: "Role 1", private_briefing: "Edit this briefing in Run Settings." },
+              { profile_name: "Role 2", private_briefing: "Edit this briefing in Run Settings." },
+            ];
+      for (let i = 0; i < toInsert.length; i++) {
+        const p = toInsert[i];
+        await supabase.from("simulation_profiles").insert({
+          simulation_id: simulation.id,
+          profile_name: p.profile_name,
+          private_briefing: p.private_briefing,
+          order_num: i + 1,
+        });
+      }
+    }
+
     return simulation.id;
   };
 
@@ -291,7 +293,8 @@ export default function CreateSimulationPage() {
       if (hasAnyPreferences) {
         formPayload.append("preferences", JSON.stringify(preferences));
       }
-      
+      formPayload.append("hiddenProfilesEnabled", hiddenProfilesEnabled ? "true" : "false");
+
       for (const file of files) {
         formPayload.append("files", file);
       }
@@ -386,6 +389,7 @@ export default function CreateSimulationPage() {
           target_decisions: formData.targetDecisions,
           ai_notes: formData.aiNotes,
           status: "draft",
+          hidden_profiles_enabled: hiddenProfilesEnabled,
         })
         .select()
         .single();
@@ -442,6 +446,22 @@ export default function CreateSimulationPage() {
         if (refError) throw new Error(refError.message || "Could not create reflection question");
       }
 
+      if (hiddenProfilesEnabled) {
+        const placeholders = [
+          { profile_name: "Role 1", private_briefing: "Edit this private briefing in Run Settings." },
+          { profile_name: "Role 2", private_briefing: "Edit this private briefing in Run Settings." },
+        ];
+        for (let i = 0; i < placeholders.length; i++) {
+          const { error: profErr } = await supabase.from("simulation_profiles").insert({
+            simulation_id: simulation.id,
+            profile_name: placeholders[i].profile_name,
+            private_briefing: placeholders[i].private_briefing,
+            order_num: i + 1,
+          });
+          if (profErr) throw new Error(profErr.message || "Could not create hidden roles");
+        }
+      }
+
       toast.success("Simulation created! Now let's edit the details.");
       router.push(`/edit/${simulation.id}`);
     } catch (error) {
@@ -462,20 +482,19 @@ export default function CreateSimulationPage() {
     <div className="max-w-3xl mx-auto px-0 sm:px-4">
       <div className="mb-6 sm:mb-8">
         <h1 className="text-2xl sm:text-3xl font-bold">Create New Simulation</h1>
-        <p className="text-muted-foreground mt-1 text-sm sm:text-base">
-          Set up your simulation intent and upload any supporting materials
-        </p>
+
       </div>
 
       <form onSubmit={handleCreateManually}>
         <Card className="mb-6">
           <CardHeader>
-            <CardTitle>Basic Information</CardTitle>
-            <CardDescription>Give your simulation a title and categorize it</CardDescription>
+            <div className="flex items-start justify-between gap-2">
+              <CardTitle className="flex-1">Basic Information</CardTitle>
+            </div>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="title">Simulation Title *</Label>
+              <Label htmlFor="title">Simulation Title</Label>
               <Input
                 id="title"
                 placeholder="e.g., The Leadership Crisis at Acme Corp"
@@ -489,12 +508,17 @@ export default function CreateSimulationPage() {
               onChange={(value) => setFormData({ ...formData, courseTopic: value })}
             />
             <div className="space-y-2">
-              <Label htmlFor="difficulty">Difficulty / Length</Label>
+              <div className="flex items-center gap-1.5">
+                <Label htmlFor="difficulty">Difficulty / Length</Label>
+                <FieldInfoHint>
+                  AI will tailor the scenario length and decision complexity to this level
+                </FieldInfoHint>
+              </div>
               <Select
                 value={formData.difficulty}
                 onValueChange={(value: "easy" | "hard" | "challenge") => setFormData({ ...formData, difficulty: value })}
               >
-                <SelectTrigger>
+                <SelectTrigger id="difficulty">
                   <SelectValue placeholder="Select difficulty" />
                 </SelectTrigger>
                 <SelectContent>
@@ -503,91 +527,47 @@ export default function CreateSimulationPage() {
                   <SelectItem value="challenge">Challenge — ~40 min (longer, more nuanced)</SelectItem>
                 </SelectContent>
               </Select>
-              <p className="text-xs text-muted-foreground">
-                AI will tailor the scenario length and decision complexity to this level
-              </p>
             </div>
           </CardContent>
         </Card>
 
         <Card className="mb-6">
           <CardHeader>
-            <CardTitle>Simulation Intent</CardTitle>
-            <CardDescription>Define what you want students to learn and experience</CardDescription>
+            <div className="flex items-start justify-between gap-2">
+              <CardTitle className="flex-1">Upload Materials</CardTitle>
+  
+            </div>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="goal">Goal of the Simulation</Label>
-              <Textarea
-                id="goal"
-                placeholder="What should students understand or struggle with by the end?"
-                value={formData.goal}
-                onChange={(e) => setFormData({ ...formData, goal: e.target.value })}
-                rows={3}
-              />
-              <p className="text-xs text-muted-foreground">
-                Example: Students should understand the tension between formal and informal power in organizations
-              </p>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="decisions">Decisions You Want Students to Make</Label>
-              <Textarea
-                id="decisions"
-                placeholder="What types of tradeoffs or decisions are you hoping students debate?"
-                value={formData.targetDecisions}
-                onChange={(e) => setFormData({ ...formData, targetDecisions: e.target.value })}
-                rows={3}
-              />
-              <p className="text-xs text-muted-foreground">
-                Example: Whether to work through formal channels or build coalitions, how to handle resistance
-              </p>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="mb-6">
-          <CardHeader>
-            <CardTitle>Preferences</CardTitle>
-            <CardDescription>
-              Select tags to guide the AI in generating your simulation (optional)
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {Object.entries(PREFERENCE_CATEGORIES).map(([key, category]) => (
-              <div key={key} className="space-y-2">
-                <Label className="text-sm font-medium">{category.label}</Label>
-                <div className="flex flex-wrap gap-2">
-                  {category.options.map((option) => {
-                    const isSelected = preferences[key]?.includes(option);
-                    return (
-                      <button
-                        key={option}
-                        type="button"
-                        onClick={() => togglePreference(key, option)}
-                        className={`inline-flex items-center rounded-full px-3 py-1.5 text-xs font-medium border transition-colors ${
-                          isSelected
-                            ? "bg-primary text-primary-foreground border-primary"
-                            : "bg-muted text-muted-foreground border-transparent hover:text-foreground hover:border-border"
-                        }`}
-                      >
-                        {option}
-                      </button>
-                    );
-                  })}
+            <div className="flex items-center justify-between gap-4 rounded-lg border p-4">
+              <div className="space-y-1 min-w-0">
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <Label htmlFor="hidden-roles-toggle" className="text-base font-medium cursor-pointer">
+                    Hidden roles (asymmetric information)
+                  </Label>
+                  <FieldInfoHint>
+                    When on, AI generates distinct private briefings from your materials and goals below. You can edit roles in Run Settings after generation or creation.
+                  </FieldInfoHint>
                 </div>
               </div>
-            ))}
-          </CardContent>
-        </Card>
+              <button
+                type="button"
+                id="hidden-roles-toggle"
+                role="switch"
+                aria-checked={hiddenProfilesEnabled}
+                onClick={() => setHiddenProfilesEnabled((v) => !v)}
+                className={`relative inline-flex h-7 w-12 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ${
+                  hiddenProfilesEnabled ? "bg-primary" : "bg-input"
+                }`}
+              >
+                <span
+                  className={`pointer-events-none inline-block h-6 w-6 transform rounded-full bg-background shadow ring-0 transition ${
+                    hiddenProfilesEnabled ? "translate-x-5" : "translate-x-0.5"
+                  }`}
+                />
+              </button>
+            </div>
 
-        <Card className="mb-6">
-          <CardHeader>
-            <CardTitle>Upload Materials</CardTitle>
-            <CardDescription>
-              Upload case studies, readings, or other materials to help generate content (optional)
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
             <div className="border-2 border-dashed rounded-lg p-6 text-center hover:border-primary/50 transition-colors">
               <input
                 type="file"
@@ -600,9 +580,6 @@ export default function CreateSimulationPage() {
               <label htmlFor="file-upload" className="cursor-pointer">
                 <Upload className="h-8 w-8 mx-auto text-muted-foreground mb-2" />
                 <p className="text-sm font-medium">Click to upload files</p>
-                <p className="text-xs text-muted-foreground mt-1">
-                  PDF, DOCX, or TXT files
-                </p>
               </label>
             </div>
 
@@ -650,13 +627,89 @@ export default function CreateSimulationPage() {
 
         <Card className="mb-6">
           <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Sparkles className="h-5 w-5" />
-              AI Grounding Notes
-            </CardTitle>
-            <CardDescription>
-              Optional guidance for AI content generation
-            </CardDescription>
+            <div className="flex items-start justify-between gap-2">
+              <CardTitle className="flex-1">Simulation Intent</CardTitle>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="space-y-2">
+              <div className="flex items-center gap-1.5">
+                <Label htmlFor="goal">Goal of the Simulation</Label>
+                <FieldInfoHint>
+                  Example: Students should understand the tension between formal and informal power in organizations
+                </FieldInfoHint>
+              </div>
+              <Textarea
+                id="goal"
+                placeholder="What should students understand or struggle with by the end?"
+                value={formData.goal}
+                onChange={(e) => setFormData({ ...formData, goal: e.target.value })}
+                rows={3}
+              />
+            </div>
+            <div className="space-y-2">
+              <div className="flex items-center gap-1.5">
+                <Label htmlFor="decisions">Decisions You Want Students to Make</Label>
+                <FieldInfoHint>
+                  Example: Whether to work through formal channels or build coalitions, how to handle resistance
+                </FieldInfoHint>
+              </div>
+              <Textarea
+                id="decisions"
+                placeholder="What types of tradeoffs or decisions are you hoping students debate?"
+                value={formData.targetDecisions}
+                onChange={(e) => setFormData({ ...formData, targetDecisions: e.target.value })}
+                rows={3}
+              />
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="mb-6">
+          <CardHeader>
+            <div className="flex items-start justify-between gap-2">
+              <CardTitle className="flex-1">Preferences</CardTitle>
+              <FieldInfoHint className="shrink-0">
+                Select tags to guide the AI in generating your simulation (optional)
+              </FieldInfoHint>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {Object.entries(PREFERENCE_CATEGORIES).map(([key, category]) => (
+              <div key={key} className="space-y-2">
+                <Label className="text-sm font-medium">{category.label}</Label>
+                <div className="flex flex-wrap gap-2">
+                  {category.options.map((option) => {
+                    const isSelected = preferences[key]?.includes(option);
+                    return (
+                      <button
+                        key={option}
+                        type="button"
+                        onClick={() => togglePreference(key, option)}
+                        className={`inline-flex items-center rounded-full px-3 py-1.5 text-xs font-medium border transition-colors ${
+                          isSelected
+                            ? "bg-primary text-primary-foreground border-primary"
+                            : "bg-muted text-muted-foreground border-transparent hover:text-foreground hover:border-border"
+                        }`}
+                      >
+                        {option}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+
+        <Card className="mb-6">
+          <CardHeader>
+            <div className="flex items-start justify-between gap-2">
+              <CardTitle className="flex flex-1 items-center gap-2 min-w-0">
+                <Sparkles className="h-5 w-5 shrink-0" />
+                <span>AI Grounding Notes</span>
+              </CardTitle>
+            </div>
           </CardHeader>
           <CardContent className="space-y-4">
             <Textarea
@@ -669,16 +722,18 @@ export default function CreateSimulationPage() {
             <Separator />
 
             <div className="space-y-2">
-              <Label htmlFor="reframe">Reframe / Disguise Scenario As</Label>
+              <div className="flex items-center gap-1.5">
+                <Label htmlFor="reframe">Reframe / Disguise Scenario As</Label>
+                <FieldInfoHint>
+                  The AI will camouflage the case using this alternate setting while preserving the core dilemmas
+                </FieldInfoHint>
+              </div>
               <Input
                 id="reframe"
                 placeholder='e.g., "A racing team deciding on tire changes" instead of the original setting'
                 value={formData.reframeAs}
                 onChange={(e) => setFormData({ ...formData, reframeAs: e.target.value })}
               />
-              <p className="text-xs text-muted-foreground">
-                The AI will camouflage the case using this alternate setting while preserving the core dilemmas
-              </p>
             </div>
           </CardContent>
         </Card>
@@ -714,10 +769,18 @@ export default function CreateSimulationPage() {
               Create Manually
             </Button>
           </div>
-          <p className="text-xs text-center text-muted-foreground">
-            <strong>Generate with AI</strong> uses your uploaded materials and goals to create a complete simulation. <br />
-            <strong>Create Manually</strong> gives you a blank template to fill in yourself.
-          </p>
+          <div className="flex justify-center">
+            <FieldInfoHint side="bottom">
+              <span className="block space-y-2">
+                <span>
+                  <strong>Generate with AI</strong> uses your uploaded materials and goals to create a complete simulation.
+                </span>
+                <span>
+                  <strong>Create Manually</strong> gives you a blank template to fill in yourself.
+                </span>
+              </span>
+            </FieldInfoHint>
+          </div>
           <Button type="button" variant="ghost" onClick={() => router.back()} className="self-center">
             Cancel
           </Button>

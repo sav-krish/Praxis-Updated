@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect, useCallback } from "react";
+import dynamic from "next/dynamic";
 import { Bot, X, Send, RotateCcw, Zap, CheckCircle2, Loader2, Sparkles, Undo2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -8,8 +9,17 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
 import { useCopilot, type CopilotContext, type CopilotAction } from "@/hooks/use-copilot";
 import { toast } from "sonner";
-import ReactMarkdown from "react-markdown";
-import remarkGfm from "remark-gfm";
+
+const MarkdownBody = dynamic(
+  () =>
+    import("@/components/ui/markdown-body").then((m) => m.MarkdownBody),
+  {
+    ssr: false,
+    loading: () => (
+      <span className="inline-block h-4 min-w-[8rem] animate-pulse rounded bg-muted/80" />
+    ),
+  }
+);
 
 export interface FocusedSection {
   label: string;
@@ -34,6 +44,16 @@ function describeAction(a: CopilotAction): string {
   if (a.field === "option_consequence") return `Update D${(a.decisionIndex ?? 0) + 1} Option ${String.fromCharCode(65 + (a.optionIndex ?? 0))} consequence`;
   if (a.field === "option_title") return `Update D${(a.decisionIndex ?? 0) + 1} Option ${String.fromCharCode(65 + (a.optionIndex ?? 0))} title`;
   if (a.field === "reflection_question") return `Update Reflection Q${(a.questionIndex ?? 0) + 1}`;
+  if (a.field === "data_block") {
+    let titleHint = "";
+    try {
+      const p = JSON.parse(a.value) as { title?: string };
+      if (p.title) titleHint = `: "${p.title.slice(0, 40)}${p.title.length > 40 ? "…" : ""}"`;
+    } catch {
+      /* ignore */
+    }
+    return `Graph / data block (slot ${(a.blockIndex ?? 0) + 1})${titleHint}`;
+  }
   return `Update ${a.field}`;
 }
 
@@ -190,9 +210,9 @@ export function CopilotPanel({ context, onAction, onUndo, open, onToggle, focuse
                   {!focusedSection && (
                     <ul className="list-disc pl-4 space-y-1 text-xs">
                       <li>Rewrite or improve any text field</li>
+                      <li>Add or edit charts, tables, KPI cards, and timelines (Apply, then Undo if needed)</li>
                       <li>Remove, shorten, or expand content</li>
-                      <li>Make decisions more realistic</li>
-                      <li>Draft better reflection questions</li>
+                      <li>Make decisions more realistic and draft reflection questions</li>
                     </ul>
                   )}
                   <p className="text-xs">
@@ -212,9 +232,9 @@ export function CopilotPanel({ context, onAction, onUndo, open, onToggle, focuse
                       : onAction
                         ? [
                             "Improve the background",
+                            "Add a bar chart for the KPIs",
                             "Rewrite Decision 1",
                             "Better consequences",
-                            "Improve reflections",
                           ]
                         : [
                             "Simulation ideas",
@@ -245,9 +265,9 @@ export function CopilotPanel({ context, onAction, onUndo, open, onToggle, focuse
                   )}
                 >
                   <div className="whitespace-pre-wrap wrap-break-word [&>*:first-child]:mt-0 [&>*:last-child]:mb-0">
-                    <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                    <MarkdownBody className="[&>*:first-child]:mt-0 [&>*:last-child]:mb-0">
                       {m.content}
-                    </ReactMarkdown>
+                    </MarkdownBody>
                   </div>
                 </div>
               ))}
@@ -288,7 +308,7 @@ export function CopilotPanel({ context, onAction, onUndo, open, onToggle, focuse
                 <div className="mb-3 rounded-lg border border-green-500/30 bg-green-500/5 p-2.5 flex items-center justify-between gap-2 text-xs text-green-700 dark:text-green-400">
                   <div className="flex items-center gap-2 min-w-0">
                     <CheckCircle2 className="h-3.5 w-3.5 shrink-0" />
-                    <span>Changes applied — review the editor, then undo if needed</span>
+                    <span>Changes applied — review the editor; Undo reverses text and graph edits</span>
                   </div>
                   {onUndo && (
                     <Button

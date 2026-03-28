@@ -24,7 +24,7 @@ export default async function NewSessionPage({ params }: PageProps) {
   if (!user) { redirect("/login"); }
   const { data: simulation } = await supabase
     .from("simulations")
-    .select("*")
+    .select("id")
     .eq("id", id)
     .eq("professor_id", user.id)
     .single();

@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { FieldInfoHint } from "@/components/ui/field-info-hint";
 import { copySimulationToAccount } from "./actions";
 import { BookOpen, Share2, Copy, Loader2, Check, ArrowLeft } from "lucide-react";
 import { toast } from "sonner";
@@ -53,9 +54,18 @@ export function ShareView({ simulationId, title, courseTopic, isOwner, shareUrl:
   return (
     <Card>
       <CardHeader className="pb-3">
-        <div className="flex items-center gap-2 text-muted-foreground">
-          <Share2 className="h-5 w-5" />
+        <div className="flex items-center gap-2 text-muted-foreground flex-wrap">
+          <Share2 className="h-5 w-5 shrink-0" />
           <span className="text-sm font-medium">Share simulation</span>
+          <FieldInfoHint className="h-7 w-7 text-muted-foreground hover:text-foreground">
+            {isOwner ? (
+              <>
+                This is your simulation. Share the link so other instructors can copy it to their account and adapt it.
+              </>
+            ) : (
+              <>Copy this simulation to your account to edit and run it with your students.</>
+            )}
+          </FieldInfoHint>
         </div>
         <CardTitle className="text-xl">{title}</CardTitle>
         <CardDescription>
@@ -67,9 +77,6 @@ export function ShareView({ simulationId, title, courseTopic, isOwner, shareUrl:
       <CardContent className="space-y-4">
         {isOwner ? (
           <>
-            <p className="text-sm text-muted-foreground">
-              This is your simulation. Share the link below so other instructors can copy it to their account and adapt it.
-            </p>
             <div className="flex flex-col gap-2">
               <div className="flex rounded-md border bg-muted/50 p-2 font-mono text-xs break-all">
                 {shareUrl}
@@ -88,9 +95,6 @@ export function ShareView({ simulationId, title, courseTopic, isOwner, shareUrl:
           </>
         ) : (
           <>
-            <p className="text-sm text-muted-foreground">
-              Copy this simulation to your account to edit and run it with your students.
-            </p>
             <Button
               className="w-full min-h-[48px]"
               onClick={handleCopyToAccount}

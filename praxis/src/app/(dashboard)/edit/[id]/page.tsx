@@ -1,7 +1,14 @@
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { SimulationEditor } from "./simulation-editor";
 import type { SimulationDataBlock } from "@/types/data-blocks";
+import { SimulationEditorDynamic } from "./simulation-editor-dynamic";
+import {
+  SIMULATION_EDITOR_ROW,
+  REFLECTION_QUESTION_EDITOR_ROW,
+  SIMULATION_DATA_BLOCK_EDITOR_ROW,
+  SIMULATION_PROFILE_EDITOR_ROW,
+  SIMULATION_SOURCE_EDITOR_ROW,
+} from "@/lib/supabase-query-columns";
 
 interface PageProps {
   params: Promise<{ id: string }>;
@@ -17,7 +24,7 @@ export default async function EditSimulationPage({ params, searchParams }: PageP
   // Fetch simulation with all related data
   const { data: simulation, error } = await supabase
     .from("simulations")
-    .select("*")
+    .select(SIMULATION_EDITOR_ROW)
     .eq("id", id)
     .single();
 
@@ -40,28 +47,28 @@ export default async function EditSimulationPage({ params, searchParams }: PageP
   // Fetch reflection questions
   const { data: reflectionQuestions } = await supabase
     .from("reflection_questions")
-    .select("*")
+    .select(REFLECTION_QUESTION_EDITOR_ROW)
     .eq("simulation_id", id)
     .order("order_num", { ascending: true });
 
   // Fetch data blocks
   const { data: dataBlocks } = await supabase
     .from("simulation_data_blocks")
-    .select("*")
+    .select(SIMULATION_DATA_BLOCK_EDITOR_ROW)
     .eq("simulation_id", id)
     .order("order_num", { ascending: true });
 
   // Fetch hidden profiles
   const { data: profiles } = await supabase
     .from("simulation_profiles")
-    .select("*")
+    .select(SIMULATION_PROFILE_EDITOR_ROW)
     .eq("simulation_id", id)
     .order("order_num", { ascending: true });
 
   // Fetch sources
   const { data: sources } = await supabase
     .from("simulation_sources")
-    .select("*")
+    .select(SIMULATION_SOURCE_EDITOR_ROW)
     .eq("simulation_id", id)
     .order("created_at", { ascending: true });
 
@@ -72,7 +79,7 @@ export default async function EditSimulationPage({ params, searchParams }: PageP
   })) || [];
 
   return (
-    <SimulationEditor
+    <SimulationEditorDynamic
       simulation={simulation}
       decisions={sortedDecisions}
       reflectionQuestions={reflectionQuestions || []}

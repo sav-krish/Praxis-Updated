@@ -30,9 +30,14 @@ import {
 } from "@/components/ui/select";
 import type { Session, Simulation, Participant, Team, SimulationProfile } from "@/types/database";
 
+type LobbySimulation = Pick<
+  Simulation,
+  "id" | "title" | "mode" | "hidden_profiles_enabled"
+>;
+
 interface SessionLobbyProps {
   session: Session;
-  simulation: Simulation;
+  simulation: LobbySimulation;
   participants: Participant[];
   teams: Team[];
   decisions: { id: string }[];
