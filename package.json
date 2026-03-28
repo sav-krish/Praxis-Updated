@@ -2,11 +2,14 @@
   "name": "praxis-root",
   "private": true,
   "version": "1.0.0",
+  "engines": {
+    "node": ">=20"
+  },
   "scripts": {
-    "dev": "npm --prefix ./praxis run dev",
-    "build": "npm --prefix ./praxis run build",
-    "start": "npm --prefix ./praxis run start",
-    "lint": "npm --prefix ./praxis run lint"
+    "dev": "pnpm --filter praxis run dev",
+    "build": "pnpm --filter praxis run build",
+    "start": "pnpm --filter praxis run start",
+    "lint": "pnpm --filter praxis run lint"
   },
   "dependencies": {
     "next": "16.1.6",
