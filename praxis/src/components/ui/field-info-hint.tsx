@@ -25,7 +25,7 @@ function usePrefersHoverTooltip() {
     const apply = () => setUseTooltip(mq.matches);
     apply();
     mq.addEventListener("change", apply);
-    setReady(true);
+    queueMicrotask(() => setReady(true));
     return () => mq.removeEventListener("change", apply);
   }, []);
 
