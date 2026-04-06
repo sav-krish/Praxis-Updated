@@ -46,9 +46,6 @@ export function SubjectSelector({ value, onChange }: SubjectSelectorProps) {
     <div className="space-y-2">
       <div className="flex items-center gap-1.5">
         <Label htmlFor="subject">Course Subject / Discipline</Label>
-        <FieldInfoHint>
-          Helps the AI tailor terminology, examples, and context to your discipline.
-        </FieldInfoHint>
       </div>
       <Popover open={open} onOpenChange={setOpen}>
         <PopoverTrigger asChild>
@@ -62,7 +59,13 @@ export function SubjectSelector({ value, onChange }: SubjectSelectorProps) {
             <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
           </Button>
         </PopoverTrigger>
-        <PopoverContent className="w-full p-0" align="start">
+        <PopoverContent
+          className="w-(--radix-popover-trigger-width) max-h-[min(70vh,28rem)] p-0"
+          align="start"
+          side="bottom"
+          sideOffset={4}
+          avoidCollisions={false}
+        >
           <Command>
             <CommandInput placeholder="Search subjects\u2026" />
             <CommandList>

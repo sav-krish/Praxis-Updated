@@ -662,33 +662,38 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
               )}
               {sources.length > 0 && (
                 <div className="mt-6 pt-4 border-t border-border">
-                  <h4 className="text-sm font-semibold text-foreground mb-2">
-                    Sources & references
+                  <h4 className="text-sm font-semibold text-foreground mb-3">
+                    Sources & References
                   </h4>
-                  <ul className="space-y-2">
-                    {sources.map((s) => {
+                  <ol className="space-y-2 list-none pl-0">
+                    {sources.map((s, idx) => {
                       const typeLabel = sourceTypeDisplayLabel(s.source_type);
                       return (
-                        <li key={s.id} className="text-sm text-foreground/90 leading-relaxed">
-                          {typeLabel ? (
-                            <span className="text-xs font-medium text-muted-foreground mr-2">{typeLabel}</span>
-                          ) : null}
-                          {s.url ? (
-                            <a
-                              href={s.url}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="underline underline-offset-2 hover:text-foreground"
-                            >
-                              {s.label}
-                            </a>
-                          ) : (
-                            <span>{s.label}</span>
+                        <li key={s.id} className="flex items-start gap-2.5 text-sm leading-relaxed">
+                          <span className="shrink-0 mt-0.5 text-xs font-medium text-muted-foreground tabular-nums w-5 text-right">{idx + 1}.</span>
+                          {typeLabel && (
+                            <span className="shrink-0 mt-0.5 inline-flex items-center rounded-md border border-border bg-muted/50 px-1.5 py-0 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                              {typeLabel}
+                            </span>
                           )}
+                          <span className="min-w-0">
+                            {s.url ? (
+                              <a
+                                href={s.url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="underline underline-offset-2 text-foreground/90 hover:text-foreground"
+                              >
+                                {s.label}
+                              </a>
+                            ) : (
+                              <span className="text-foreground/90">{s.label}</span>
+                            )}
+                          </span>
                         </li>
                       );
                     })}
-                  </ul>
+                  </ol>
                 </div>
               )}
               <Separator className="my-4 sm:my-6" />
@@ -798,31 +803,18 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
             View scenario
           </Button>
 
-          {/* Decision prompt – collapsible so you can hide it after reading */}
-          <Collapsible defaultOpen={true} className="group">
-            <Card className="border-muted/80 bg-card/95 shadow-sm overflow-hidden p-0 gap-0">
-              <CollapsibleTrigger asChild>
-                <span
-                  className="w-full text-left px-4 sm:px-6 py-4 min-h-[48px] flex items-start justify-between gap-3 bg-transparent hover:bg-muted/50 transition-colors duration-150 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 rounded-t-xl"
-                >
-                  <div className="flex flex-col sm:flex-row sm:items-start gap-2 sm:gap-3 min-w-0 flex-1 text-left">
-                    <Badge variant="secondary" className="shrink-0 w-fit">Decision {decision.order_num} of 3</Badge>
-                    <span className="font-bold text-base sm:text-lg leading-snug text-foreground break-words min-w-0">
-                      {decision.prompt}
-                    </span>
-                  </div>
-                </span>
-              </CollapsibleTrigger>
 
-            </Card>
-          </Collapsible>
+          {/* Decision prompt – large, prominent question */}
+          <div className="space-y-2">
+            <Badge variant="secondary" className="w-fit">Decision {decision.order_num} of 3</Badge>
+            <h2 className="text-xl sm:text-2xl font-bold leading-snug text-foreground break-words">
+              {decision.prompt}
+            </h2>
+          </div>
 
-          {/* Options – each option is collapsible (title visible, expand for description) */}
+          {/* Options */}
           <Card className="border-muted/80 bg-card/95 shadow-sm">
-            <CardHeader className="px-4 sm:px-6">
-              <CardTitle className="text-base sm:text-lg font-medium">Choose an option</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3 px-4 sm:px-6">
+            <CardContent className="space-y-3 px-4 sm:px-6 pt-5">
               <RadioGroup value={selectedOption || ""} onValueChange={setSelectedOption}>
                 {decision.options.map((option) => (
                   <Collapsible key={option.id} className="group/option">

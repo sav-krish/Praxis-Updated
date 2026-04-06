@@ -98,20 +98,17 @@ export function LibraryView({
       {topSimulations.length > 0 && (
         <section>
           <div className="flex items-center gap-2 mb-4">
-            <Trophy className="h-5 w-5 text-primary" />
-            <h2 className="text-lg font-semibold">Top Simulations</h2>
-            <span className="text-xs text-muted-foreground">Most favorited by the community</span>
+            <h2 className="text-lg font-semibold">Top Picks</h2>
           </div>
-          <div className="flex gap-4 overflow-x-auto pb-2 scrollbar-thin -mx-1 px-1">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {topSimulations.map((sim) => (
-              <div key={sim.id} className="min-w-[220px] max-w-[260px] shrink-0">
-                <LibrarySimulationCard
-                  sim={sim}
-                  isFavorite={favorites.has(sim.id)}
-                  favoritePending={togglingFavorite === sim.id}
-                  onToggleFavorite={() => toggleFavorite(sim.id)}
-                />
-              </div>
+              <LibrarySimulationCard
+                key={sim.id}
+                sim={sim}
+                isFavorite={favorites.has(sim.id)}
+                favoritePending={togglingFavorite === sim.id}
+                onToggleFavorite={() => toggleFavorite(sim.id)}
+              />
             ))}
           </div>
         </section>

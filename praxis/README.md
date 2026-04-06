@@ -40,7 +40,7 @@ These values are defined in `src/app/globals.css` (theme and `[data-landing="tru
 
 ## Prerequisites
 
-- **Node.js 18+** and npm
+- **Node.js 20+** and [pnpm](https://pnpm.io/installation) (see `packageManager` in the repo root `package.json`; CI uses pnpm with a frozen lockfile)
 - A **Supabase** project (free tier works)
 - An **OpenAI API key** (for AI generation -- optional if you only author manually)
 
@@ -48,10 +48,13 @@ These values are defined in `src/app/globals.css` (theme and `[data-landing="tru
 
 ### 1. Clone & install
 
+From the **repository root** (parent of this `praxis/` app folder):
+
 ```bash
-cd praxis
-npm install
+pnpm install
 ```
+
+This installs the workspace (root + this package). Use `pnpm dev` from the root to run the app, or `pnpm --filter praxis run dev` from anywhere in the repo.
 
 ### 2. Configure environment
 

@@ -73,9 +73,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
           <h1 className="text-2xl sm:text-3xl font-bold">
             Hello, {displayName}
           </h1>
-          <h2 className="text-muted-foreground mt-1 text-sm sm:text-base">
-            Your simulations · Create and manage classroom exercises
-          </h2>
+
         </div>
       </div>
 

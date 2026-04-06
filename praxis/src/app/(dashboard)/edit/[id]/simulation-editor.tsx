@@ -812,6 +812,108 @@ export function SimulationEditor({
             </Card>
           )}
 
+          {/* Compact Hidden Profiles — after materials */}
+          <Card className="mt-6">
+            <CardContent className="pt-5 pb-4 space-y-3">
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex items-center gap-2 min-w-0">
+                  <Users className="h-4 w-4 shrink-0 text-muted-foreground" />
+                  <Label htmlFor="hidden-profiles-bg" className="text-sm font-medium cursor-pointer">Hidden Profiles</Label>
+                  <FieldInfoHint>
+                    Give each participant a unique role with private information. Assigned automatically at session start.
+                  </FieldInfoHint>
+                </div>
+                <button
+                  id="hidden-profiles-bg"
+                  type="button"
+                  role="switch"
+                  aria-checked={simulation.hidden_profiles_enabled}
+                  disabled={!isOwner}
+                  onClick={() => {
+                    if (!isOwner) return;
+                    const enabling = !simulation.hidden_profiles_enabled;
+                    setSimulation({ ...simulation, hidden_profiles_enabled: enabling });
+                    if (enabling && profiles.length === 0) {
+                      setProfiles([
+                        { id: `new-${Date.now()}-1`, simulation_id: simulation.id, profile_name: "", private_briefing: "", order_num: 1, created_at: "" },
+                        { id: `new-${Date.now()}-2`, simulation_id: simulation.id, profile_name: "", private_briefing: "", order_num: 2, created_at: "" },
+                      ]);
+                    }
+                  }}
+                  className={`relative inline-flex h-5 w-9 shrink-0 items-center rounded-full border-2 border-transparent transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ${
+                    !isOwner ? "cursor-not-allowed opacity-60" : "cursor-pointer"
+                  } ${simulation.hidden_profiles_enabled ? "bg-primary" : "bg-input"}`}
+                >
+                  <span
+                    className={`pointer-events-none block h-4 w-4 rounded-full bg-background shadow-lg ring-0 transition-transform ${
+                      simulation.hidden_profiles_enabled ? "translate-x-4" : "translate-x-0"
+                    }`}
+                  />
+                </button>
+              </div>
+
+              {simulation.hidden_profiles_enabled && (
+                <div className="space-y-3 pt-1">
+                  {profiles.map((profile, index) => (
+                    <div key={profile.id} className="border rounded-lg p-3 space-y-2">
+                      <div className="flex items-center justify-between gap-2">
+                        <Badge variant="outline" className="text-xs">Role {index + 1}</Badge>
+                        {isOwner && profiles.length > 2 && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-6 w-6 text-muted-foreground hover:text-destructive"
+                            onClick={() => {
+                              setProfiles(prev => prev.filter((_, i) => i !== index).map((p, i) => ({ ...p, order_num: i + 1 })));
+                            }}
+                          >
+                            <Trash2 className="h-3 w-3" />
+                          </Button>
+                        )}
+                      </div>
+                      <Input
+                        placeholder='e.g. "CEO", "CFO"'
+                        value={profile.profile_name}
+                        onChange={(e) => {
+                          setProfiles(prev => prev.map((p, i) => i === index ? { ...p, profile_name: e.target.value } : p));
+                        }}
+                        disabled={!isOwner}
+                        className="h-8 text-sm"
+                      />
+                      <Textarea
+                        placeholder="Private information only this role sees..."
+                        value={profile.private_briefing}
+                        onChange={(e) => {
+                          setProfiles(prev => prev.map((p, i) => i === index ? { ...p, private_briefing: e.target.value } : p));
+                        }}
+                        rows={2}
+                        disabled={!isOwner}
+                        className="text-sm"
+                      />
+                    </div>
+                  ))}
+
+                  {isOwner && profiles.length < 6 && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-7 text-xs"
+                      onClick={() => {
+                        setProfiles(prev => [
+                          ...prev,
+                          { id: `new-${Date.now()}`, simulation_id: simulation.id, profile_name: "", private_briefing: "", order_num: prev.length + 1, created_at: "" },
+                        ]);
+                      }}
+                    >
+                      <Plus className="mr-1 h-3 w-3" />
+                      Add Role ({profiles.length}/6)
+                    </Button>
+                  )}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
           </motion.div>
         )}
 
@@ -864,7 +966,7 @@ export function SimulationEditor({
                         <div className="space-y-2">
                           <Label>Decision Prompt</Label>
                           <Textarea
-                            placeholder="What decision does the student need to make?"
+                            placeholder="Enter the decision question students will see"
                             value={decision.prompt}
                             onChange={(e) => updateDecision(dIndex, "prompt", e.target.value)}
                             rows={3}
@@ -1160,120 +1262,7 @@ export function SimulationEditor({
             </CardContent>
           </Card>
 
-          <Card>
-            <CardHeader>
-              <div className="flex items-start justify-between gap-2">
-                <CardTitle className="flex flex-1 items-center gap-2 min-w-0">
-                  <Users className="h-5 w-5 shrink-0" />
-                  <span>Hidden Profiles</span>
-                </CardTitle>
-                <FieldInfoHint className="shrink-0">
-                  Give each participant a unique role with private information only they can see. Roles are assigned automatically (round-robin) when the session starts. The professor can reassign roles from the lobby. Everyone sees the shared background; each student also sees only their own private briefing.
-                </FieldInfoHint>
-              </div>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="flex items-center justify-between gap-3">
-                <div className="space-y-1">
-                  <div className="flex items-center gap-1.5 flex-wrap">
-                    <Label htmlFor="hidden-profiles" className="cursor-pointer">
-                      Enable Hidden Profiles
-                    </Label>
-                  </div>
-                </div>
-                <button
-                  id="hidden-profiles"
-                  type="button"
-                  role="switch"
-                  aria-checked={simulation.hidden_profiles_enabled}
-                  disabled={!isOwner}
-                  onClick={() => {
-                    if (!isOwner) return;
-                    const enabling = !simulation.hidden_profiles_enabled;
-                    setSimulation({ ...simulation, hidden_profiles_enabled: enabling });
-                    if (enabling && profiles.length === 0) {
-                      setProfiles([
-                        { id: `new-${Date.now()}-1`, simulation_id: simulation.id, profile_name: "", private_briefing: "", order_num: 1, created_at: "" },
-                        { id: `new-${Date.now()}-2`, simulation_id: simulation.id, profile_name: "", private_briefing: "", order_num: 2, created_at: "" },
-                      ]);
-                    }
-                  }}
-                  className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full border-2 border-transparent transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ${
-                    !isOwner ? "cursor-not-allowed opacity-60" : "cursor-pointer"
-                  } ${simulation.hidden_profiles_enabled ? "bg-primary" : "bg-input"}`}
-                >
-                  <span
-                    className={`pointer-events-none block h-5 w-5 rounded-full bg-background shadow-lg ring-0 transition-transform ${
-                      simulation.hidden_profiles_enabled ? "translate-x-5" : "translate-x-0"
-                    }`}
-                  />
-                </button>
-              </div>
 
-              {simulation.hidden_profiles_enabled && (
-                <div className="space-y-4 pt-2">
-                  {profiles.map((profile, index) => (
-                    <div key={profile.id} className="border rounded-lg p-4 space-y-3">
-                      <div className="flex items-center justify-between gap-2">
-                        <Badge variant="outline">Role {index + 1}</Badge>
-                        {isOwner && profiles.length > 2 && (
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-7 w-7 text-muted-foreground hover:text-destructive"
-                            onClick={() => {
-                              setProfiles(prev => prev.filter((_, i) => i !== index).map((p, i) => ({ ...p, order_num: i + 1 })));
-                            }}
-                          >
-                            <Trash2 className="h-3.5 w-3.5" />
-                          </Button>
-                        )}
-                      </div>
-                      <div className="space-y-2">
-                        <Label className="text-sm">Role Name</Label>
-                        <Input
-                          placeholder='e.g. "CEO", "CFO", "Operations Manager"'
-                          value={profile.profile_name}
-                          onChange={(e) => {
-                            setProfiles(prev => prev.map((p, i) => i === index ? { ...p, profile_name: e.target.value } : p));
-                          }}
-                          disabled={!isOwner}
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <Label className="text-sm">Private Briefing</Label>
-                        <Textarea
-                          placeholder="Information only this role will see (e.g. confidential financials, private context)..."
-                          value={profile.private_briefing}
-                          onChange={(e) => {
-                            setProfiles(prev => prev.map((p, i) => i === index ? { ...p, private_briefing: e.target.value } : p));
-                          }}
-                          rows={4}
-                          disabled={!isOwner}
-                        />
-                      </div>
-                    </div>
-                  ))}
-
-                  {isOwner && profiles.length < 6 && (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => {
-                        setProfiles(prev => [
-                          ...prev,
-                          { id: `new-${Date.now()}`, simulation_id: simulation.id, profile_name: "", private_briefing: "", order_num: prev.length + 1, created_at: "" },
-                        ]);
-                      }}
-                    >
-                      <Plus className="mr-2 h-4 w-4" />
-                      Add Role ({profiles.length}/6)
-                    </Button>
-                  )}
-                </div>
-              )}
-            </CardContent>
-          </Card>
 
           {isOwner && (
             <Card>

@@ -9,8 +9,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
+import { cn } from "@/lib/utils";
 import { Upload, Loader2, Sparkles, FileText, X, Wand2, PenLine } from "lucide-react";
 import { toast } from "sonner";
 import { PrivacyNotice } from "@/components/ui/privacy-notice";
@@ -36,6 +36,12 @@ const PREFERENCE_CATEGORIES = {
     options: ["Clear Right/Wrong", "Nuanced Tradeoffs", "No Correct Answer"],
   },
 } as const;
+
+const DIFFICULTY_LENGTH_OPTIONS = [
+  { value: "easy" as const, label: "Easy", time: "~15 min" },
+  { value: "hard" as const, label: "Hard", time: "~25 min" },
+  { value: "challenge" as const, label: "Challenge", time: "~40 min" },
+] as const;
 
 export default function CreateSimulationPage() {
   const router = useRouter();
@@ -509,24 +515,37 @@ export default function CreateSimulationPage() {
             />
             <div className="space-y-2">
               <div className="flex items-center gap-1.5">
-                <Label htmlFor="difficulty">Difficulty / Length</Label>
-                <FieldInfoHint>
-                  AI will tailor the scenario length and decision complexity to this level
-                </FieldInfoHint>
+                <Label id="difficulty-length-label">Difficulty / Length</Label>
               </div>
-              <Select
-                value={formData.difficulty}
-                onValueChange={(value: "easy" | "hard" | "challenge") => setFormData({ ...formData, difficulty: value })}
+              <div
+                role="radiogroup"
+                aria-labelledby="difficulty-length-label"
+                className="flex flex-wrap gap-2"
               >
-                <SelectTrigger id="difficulty">
-                  <SelectValue placeholder="Select difficulty" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="easy">Easy — ~15 min (shorter scenario, simpler decisions)</SelectItem>
-                  <SelectItem value="hard">Hard — ~25 min (moderate complexity)</SelectItem>
-                  <SelectItem value="challenge">Challenge — ~40 min (longer, more nuanced)</SelectItem>
-                </SelectContent>
-              </Select>
+                {DIFFICULTY_LENGTH_OPTIONS.map((opt) => {
+                  const selected = formData.difficulty === opt.value;
+                  return (
+                    <button
+                      key={opt.value}
+                      type="button"
+                      role="radio"
+                      aria-checked={selected}
+                      onClick={() =>
+                        setFormData({ ...formData, difficulty: opt.value })
+                      }
+                      className={cn(
+                        "inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
+                        selected
+                          ? "border-primary bg-primary text-primary-foreground"
+                          : "border-transparent bg-muted text-muted-foreground hover:border-border hover:text-foreground"
+                      )}
+                    >
+                      <span>{opt.label}</span>
+                      <span className="tabular-nums opacity-90">{opt.time}</span>
+                    </button>
+                  );
+                })}
+              </div>
             </div>
           </CardContent>
         </Card>
@@ -539,33 +558,29 @@ export default function CreateSimulationPage() {
             </div>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="flex items-center justify-between gap-4 rounded-lg border p-4">
-              <div className="space-y-1 min-w-0">
-                <div className="flex items-center gap-1.5 flex-wrap">
-                  <Label htmlFor="hidden-roles-toggle" className="text-base font-medium cursor-pointer">
-                    Hidden roles (asymmetric information)
-                  </Label>
-                  <FieldInfoHint>
-                    When on, AI generates distinct private briefings from your materials and goals below. You can edit roles in Run Settings after generation or creation.
-                  </FieldInfoHint>
-                </div>
-              </div>
+            <div className="flex items-center gap-3 py-2">
               <button
                 type="button"
                 id="hidden-roles-toggle"
                 role="switch"
                 aria-checked={hiddenProfilesEnabled}
                 onClick={() => setHiddenProfilesEnabled((v) => !v)}
-                className={`relative inline-flex h-7 w-12 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ${
+                className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ${
                   hiddenProfilesEnabled ? "bg-primary" : "bg-input"
                 }`}
               >
                 <span
-                  className={`pointer-events-none inline-block h-6 w-6 transform rounded-full bg-background shadow ring-0 transition ${
-                    hiddenProfilesEnabled ? "translate-x-5" : "translate-x-0.5"
+                  className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-background shadow ring-0 transition ${
+                    hiddenProfilesEnabled ? "translate-x-4" : "translate-x-0"
                   }`}
                 />
               </button>
+              <Label htmlFor="hidden-roles-toggle" className="text-sm cursor-pointer">
+                Hidden roles
+              </Label>
+              <FieldInfoHint>
+                AI generates distinct private briefings. Edit roles after generation.
+              </FieldInfoHint>
             </div>
 
             <div className="border-2 border-dashed rounded-lg p-6 text-center hover:border-primary/50 transition-colors">
@@ -635,9 +650,6 @@ export default function CreateSimulationPage() {
             <div className="space-y-2">
               <div className="flex items-center gap-1.5">
                 <Label htmlFor="goal">Goal of the Simulation</Label>
-                <FieldInfoHint>
-                  Example: Students should understand the tension between formal and informal power in organizations
-                </FieldInfoHint>
               </div>
               <Textarea
                 id="goal"
@@ -650,9 +662,6 @@ export default function CreateSimulationPage() {
             <div className="space-y-2">
               <div className="flex items-center gap-1.5">
                 <Label htmlFor="decisions">Decisions You Want Students to Make</Label>
-                <FieldInfoHint>
-                  Example: Whether to work through formal channels or build coalitions, how to handle resistance
-                </FieldInfoHint>
               </div>
               <Textarea
                 id="decisions"
@@ -740,19 +749,22 @@ export default function CreateSimulationPage() {
 
         <div className="flex flex-col gap-4">
           <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
-            <Button 
-              type="button" 
-              className="flex-1 min-h-[48px] w-full" 
+            <Button
+              type="button"
+              variant="aiGradient"
               size="lg"
               onClick={handleGenerateWithAI}
               disabled={loading || generatingAI || !formData.title}
+              className="flex-1 min-h-[48px] w-full font-semibold"
             >
-              {generatingAI ? (
-                <Loader2 className="mr-2 h-5 w-5 animate-spin shrink-0" />
-              ) : (
-                <Wand2 className="mr-2 h-5 w-5 shrink-0" />
-              )}
-              {generatingAI ? "Generating..." : "Generate with AI"}
+              <span className="relative z-1 inline-flex items-center justify-center gap-2">
+                {generatingAI ? (
+                  <Loader2 className="h-5 w-5 shrink-0 animate-spin" />
+                ) : (
+                  <Wand2 className="h-5 w-5 shrink-0" />
+                )}
+                {generatingAI ? "Generating..." : "Generate with AI"}
+              </span>
             </Button>
             <Button 
               type="submit" 
@@ -770,16 +782,6 @@ export default function CreateSimulationPage() {
             </Button>
           </div>
           <div className="flex justify-center">
-            <FieldInfoHint side="bottom">
-              <span className="block space-y-2">
-                <span>
-                  <strong>Generate with AI</strong> uses your uploaded materials and goals to create a complete simulation.
-                </span>
-                <span>
-                  <strong>Create Manually</strong> gives you a blank template to fill in yourself.
-                </span>
-              </span>
-            </FieldInfoHint>
           </div>
           <Button type="button" variant="ghost" onClick={() => router.back()} className="self-center">
             Cancel

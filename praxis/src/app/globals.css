@@ -150,9 +150,9 @@
   }
 }
 
-/* Landing page blue theme */
+/* Landing page blue theme (accent matches dashboard --primary / logo #5BA2D8) */
 [data-landing="true"] {
-  --accent: #1D4ED8;
+  --accent: #5ba2d8;
   --accent-foreground: #ffffff;
   --muted: #516481;
   --muted-foreground: #516481;
@@ -161,6 +161,11 @@
   --primary: #0F2447;
   --secondary: #E5EEFF;
   --border: #D6E1F2;
+}
+
+/* Landing: no horizontal page scroll / scrollbar (wide How it works strip, etc.) */
+html:has([data-landing="true"]) {
+  overflow-x: hidden;
 }
 
 /* Safe area insets for notched devices (e.g. iPhone) */
