@@ -4,7 +4,6 @@ import { useEffect, useState, useRef } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { motion, useInView } from "framer-motion";
-import { ReactLenis } from "lenis/react";
 import { FadeIn } from "@/components/landing/fade-in";
 import { HowItWorksHorizontalScroll } from "@/components/landing/how-it-works";
 import { FaqSection } from "@/components/landing/faq-section";
@@ -30,19 +29,19 @@ const impactMetrics = [
     value: 95,
     suffix: "%+",
     label: "Class Participation",
-    body: "Increases class participation to over 95%. Every student engages.",
+    body: "Every student engages in real decisions. Track participation and student performance in real time.",
   },
   {
     value: 90,
     suffix: "%",
     label: "Less Prep Time",
-    body: "Reduces active learning preparation time by 90%.",
+    body: "Launch simulations in minutes, not hours. Deliver high-impact active learning without increasing workload.",
   },
   {
     value: 100,
     suffix: "%",
     label: "Real-World Skills",
-    body: "Builds critical thinking, collaboration, and decision-making skills students need.",
+    body: "Students build decision-making, critical thinking, and collaboration. Skills they will use directly in the workforce.",
     isQualitative: true,
   },
 ];
@@ -161,11 +160,10 @@ export default function HomePage() {
   };
 
   return (
-    <ReactLenis root>
-      <div
-        data-landing="true"
-        className="relative isolate min-h-screen overflow-x-visible text-ink"
-      >
+    <div
+      data-landing="true"
+      className="relative isolate min-h-screen overflow-x-visible text-ink"
+    >
       {/* Background: fixed gradient + soft accents (scrolls with viewport) */}
       <div className="pointer-events-none fixed inset-0 -z-10 overflow-hidden">
         <div
@@ -314,35 +312,32 @@ export default function HomePage() {
             </p>
           </FadeIn>
 
-          <div className="mt-12 grid gap-6 md:grid-cols-3 md:items-stretch">
+          <div className="mx-auto mt-12 grid max-w-4xl gap-5 md:grid-cols-2 md:items-stretch">
             {[
               {
-                stat: "In Seconds",
-                label: "AI Completes Assignments",
-                body: "Traditional assignments such as essays, problem sets, and case write-ups can be automated instantly. The classroom hasn't caught up.",
+                stat: "80%",
+                label: "of employers prioritize decision-making skills",
+                body: "Yet classrooms still rely on passive learning that doesn’t build them.",
               },
               {
-                stat: "80%+",
-                label: "Employers Prioritize These Skills",
-                body: "Critical thinking, collaboration, and decision-making are among the top hiring priorities. These are the skills simulations build.",
-              },
-              {
-                stat: "40%+",
-                label: "Educator Burnout Rate",
-                body: "Faculty burnout is at record highs. Building deeper learning experiences from scratch takes time most educators don't have.",
+                stat: "40%",
+                label: "of educators are experiencing burnout",
+                body: "Creating meaningful, active learning takes time they simply don’t have.",
               },
             ].map((card, i) => (
               <FadeIn key={card.label} delay={i * 0.1} className="h-full min-h-0">
                 <div
-                  className={`flex h-full min-h-[280px] w-full flex-col items-center justify-center rounded-3xl p-8 text-center md:min-h-[300px] ${LANDING_TILE_BACKGROUNDS[i % 3]}`}
+                  className={`flex h-full min-h-[280px] w-full flex-col items-center justify-center rounded-3xl p-7 text-center shadow-[0_24px_60px_-28px_rgba(15,36,71,0.22)] ring-1 ring-white/50 md:min-h-[300px] md:p-8 ${LANDING_TILE_BACKGROUNDS[i % 3]}`}
                 >
-                  <p className="text-2xl font-bold text-accent">
-                    {card.stat}
-                  </p>
-                  <p className="mt-1 text-sm font-semibold text-ink">
-                    {card.label}
-                  </p>
-                  <p className="mt-2 text-sm text-muted leading-relaxed">
+                  <div className="space-y-3">
+                    <p className="text-[3.6rem] font-black leading-none tracking-[-0.05em] text-accent md:text-[4.8rem]">
+                      {card.stat}
+                    </p>
+                    <p className="mx-auto max-w-[24ch] text-base font-bold leading-tight text-ink md:text-[1.05rem]">
+                      {card.label}
+                    </p>
+                  </div>
+                  <p className="mx-auto mt-2 max-w-[24ch] text-[0.96rem] leading-relaxed text-muted md:text-sm">
                     {card.body}
                   </p>
                 </div>
@@ -381,7 +376,7 @@ export default function HomePage() {
           <HowItWorksHorizontalScroll />
 
           <div className="container">
-            <FadeIn className="mt-10 flex justify-center">
+            <FadeIn className="-mt-40 flex justify-center sm:-mt-44 md:-mt-48">
               <Link
                 href="/signup"
                 className="inline-flex min-h-[48px] items-center justify-center"
@@ -407,19 +402,33 @@ export default function HomePage() {
             {impactMetrics.map((metric, i) => (
               <FadeIn key={metric.label} delay={i * 0.12} className="h-full min-h-0">
                 <div
-                  className={`flex h-full min-h-[280px] w-full flex-col items-center justify-center rounded-3xl p-8 text-center md:min-h-[300px] ${LANDING_TILE_BACKGROUNDS[i % 3]}`}
+                  className={`flex h-full min-h-[280px] w-full flex-col items-center justify-center rounded-3xl p-7 text-center shadow-[0_24px_60px_-28px_rgba(15,36,71,0.22)] ring-1 ring-white/50 md:min-h-[300px] md:p-8 ${LANDING_TILE_BACKGROUNDS[i % 3]}`}
                 >
-                  <p className="text-5xl font-bold text-accent md:text-6xl">
+                  <p
+                    className={`leading-none text-accent ${
+                      metric.isQualitative
+                        ? "text-[4.9rem] font-black tracking-[-0.08em] md:text-[6.6rem]"
+                        : "text-[3.6rem] font-black tracking-[-0.05em] md:text-[4.8rem]"
+                    }`}
+                  >
                     <AnimatedCounter
                       target={metric.value}
                       suffix={metric.suffix}
                       isQualitative={metric.isQualitative}
                     />
                   </p>
-                  <p className="mt-2 text-sm font-semibold uppercase tracking-wide text-ink">
+                  <p
+                    className={`text-base font-bold leading-tight text-ink md:text-[1.05rem] ${
+                      metric.isQualitative ? "mt-1" : "mt-3"
+                    }`}
+                  >
                     {metric.label}
                   </p>
-                  <p className="mt-3 text-sm leading-relaxed text-muted">
+                  <p
+                    className={`text-[0.96rem] leading-relaxed text-muted md:text-sm ${
+                      metric.isQualitative ? "mt-1 max-w-[28ch]" : "mt-2 max-w-[24ch]"
+                    }`}
+                  >
                     {metric.body}
                   </p>
                 </div>
@@ -562,7 +571,6 @@ export default function HomePage() {
           </div>
         </div>
       </footer>
-      </div>
-    </ReactLenis>
+    </div>
   );
 }
