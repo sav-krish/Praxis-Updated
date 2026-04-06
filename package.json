@@ -9,7 +9,9 @@
     "dev": "pnpm --filter praxis run dev",
     "build": "pnpm --filter praxis run build",
     "start": "pnpm --filter praxis run start",
-    "lint": "pnpm --filter praxis run lint"
+    "lint": "pnpm --filter praxis run lint",
+    "seed:showcase": "pnpm --filter praxis run seed:showcase",
+    "seed:showcase:delete": "pnpm --filter praxis run seed:showcase:delete"
   },
   "dependencies": {
     "next": "16.1.6",
