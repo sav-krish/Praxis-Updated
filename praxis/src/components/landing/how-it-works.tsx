@@ -3,34 +3,34 @@
 import {
   useEffect,
   useRef,
-  useState,
   useSyncExternalStore,
 } from "react";
 import Image from "next/image";
 import { Wand2, PenLine } from "lucide-react";
+import { animate, scroll } from "motion";
 import { FadeIn } from "@/components/landing/fade-in";
 
 const steps = [
   {
     num: 1,
-    title: "Start with a Simulation",
-    body: "Choose from the simulation library or generate one instantly using your course materials and learning goals.",
+    title: "Browse or Upload",
+    body: "Explore the simulation library for ready-made scenarios, or upload your own case, slides, or learning goals.",
   },
   {
     num: 2,
-    title: "Customize in Minutes",
-    body: "Edit everything, including the scenario, decisions, options, and consequences. Add data, roles, and prompts to match your exact teaching style.",
+    title: "Make It Yours",
+    body: "Edit the scenario, decisions, options, and scoring. Add data blocks, hidden roles, and reflection questions.",
     accent: true,
   },
   {
     num: 3,
-    title: "Run It Live in Class",
-    body: "Students join via QR code or link, form teams, and move through decisions points. They collaborate, weigh tradeoffs, and commit to decisions.",
+    title: "Students Join Instantly",
+    body: "Share a QR code or join link. Students scan, enter their name, and they're in with no accounts required.",
   },
   {
     num: 4,
-    title: "Measure What Matters",
-    body: "See decision patterns, team performance, and reflections. Track learning, not just participation.",
+    title: "Debrief with Real Data",
+    body: "After the session, review choice distributions, scores, and reflection responses in a structured post-session report.",
   },
 ] as const;
 
@@ -130,16 +130,13 @@ function HowItWorksCard({
   screens,
   masterBackground,
   createButtonsOverlaySrc,
-  forceWideFrame = false,
 }: {
   screens: readonly HowItWorksScreenAsset[];
   masterBackground: string;
   createButtonsOverlaySrc?: string;
-  forceWideFrame?: boolean;
 }) {
-  const single = screens.length === 1 && !forceWideFrame;
-  const wideSingle = screens.length === 1 && forceWideFrame;
-  const sizes = screens.length === 1
+  const single = screens.length === 1;
+  const sizes = single
     ? HOW_IT_WORKS_IMAGE_SIZES_SINGLE
     : HOW_IT_WORKS_IMAGE_SIZES_MULTI;
 
@@ -150,18 +147,13 @@ function HowItWorksCard({
     "shadow-[0_26px_55px_-14px_rgba(15,36,71,0.28),0_12px_28px_-10px_rgba(15,36,71,0.14)]";
   /** Dual panes only: needs a positioning context for the create-flow overlay. */
   const screenshotShell = `relative flex items-center justify-center ${screenshotRadius} ${screenshotShadow}`;
-  const singleImageClass = `mx-auto block h-auto w-auto max-w-[min(100%,52rem)] object-contain max-h-[min(58svh,36rem)] sm:max-h-[min(52svh,34rem)] md:max-h-[min(48svh,32rem)] ${screenshotRadius} ${screenshotShadow}`;
 
   return (
     <div
       className={
         single
           ? "mx-auto flex w-full max-w-[64rem] flex-col items-center justify-center overflow-hidden rounded-3xl p-3 shadow-[0_20px_50px_-20px_rgba(15,36,71,0.18)] ring-1 ring-white/50 sm:p-4 md:p-6 lg:p-8 relative min-h-[250px]"
-          : `mx-auto flex w-full max-w-[64rem] flex-col items-center justify-center overflow-hidden rounded-3xl p-3 shadow-[0_20px_50px_-20px_rgba(15,36,71,0.18)] ring-1 ring-white/50 sm:p-4 md:p-6 lg:p-8 relative aspect-[4/3] md:aspect-[16/9] lg:aspect-[21/9] ${
-              wideSingle
-                ? "max-h-[42vh] min-h-[250px] md:max-h-[48vh] lg:max-h-[54vh]"
-                : "max-h-[50vh] min-h-[250px] md:max-h-[60vh] lg:max-h-[70vh]"
-            }`
+          : "mx-auto flex w-full max-w-[64rem] flex-col items-center justify-center overflow-hidden rounded-3xl p-3 shadow-[0_20px_50px_-20px_rgba(15,36,71,0.18)] ring-1 ring-white/50 sm:p-4 md:p-6 lg:p-8 relative aspect-[4/3] md:aspect-[16/9] lg:aspect-[21/9] max-h-[50vh] min-h-[250px] md:max-h-[60vh] lg:max-h-[70vh]"
       }
       style={frameStyle}
     >
@@ -184,7 +176,7 @@ function HowItWorksCard({
                 height={img.height}
                 alt={img.alt}
                 sizes={sizes}
-                className={singleImageClass}
+                className={`mx-auto block h-auto w-auto max-w-[min(100%,52rem)] object-contain max-h-[min(58svh,36rem)] sm:max-h-[min(52svh,34rem)] md:max-h-[min(48svh,32rem)] ${screenshotRadius} ${screenshotShadow}`}
                 draggable={false}
               />
             );
@@ -193,9 +185,7 @@ function HowItWorksCard({
           return (
             <div
               key={img.src}
-              className={`${screenshotShell} max-h-[45%] max-w-full shrink sm:max-h-full ${
-                screens.length === 1 ? "sm:w-full sm:max-w-full" : "sm:max-w-[48%]"
-              }`}
+              className={`${screenshotShell} max-h-[45%] max-w-full shrink sm:max-h-full sm:max-w-[48%]`}
             >
               <Image
                 src={img.src}
@@ -263,7 +253,6 @@ function StepCard({ stepNum }: { stepNum: number }) {
         <HowItWorksCard
           screens={howItWorksStepFourScreens}
           masterBackground={howItWorksStepMasterBackgrounds[3]}
-          forceWideFrame
         />
       );
     default:
@@ -277,38 +266,35 @@ export function HowItWorksHorizontalScroll() {
   const prefersReducedMotion = usePrefersReducedMotion();
   const railRef = useRef<HTMLDivElement>(null);
   const ulRef = useRef<HTMLUListElement>(null);
-  const [translateX, setTranslateX] = useState(0);
 
   useEffect(() => {
-    if (prefersReducedMotion) {
-      setTranslateX(0);
-      return;
-    }
-
+    if (prefersReducedMotion) return;
     const section = railRef.current;
     const ul = ulRef.current;
     if (!section || !ul) return;
 
-    const updatePosition = () => {
-      const rect = section.getBoundingClientRect();
-      const scrollDistance = Math.max(section.offsetHeight - window.innerHeight, 1);
-      const progress = Math.min(Math.max(-rect.top / scrollDistance, 0), 1);
-      setTranslateX(progress * (stepCount - 1) * window.innerWidth);
+    const stripKeyframes = {
+      transform: [
+        "none",
+        `translateX(-${(stepCount - 1) * 100}vw)`,
+      ] as [string, string],
     };
 
-    updatePosition();
-    window.addEventListener("scroll", updatePosition, { passive: true });
-    window.addEventListener("resize", updatePosition);
+    const controls = animate(ul, stripKeyframes);
+    const stopScroll = scroll(controls, {
+      target: section,
+      offset: ["start start", "end end"],
+    });
 
     return () => {
-      window.removeEventListener("scroll", updatePosition);
-      window.removeEventListener("resize", updatePosition);
+      stopScroll();
+      controls.stop();
     };
   }, [prefersReducedMotion]);
 
   if (prefersReducedMotion) {
     return (
-      <div className="mx-auto mt-4 max-w-5xl space-y-8 px-6 sm:mt-6">
+      <div className="mx-auto mt-8 max-w-5xl space-y-8 px-6 sm:mt-12">
         {steps.map((step, index) => (
           <FadeIn key={step.num} delay={index * 0.08}>
             <div className="space-y-4 text-center">
@@ -332,25 +318,24 @@ export function HowItWorksHorizontalScroll() {
   return (
     <div
       ref={railRef}
-      className="relative left-1/2 right-1/2 -ml-[50vw] -mr-[50vw] mt-4 w-screen max-w-[100vw] overflow-x-clip sm:mt-6"
+      className="relative left-1/2 right-1/2 -ml-[50vw] -mr-[50vw] mt-8 w-screen max-w-[100vw] overflow-x-clip sm:mt-12"
       style={{ height: `${stepCount * 100}dvh` }}
       aria-label="How Praxis works, step by step"
     >
       <ul
         id="how-it-works-scroll-strip"
         ref={ulRef}
-        className="sticky top-[4.5rem] flex h-[calc(100dvh-4.5rem)] w-max shrink-0 will-change-transform sm:top-[5rem] sm:h-[calc(100dvh-5rem)]"
-        style={{ transform: `translateX(-${translateX}px)` }}
+        className="sticky top-0 flex h-dvh w-max shrink-0 will-change-transform"
       >
         {steps.map((step) => (
           <li
             key={step.num}
-            className="box-border flex h-full w-screen shrink-0 flex-col items-center justify-start gap-5 sm:gap-6 lg:gap-8"
+            className="box-border flex h-dvh w-screen shrink-0 flex-col items-center justify-center gap-6 sm:gap-8 lg:gap-12"
             style={{
               paddingLeft: "1.5rem",
               paddingRight: "1.5rem",
               paddingBottom: "1.5rem",
-              paddingTop: "calc(env(safe-area-inset-top, 0px) + 1rem)",
+              paddingTop: "calc(env(safe-area-inset-top, 0px) + 5rem)",
             }}
           >
             <div className="flex w-full min-h-0 justify-center">

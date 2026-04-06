@@ -4,6 +4,7 @@ import { useEffect, useState, useRef } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { motion, useInView } from "framer-motion";
+import { ReactLenis } from "lenis/react";
 import { FadeIn } from "@/components/landing/fade-in";
 import { HowItWorksHorizontalScroll } from "@/components/landing/how-it-works";
 import { FaqSection } from "@/components/landing/faq-section";
@@ -160,10 +161,11 @@ export default function HomePage() {
   };
 
   return (
-    <div
-      data-landing="true"
-      className="relative isolate min-h-screen overflow-x-visible text-ink"
-    >
+    <ReactLenis root>
+      <div
+        data-landing="true"
+        className="relative isolate min-h-screen overflow-x-visible text-ink"
+      >
       {/* Background: fixed gradient + soft accents (scrolls with viewport) */}
       <div className="pointer-events-none fixed inset-0 -z-10 overflow-hidden">
         <div
@@ -376,7 +378,7 @@ export default function HomePage() {
           <HowItWorksHorizontalScroll />
 
           <div className="container">
-            <FadeIn className="-mt-40 flex justify-center sm:-mt-44 md:-mt-48">
+            <FadeIn className="mt-10 flex justify-center">
               <Link
                 href="/signup"
                 className="inline-flex min-h-[48px] items-center justify-center"
@@ -571,6 +573,7 @@ export default function HomePage() {
           </div>
         </div>
       </footer>
-    </div>
+      </div>
+    </ReactLenis>
   );
 }
