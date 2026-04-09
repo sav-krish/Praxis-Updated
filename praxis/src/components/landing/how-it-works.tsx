@@ -2,6 +2,7 @@
 
 import {
   useEffect,
+  useLayoutEffect,
   useRef,
   useSyncExternalStore,
 } from "react";
@@ -203,13 +204,13 @@ function HowItWorksCard({
                   aria-hidden="true"
                 >
                   <div className="w-full max-w-[22rem] sm:max-w-[28rem] select-none mx-auto mt-auto">
-                    <div className="flex flex-row gap-2 sm:gap-3">
-                      <div className="flex flex-1 min-h-[40px] sm:min-h-[46px] items-center justify-center gap-1.5 sm:gap-2 rounded-lg sm:rounded-xl border-0 bg-[linear-gradient(to_right,#a855f7_0%,#6366f1_50%,#06b6d4_100%)] text-white shadow-md text-[12px] sm:text-[14px] font-semibold tracking-wide">
-                        <Wand2 className="h-3.5 w-3.5 sm:h-4 sm:w-4 shrink-0" />
+                    <div className="flex min-w-0 flex-row gap-1.5 sm:gap-2.5">
+                      <div className="flex min-h-[36px] flex-1 items-center justify-center gap-1 rounded-md border-0 bg-[linear-gradient(to_right,#a855f7_0%,#6366f1_50%,#06b6d4_100%)] px-1.5 text-[10px] font-semibold leading-none tracking-tight text-white shadow-md whitespace-nowrap sm:min-h-[40px] sm:gap-1.5 sm:rounded-lg sm:px-2 sm:text-[11px] md:text-xs">
+                        <Wand2 className="h-3 w-3 shrink-0 sm:h-3.5 sm:w-3.5" />
                         Generate with AI
                       </div>
-                      <div className="flex flex-1 min-h-[40px] sm:min-h-[46px] items-center justify-center gap-1.5 sm:gap-2 rounded-lg sm:rounded-xl bg-white/95 backdrop-blur-sm text-slate-800 shadow-md border-[1.5px] border-slate-200 text-[12px] sm:text-[14px] font-semibold">
-                        <PenLine className="h-3.5 w-3.5 sm:h-4 sm:w-4 shrink-0 text-slate-600" />
+                      <div className="flex min-h-[36px] flex-1 items-center justify-center gap-1 rounded-md border-[1.5px] border-slate-200 bg-white/95 px-1.5 text-[10px] font-semibold leading-none tracking-tight text-slate-800 shadow-md backdrop-blur-sm whitespace-nowrap sm:min-h-[40px] sm:gap-1.5 sm:rounded-lg sm:px-2 sm:text-[11px] md:text-xs">
+                        <PenLine className="h-3 w-3 shrink-0 text-slate-600 sm:h-3.5 sm:w-3.5" />
                         Create Manually
                       </div>
                     </div>
@@ -267,6 +268,12 @@ export function HowItWorksHorizontalScroll() {
   const railRef = useRef<HTMLDivElement>(null);
   const ulRef = useRef<HTMLUListElement>(null);
 
+  useLayoutEffect(() => {
+    if (prefersReducedMotion) return;
+    const ul = ulRef.current;
+    if (ul) ul.style.transform = "translateX(0px)";
+  }, [prefersReducedMotion]);
+
   useEffect(() => {
     if (prefersReducedMotion) return;
     const section = railRef.current;
@@ -280,15 +287,24 @@ export function HowItWorksHorizontalScroll() {
       ] as [string, string],
     };
 
-    const controls = animate(ul, stripKeyframes);
-    const stopScroll = scroll(controls, {
-      target: section,
-      offset: ["start start", "end end"],
+    let controls: ReturnType<typeof animate> | undefined;
+    let stopScroll: (() => void) | undefined;
+    let innerRaf = 0;
+    const outerRaf = requestAnimationFrame(() => {
+      innerRaf = requestAnimationFrame(() => {
+        controls = animate(ul, stripKeyframes);
+        stopScroll = scroll(controls, {
+          target: section,
+          offset: ["start start", "end end"],
+        });
+      });
     });
 
     return () => {
-      stopScroll();
-      controls.stop();
+      cancelAnimationFrame(outerRaf);
+      cancelAnimationFrame(innerRaf);
+      stopScroll?.();
+      controls?.stop();
     };
   }, [prefersReducedMotion]);
 

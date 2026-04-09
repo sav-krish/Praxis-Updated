@@ -748,38 +748,44 @@ export default function CreateSimulationPage() {
         </Card>
 
         <div className="flex flex-col gap-4">
-          <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
-            <Button
-              type="button"
-              variant="aiGradient"
-              size="lg"
-              onClick={handleGenerateWithAI}
-              disabled={loading || generatingAI || !formData.title}
-              className="flex-1 min-h-[48px] w-full font-semibold"
-            >
-              <span className="relative z-1 inline-flex items-center justify-center gap-2">
-                {generatingAI ? (
-                  <Loader2 className="h-5 w-5 shrink-0 animate-spin" />
-                ) : (
-                  <Wand2 className="h-5 w-5 shrink-0" />
-                )}
-                {generatingAI ? "Generating..." : "Generate with AI"}
-              </span>
-            </Button>
-            <Button 
-              type="submit" 
-              variant="outline"
-              className="flex-1 min-h-[48px] w-full" 
-              size="lg"
-              disabled={loading || generatingAI || !formData.title}
-            >
-              {loading ? (
-                <Loader2 className="mr-2 h-5 w-5 animate-spin shrink-0" />
-              ) : (
-                <PenLine className="mr-2 h-5 w-5 shrink-0" />
-              )}
-              Create Manually
-            </Button>
+          <div className="@container w-full min-w-0">
+            <div className="grid w-full min-w-0 grid-cols-1 gap-2 @min-[36rem]:grid-cols-2 @min-[36rem]:gap-1.5 @min-[48rem]:gap-2.5">
+              <Button
+                type="button"
+                variant="aiGradient"
+                size="sm"
+                onClick={handleGenerateWithAI}
+                disabled={loading || generatingAI || !formData.title}
+                className="h-auto min-h-[44px] w-full min-w-0 max-w-full shrink justify-center px-3 py-2.5 text-sm font-semibold leading-none @min-[36rem]:min-h-[38px] @min-[36rem]:px-1.5 @min-[36rem]:py-2 @min-[36rem]:text-[10px] @min-[36rem]:font-semibold @min-[42rem]:text-[11px] @min-[48rem]:min-h-[44px] @min-[48rem]:px-2.5 @min-[48rem]:text-xs @min-[56rem]:text-sm"
+              >
+                <span className="relative z-1 inline-flex max-w-full min-w-0 items-center justify-center gap-1 @min-[36rem]:gap-0.5 @min-[48rem]:gap-1.5">
+                  {generatingAI ? (
+                    <Loader2 className="h-4 w-4 shrink-0 animate-spin @min-[36rem]:h-3 @min-[36rem]:w-3 @min-[48rem]:h-4 @min-[48rem]:w-4" />
+                  ) : (
+                    <Wand2 className="h-4 w-4 shrink-0 @min-[36rem]:h-3 @min-[36rem]:w-3 @min-[48rem]:h-4 @min-[48rem]:w-4" />
+                  )}
+                  <span className="whitespace-nowrap">
+                    {generatingAI ? "Generating..." : "Generate with AI"}
+                  </span>
+                </span>
+              </Button>
+              <Button
+                type="submit"
+                variant="outline"
+                size="sm"
+                className="h-auto min-h-[44px] w-full min-w-0 max-w-full shrink justify-center px-3 py-2.5 text-sm font-semibold leading-none @min-[36rem]:min-h-[38px] @min-[36rem]:px-1.5 @min-[36rem]:py-2 @min-[36rem]:text-[10px] @min-[36rem]:font-semibold @min-[42rem]:text-[11px] @min-[48rem]:min-h-[44px] @min-[48rem]:px-2.5 @min-[48rem]:text-xs @min-[56rem]:text-sm"
+                disabled={loading || generatingAI || !formData.title}
+              >
+                <span className="inline-flex max-w-full min-w-0 items-center justify-center gap-1 whitespace-nowrap @min-[36rem]:gap-0.5 @min-[48rem]:gap-1.5">
+                  {loading ? (
+                    <Loader2 className="h-4 w-4 shrink-0 animate-spin @min-[36rem]:h-3 @min-[36rem]:w-3 @min-[48rem]:h-4 @min-[48rem]:w-4" />
+                  ) : (
+                    <PenLine className="h-4 w-4 shrink-0 @min-[36rem]:h-3 @min-[36rem]:w-3 @min-[48rem]:h-4 @min-[48rem]:w-4" />
+                  )}
+                  Create Manually
+                </span>
+              </Button>
+            </div>
           </div>
           <div className="flex justify-center">
           </div>

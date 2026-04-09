@@ -8,7 +8,7 @@ export const SIMULATION_DASHBOARD_LIST =
 
 /** Full simulation row for the editor (explicit list avoids accidental wide reads). */
 export const SIMULATION_EDITOR_ROW =
-  "id, professor_id, title, course_topic, goal, target_decisions, background_content, ai_notes, mode, team_size, team_assignment, difficulty, estimated_minutes, status, preferences, is_public, favorite_count, hidden_profiles_enabled, created_at, updated_at" as const;
+  "id, professor_id, title, course_topic, goal, target_decisions, background_content, ai_notes, mode, team_size, team_assignment, difficulty, estimated_minutes, status, preferences, is_public, favorite_count, hidden_profiles_enabled, is_pinned, pinned_order, created_at, updated_at" as const;
 
 export const SIMULATION_REPORTS_HEADER = "id, title, mode" as const;
 
@@ -23,6 +23,9 @@ export const SIMULATION_PROFILE_EDITOR_ROW =
 
 export const SIMULATION_SOURCE_EDITOR_ROW =
   "id, simulation_id, label, url, source_type, created_at" as const;
+
+export const SIMULATION_SCENARIO_IMAGE_ROW =
+  "id, simulation_id, storage_path, alt_text, order_num, created_at" as const;
 
 export const SESSION_LOBBY_ROW =
   "id, simulation_id, join_code, status, current_step, started_at, ended_at, debrief_guide, is_preview, created_at" as const;

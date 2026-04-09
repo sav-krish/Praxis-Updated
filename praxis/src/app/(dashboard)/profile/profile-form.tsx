@@ -148,6 +148,16 @@ export function ProfileForm({ userId, email, name: initialName, activeRole: init
                 Emails
               </Link>
             </Button>
+            <Button variant="outline" asChild>
+              <Link href="/admin/library-pins">
+                Library pins
+              </Link>
+            </Button>
+            <Button variant="outline" asChild>
+              <Link href="/admin/analytics">
+                Analytics
+              </Link>
+            </Button>
           </CardContent>
         </Card>
       )}

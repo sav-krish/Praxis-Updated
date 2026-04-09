@@ -92,13 +92,19 @@ type LibrarySimulationCardProps = {
   isFavorite: boolean;
   favoritePending: boolean;
   onToggleFavorite: () => void;
+  /** Curated strip: gradient card, no extra badges */
+  variant?: "default" | "spotlight";
 };
+
+const SPOTLIGHT_GRADIENT =
+  "linear-gradient(120deg, #e0c3fc 0%, #8ec5fc 100%)";
 
 export function LibrarySimulationCard({
   sim,
   isFavorite,
   favoritePending,
   onToggleFavorite,
+  variant = "default",
 }: LibrarySimulationCardProps) {
   const router = useRouter();
   const [usingSim, setUsingSim] = useState(false);
@@ -118,11 +124,26 @@ export function LibrarySimulationCard({
     router.push(`/edit/${result.newId}`);
   };
 
+  const isSpotlight = variant === "spotlight";
+
   return (
-    <Card className="group flex h-full w-full min-w-0 flex-col transition-shadow hover:shadow-md">
+    <Card
+      className={
+        isSpotlight
+          ? "group flex h-full w-full min-w-0 flex-col border-white/50 bg-transparent! text-ink shadow-md transition-shadow hover:shadow-lg"
+          : "group flex h-full w-full min-w-0 flex-col transition-shadow hover:shadow-md"
+      }
+      style={isSpotlight ? { backgroundImage: SPOTLIGHT_GRADIENT } : undefined}
+    >
       <CardHeader className="pb-2">
         <div className="flex items-start justify-between gap-2">
-          <CardTitle className="text-sm font-medium line-clamp-2 flex-1 min-w-0">
+          <CardTitle
+            className={
+              isSpotlight
+                ? "text-sm font-semibold line-clamp-2 flex-1 min-w-0 text-ink"
+                : "text-sm font-medium line-clamp-2 flex-1 min-w-0"
+            }
+          >
             {sim.title}
           </CardTitle>
           <div className="flex shrink-0 items-center gap-1.5">
@@ -134,7 +155,11 @@ export function LibrarySimulationCard({
                 onToggleFavorite();
               }}
               disabled={favoritePending}
-              className="rounded-full p-1 transition-colors hover:bg-muted"
+              className={
+                isSpotlight
+                  ? "rounded-full p-1 transition-colors hover:bg-white/40"
+                  : "rounded-full p-1 transition-colors hover:bg-muted"
+              }
               aria-label={
                 isFavorite
                   ? `Remove favorite (${sim.favorite_count} total)`
@@ -143,29 +168,63 @@ export function LibrarySimulationCard({
             >
               <Heart
                 className={`h-4 w-4 transition-colors ${
-                  isFavorite ? "fill-red-500 text-red-500" : "text-muted-foreground"
+                  isFavorite
+                    ? "fill-red-500 text-red-500"
+                    : isSpotlight
+                      ? "text-ink/70"
+                      : "text-muted-foreground"
                 }`}
               />
             </button>
-            <span className="text-xs tabular-nums text-muted-foreground">
+            <span
+              className={
+                isSpotlight
+                  ? "text-xs tabular-nums text-ink/70"
+                  : "text-xs tabular-nums text-muted-foreground"
+              }
+            >
               {sim.favorite_count}
             </span>
           </div>
         </div>
-        <CardDescription className="text-xs">by {authorName}</CardDescription>
+        <CardDescription
+          className={isSpotlight ? "text-xs text-ink/80" : "text-xs"}
+        >
+          by {authorName}
+        </CardDescription>
       </CardHeader>
       <CardContent className="flex flex-1 flex-col justify-between gap-3 pt-0">
         <div className="flex flex-wrap items-center gap-1.5">
-          <Badge variant="secondary" className="text-xs">
+          <Badge
+            variant="secondary"
+            className={
+              isSpotlight
+                ? "border-0 bg-white/75 text-xs text-ink backdrop-blur-sm"
+                : "text-xs"
+            }
+          >
             {sim.course_topic}
           </Badge>
           {sim.difficulty && (
-            <Badge variant="outline" className="text-xs">
+            <Badge
+              variant="outline"
+              className={
+                isSpotlight
+                  ? "border-ink/20 bg-white/60 text-xs text-ink backdrop-blur-sm"
+                  : "text-xs"
+              }
+            >
               {difficultyLabel(sim.difficulty)}
             </Badge>
           )}
           {sim.estimated_minutes != null && sim.estimated_minutes > 0 && (
-            <span className="inline-flex items-center gap-1 rounded-md border border-transparent bg-muted/60 px-2 py-0.5 text-xs text-muted-foreground">
+            <span
+              className={
+                isSpotlight
+                  ? "inline-flex items-center gap-1 rounded-md border border-ink/15 bg-white/60 px-2 py-0.5 text-xs text-ink/90 backdrop-blur-sm"
+                  : "inline-flex items-center gap-1 rounded-md border border-transparent bg-muted/60 px-2 py-0.5 text-xs text-muted-foreground"
+              }
+            >
               <Clock className="h-3 w-3 shrink-0" aria-hidden />
               ~{sim.estimated_minutes} min
             </span>
@@ -173,7 +232,11 @@ export function LibrarySimulationCard({
         </div>
         <div className="mt-3 flex gap-2">
           <Button
-            className="flex-1 min-h-[40px]"
+            className={
+              isSpotlight
+                ? "flex-1 min-h-[40px] bg-ink text-white shadow-sm hover:bg-ink/90"
+                : "flex-1 min-h-[40px]"
+            }
             size="sm"
             onClick={handleUseSimulation}
             disabled={usingSim}
@@ -184,7 +247,15 @@ export function LibrarySimulationCard({
             Use simulation
           </Button>
           <Link href={`/edit/${sim.id}`} className="flex-1 min-w-0">
-            <Button variant="outline" size="sm" className="w-full min-h-[40px]">
+            <Button
+              variant="outline"
+              size="sm"
+              className={
+                isSpotlight
+                  ? "w-full min-h-[40px] border-ink/25 bg-white/80 text-ink hover:bg-white"
+                  : "w-full min-h-[40px]"
+              }
+            >
               <ExternalLink className="h-4 w-4 shrink-0 mr-1.5" />
               View details
             </Button>

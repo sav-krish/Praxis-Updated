@@ -6,15 +6,20 @@ import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Search, Trophy } from "lucide-react";
+import { Search } from "lucide-react";
 import { toast } from "sonner";
 import { LibrarySimulationCard } from "@/components/simulation/library-simulation-card";
 import type { LibrarySimulationRow } from "@/types/library";
 
 export type { LibrarySimulationRow };
 
+/** As many ~320px columns as fit per row (wraps); tracks shrink only below 320px when the row is narrower than 320px. */
+const LIBRARY_SIM_GRID =
+  "mt-4 grid w-full gap-4 [grid-template-columns:repeat(auto-fill,minmax(min(100%,320px),320px))] [justify-content:start]";
+
 interface LibraryViewProps {
   simulations: LibrarySimulationRow[];
+  flagshipSimulations: LibrarySimulationRow[];
   topSimulations: LibrarySimulationRow[];
   userFavoriteIds: string[];
   subjects: string[];
@@ -26,6 +31,7 @@ interface LibraryViewProps {
 
 export function LibraryView({
   simulations,
+  flagshipSimulations,
   topSimulations,
   userFavoriteIds: initialFavorites,
   subjects,
@@ -94,21 +100,49 @@ export function LibraryView({
         <h1 className="text-2xl sm:text-3xl font-bold">Simulation Library</h1>
       </div>
 
+      {flagshipSimulations.length > 0 && (
+        <section>
+          <div className="mb-1">
+            <h2 className="text-lg font-semibold">Top Picks</h2>
+            <p className="text-sm text-muted-foreground">
+              Curated simulations highlighted by the Praxis team.
+            </p>
+          </div>
+          <div className={LIBRARY_SIM_GRID}>
+            {flagshipSimulations.map((sim) => (
+              <div key={sim.id} className="min-w-0 w-full">
+                <LibrarySimulationCard
+                  variant="spotlight"
+                  sim={sim}
+                  isFavorite={favorites.has(sim.id)}
+                  favoritePending={togglingFavorite === sim.id}
+                  onToggleFavorite={() => toggleFavorite(sim.id)}
+                />
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
       {/* Top Simulations */}
       {topSimulations.length > 0 && (
         <section>
-          <div className="flex items-center gap-2 mb-4">
-            <h2 className="text-lg font-semibold">Top Picks</h2>
+          <div className="mb-1">
+            <h2 className="text-lg font-semibold">Community favorites</h2>
+            <p className="text-sm text-muted-foreground">
+              Simulations educators save most often.
+            </p>
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div className={LIBRARY_SIM_GRID}>
             {topSimulations.map((sim) => (
-              <LibrarySimulationCard
-                key={sim.id}
-                sim={sim}
-                isFavorite={favorites.has(sim.id)}
-                favoritePending={togglingFavorite === sim.id}
-                onToggleFavorite={() => toggleFavorite(sim.id)}
-              />
+              <div key={sim.id} className="min-w-0 w-full">
+                <LibrarySimulationCard
+                  sim={sim}
+                  isFavorite={favorites.has(sim.id)}
+                  favoritePending={togglingFavorite === sim.id}
+                  onToggleFavorite={() => toggleFavorite(sim.id)}
+                />
+              </div>
             ))}
           </div>
         </section>
@@ -186,15 +220,16 @@ export function LibraryView({
           )}
         </div>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className={LIBRARY_SIM_GRID}>
           {simulations.map((sim) => (
-            <LibrarySimulationCard
-              key={sim.id}
-              sim={sim}
-              isFavorite={favorites.has(sim.id)}
-              favoritePending={togglingFavorite === sim.id}
-              onToggleFavorite={() => toggleFavorite(sim.id)}
-            />
+            <div key={sim.id} className="min-w-0 w-full">
+              <LibrarySimulationCard
+                sim={sim}
+                isFavorite={favorites.has(sim.id)}
+                favoritePending={togglingFavorite === sim.id}
+                onToggleFavorite={() => toggleFavorite(sim.id)}
+              />
+            </div>
           ))}
         </div>
       )}

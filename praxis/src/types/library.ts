@@ -7,5 +7,7 @@ export interface LibrarySimulationRow {
   favorite_count: number;
   professor_id: string;
   created_at: string;
+  is_pinned: boolean;
+  pinned_order: number | null;
   professors: { name: string | null } | null;
 }

@@ -38,6 +38,9 @@ import {
   Undo2,
   Redo2,
   Plus,
+  ImagePlus,
+  ArrowUp,
+  ArrowDown,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -51,16 +54,29 @@ import { DataBlockRenderer } from "@/components/simulation/DataBlockRenderer";
 import { FeedbackCard } from "@/components/simulation/FeedbackCard";
 import { copySimulationToAccount } from "@/app/(dashboard)/share/[id]/actions";
 import { PreviewSimulationButton } from "@/components/simulation/PreviewSimulationButton";
-import type { Simulation, Decision, Option, ReflectionQuestion, SimulationProfile, SimulationSource, Json } from "@/types/database";
+import type {
+  Simulation,
+  Decision,
+  Option,
+  ReflectionQuestion,
+  SimulationProfile,
+  SimulationSource,
+  SimulationScenarioImage,
+  Json,
+} from "@/types/database";
+import { publicScenarioImageUrl, SCENARIO_IMAGES_BUCKET } from "@/lib/scenario-image-url";
 import type { SimulationDataBlock, DataBlockType } from "@/types/data-blocks";
 import { SourcesEditor } from "@/components/simulation/sources-editor";
 import { AiSectionTrigger } from "@/components/copilot/ai-section-trigger";
 import { CopilotPanel, type FocusedSection } from "@/components/copilot/copilot-panel";
 import { useAiEdit } from "@/hooks/use-ai-edit";
+import { SIMULATION_SCENARIO_IMAGE_ROW } from "@/lib/supabase-query-columns";
 
 interface DecisionWithOptions extends Decision {
   options: Option[];
 }
+
+export type ScenarioImageEditorRow = SimulationScenarioImage & { localFile?: File };
 
 export interface SimulationEditorProps {
   simulation: Simulation;
@@ -69,9 +85,44 @@ export interface SimulationEditorProps {
   dataBlocks: SimulationDataBlock[];
   profiles: SimulationProfile[];
   sources: SimulationSource[];
+  scenarioImages?: SimulationScenarioImage[];
   userId?: string;
   isNewlyGenerated?: boolean;
   isOwner?: boolean;
+}
+
+function sanitizeScenarioImageFilename(name: string): string {
+  const s = name.replace(/[^a-zA-Z0-9._-]/g, "_").slice(0, 120);
+  return s || "image";
+}
+
+function ScenarioImageThumb({ img }: { img: ScenarioImageEditorRow }) {
+  const objectUrl = useMemo(() => {
+    if (!img.localFile) return null;
+    return URL.createObjectURL(img.localFile);
+  }, [img.localFile]);
+
+  useEffect(() => {
+    if (!objectUrl) return;
+    return () => URL.revokeObjectURL(objectUrl);
+  }, [objectUrl]);
+
+  const src =
+    objectUrl || (img.storage_path ? publicScenarioImageUrl(img.storage_path) : "");
+  if (!src) {
+    return (
+      <div className="flex h-full w-full items-center justify-center bg-muted text-xs text-muted-foreground p-2 text-center">
+        Preview after upload
+      </div>
+    );
+  }
+  return (
+    <img
+      src={src}
+      alt={img.alt_text || ""}
+      className="h-full w-full object-cover"
+    />
+  );
 }
 
 const EDITOR_STEPS = [
@@ -97,6 +148,7 @@ export function SimulationEditor({
   dataBlocks: initialDataBlocks = [],
   profiles: initialProfiles = [],
   sources: initialSources = [],
+  scenarioImages: initialScenarioImages = [],
   userId,
   isNewlyGenerated = false,
   isOwner = true,
@@ -111,6 +163,11 @@ export function SimulationEditor({
   const [reflectionQuestions, setReflectionQuestions] = useState(initialQuestions);
   const [dataBlocks, setDataBlocks] = useState<SimulationDataBlock[]>(initialDataBlocks);
   const [profiles, setProfiles] = useState<SimulationProfile[]>(initialProfiles);
+  const [scenarioImages, setScenarioImages] = useState<ScenarioImageEditorRow[]>(() =>
+    initialScenarioImages.map((r) => ({ ...r }))
+  );
+  const scenarioImagesBaselineRef = useRef<SimulationScenarioImage[]>(initialScenarioImages);
+  const scenarioFileInputRef = useRef<HTMLInputElement>(null);
   const [currentStep, setCurrentStep] = useState(0);
   const [slideDirection, setSlideDirection] = useState(0);
   const [showFeedbackBanner, setShowFeedbackBanner] = useState(isNewlyGenerated && isOwner);
@@ -122,6 +179,11 @@ export function SimulationEditor({
     setCopilotOpen(true);
   }, []);
 
+  useEffect(() => {
+    setScenarioImages(initialScenarioImages.map((r) => ({ ...r })));
+    scenarioImagesBaselineRef.current = initialScenarioImages.map((r) => ({ ...r }));
+  }, [simulation.id]); // eslint-disable-line react-hooks/exhaustive-deps -- reset when switching simulations only
+
   // Dirty tracking: one stringify per state change (useMemo); beforeunload reads a ref (no stringify on each call)
   const cleanSignatureRef = useRef(
     JSON.stringify({
@@ -130,6 +192,7 @@ export function SimulationEditor({
       reflectionQuestions: initialQuestions,
       dataBlocks: initialDataBlocks,
       profiles: initialProfiles,
+      scenarioImages: initialScenarioImages.map((r) => ({ ...r, pendingFile: false })),
     })
   );
   const dirtyRef = useRef(false);
@@ -142,8 +205,15 @@ export function SimulationEditor({
         reflectionQuestions,
         dataBlocks,
         profiles,
+        scenarioImages: scenarioImages.map((r) => ({
+          id: r.id,
+          storage_path: r.storage_path,
+          alt_text: r.alt_text,
+          order_num: r.order_num,
+          pendingFile: Boolean(r.localFile),
+        })),
       }),
-    [simulation, decisions, reflectionQuestions, dataBlocks, profiles]
+    [simulation, decisions, reflectionQuestions, dataBlocks, profiles, scenarioImages]
   );
 
   useLayoutEffect(() => {
@@ -152,16 +222,28 @@ export function SimulationEditor({
 
   const isDirty = useCallback(() => dirtyRef.current, []);
 
-  const markClean = useCallback(() => {
-    cleanSignatureRef.current = JSON.stringify({
-      simulation,
-      decisions,
-      reflectionQuestions,
-      dataBlocks,
-      profiles,
-    });
-    dirtyRef.current = false;
-  }, [simulation, decisions, reflectionQuestions, dataBlocks, profiles]);
+  const markClean = useCallback(
+    (scenarioSnapshot?: ScenarioImageEditorRow[]) => {
+      const imgs = scenarioSnapshot ?? scenarioImages;
+      cleanSignatureRef.current = JSON.stringify({
+        simulation,
+        decisions,
+        reflectionQuestions,
+        dataBlocks,
+        profiles,
+        scenarioImages: imgs.map((r) => ({
+          id: r.id,
+          storage_path: r.storage_path,
+          alt_text: r.alt_text,
+          order_num: r.order_num,
+          pendingFile: Boolean(r.localFile),
+        })),
+      });
+      scenarioImagesBaselineRef.current = imgs.map(({ localFile: _f, ...row }) => row);
+      dirtyRef.current = false;
+    },
+    [simulation, decisions, reflectionQuestions, dataBlocks, profiles, scenarioImages]
+  );
 
   // Warn on browser close / tab close when dirty
   useEffect(() => {
@@ -324,7 +406,76 @@ export function SimulationEditor({
         await supabase.from("simulation_profiles").delete().eq("simulation_id", simulation.id);
       }
 
-      markClean();
+      const nextScenarioImages: ScenarioImageEditorRow[] = [];
+      for (const prev of scenarioImagesBaselineRef.current) {
+        if (!scenarioImages.some((s) => s.id === prev.id)) {
+          if (prev.storage_path) {
+            await supabase.storage.from(SCENARIO_IMAGES_BUCKET).remove([prev.storage_path]);
+          }
+          if (!String(prev.id).startsWith("new-")) {
+            await supabase.from("simulation_scenario_images").delete().eq("id", prev.id);
+          }
+        }
+      }
+
+      for (let i = 0; i < scenarioImages.length; i++) {
+        const img = scenarioImages[i];
+        let path = img.storage_path;
+        if (img.localFile) {
+          if (path) {
+            await supabase.storage.from(SCENARIO_IMAGES_BUCKET).remove([path]);
+          }
+          const fname =
+            typeof crypto !== "undefined" && crypto.randomUUID
+              ? `${crypto.randomUUID()}-${sanitizeScenarioImageFilename(img.localFile.name)}`
+              : `${Date.now()}-${sanitizeScenarioImageFilename(img.localFile.name)}`;
+          path = `${simulation.id}/${fname}`;
+          const { error: upErr } = await supabase.storage
+            .from(SCENARIO_IMAGES_BUCKET)
+            .upload(path, img.localFile, {
+              upsert: false,
+              contentType: img.localFile.type || undefined,
+            });
+          if (upErr) throw upErr;
+        }
+        if (!path) {
+          throw new Error("Each scenario image needs a file");
+        }
+        const payload = {
+          simulation_id: simulation.id,
+          storage_path: path,
+          alt_text: img.alt_text ?? null,
+          order_num: i + 1,
+        };
+        if (img.id.startsWith("new-")) {
+          const { data: inserted, error: insErr } = await supabase
+            .from("simulation_scenario_images")
+            .insert(payload)
+            .select(SIMULATION_SCENARIO_IMAGE_ROW)
+            .single();
+          if (insErr) throw insErr;
+          nextScenarioImages.push({ ...(inserted as SimulationScenarioImage), localFile: undefined });
+        } else {
+          const { error: upRowErr } = await supabase
+            .from("simulation_scenario_images")
+            .update({
+              storage_path: path,
+              alt_text: img.alt_text ?? null,
+              order_num: i + 1,
+            })
+            .eq("id", img.id);
+          if (upRowErr) throw upRowErr;
+          nextScenarioImages.push({
+            ...img,
+            storage_path: path,
+            order_num: i + 1,
+            localFile: undefined,
+          });
+        }
+      }
+
+      setScenarioImages(nextScenarioImages);
+      markClean(nextScenarioImages);
       setLastSavedAt(new Date());
       if (!silent && !autosave) toast.success("Simulation saved!");
       return true;
@@ -335,7 +486,18 @@ export function SimulationEditor({
     } finally {
       setSaveUi("idle");
     }
-  }, [simulation, decisions, reflectionQuestions, dataBlocks, profiles, initialDataBlocks, initialProfiles, isOwner, markClean]);
+  }, [
+    simulation,
+    decisions,
+    reflectionQuestions,
+    dataBlocks,
+    profiles,
+    scenarioImages,
+    initialDataBlocks,
+    initialProfiles,
+    isOwner,
+    markClean,
+  ]);
 
   const performSaveRef = useRef(performSave);
   performSaveRef.current = performSave;
@@ -738,6 +900,145 @@ export function SimulationEditor({
                   className="font-mono text-sm"
                   disabled
                 />
+              </CardContent>
+            </Card>
+          )}
+
+          {(isOwner || scenarioImages.length > 0) && (
+            <Card className="mt-6">
+              <CardHeader>
+                <div className="flex items-start justify-between gap-2">
+                  <CardTitle className="flex-1">Scenario images</CardTitle>
+                  <FieldInfoHint className="shrink-0 max-w-[220px]">
+                    Optional visuals shown to students at the top of the background step during a session.
+                  </FieldInfoHint>
+                </div>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {scenarioImages.length === 0 && !isOwner ? (
+                  <p className="text-sm text-muted-foreground">No scenario images.</p>
+                ) : (
+                  scenarioImages.map((img, index) => (
+                    <div
+                      key={img.id}
+                      className="flex flex-col gap-3 rounded-lg border border-border p-3 sm:flex-row sm:items-start"
+                    >
+                      <div className="relative aspect-video w-full max-w-[280px] shrink-0 overflow-hidden rounded-md bg-muted">
+                        <ScenarioImageThumb img={img} />
+                      </div>
+                      <div className="min-w-0 flex-1 space-y-2">
+                        <Label htmlFor={`scenario-alt-${img.id}`}>Description (alt text)</Label>
+                        <Input
+                          id={`scenario-alt-${img.id}`}
+                          value={img.alt_text ?? ""}
+                          placeholder="Short description for accessibility"
+                          disabled={!isOwner}
+                          onChange={(e) =>
+                            setScenarioImages((prev) =>
+                              prev.map((r, i) =>
+                                i === index ? { ...r, alt_text: e.target.value || null } : r
+                              )
+                            )
+                          }
+                        />
+                        {isOwner && (
+                          <div className="flex flex-wrap gap-2 pt-1">
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              className="min-h-9"
+                              disabled={index === 0}
+                              onClick={() =>
+                                setScenarioImages((prev) => {
+                                  const next = [...prev];
+                                  [next[index - 1], next[index]] = [next[index], next[index - 1]];
+                                  return next.map((r, i) => ({ ...r, order_num: i + 1 }));
+                                })
+                              }
+                            >
+                              <ArrowUp className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              className="min-h-9"
+                              disabled={index >= scenarioImages.length - 1}
+                              onClick={() =>
+                                setScenarioImages((prev) => {
+                                  const next = [...prev];
+                                  [next[index], next[index + 1]] = [next[index + 1], next[index]];
+                                  return next.map((r, i) => ({ ...r, order_num: i + 1 }));
+                                })
+                              }
+                            >
+                              <ArrowDown className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              className="min-h-9 text-destructive hover:text-destructive"
+                              onClick={() =>
+                                setScenarioImages((prev) =>
+                                  prev.filter((_, i) => i !== index).map((r, i) => ({
+                                    ...r,
+                                    order_num: i + 1,
+                                  }))
+                                )
+                              }
+                            >
+                              <Trash2 className="h-4 w-4 mr-1.5" />
+                              Remove
+                            </Button>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  ))
+                )}
+                {isOwner && (
+                  <>
+                    <input
+                      ref={scenarioFileInputRef}
+                      type="file"
+                      accept="image/jpeg,image/png,image/webp,image/gif"
+                      className="hidden"
+                      multiple
+                      onChange={(e) => {
+                        const files = e.target.files;
+                        if (!files?.length) return;
+                        setScenarioImages((prev) => {
+                          const next = [...prev];
+                          for (const f of Array.from(files)) {
+                            next.push({
+                              id: `new-${crypto.randomUUID()}`,
+                              simulation_id: simulation.id,
+                              storage_path: "",
+                              alt_text: null,
+                              order_num: next.length + 1,
+                              created_at: new Date().toISOString(),
+                              localFile: f,
+                            });
+                          }
+                          return next.map((r, i) => ({ ...r, order_num: i + 1 }));
+                        });
+                        e.target.value = "";
+                      }}
+                    />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="w-fit min-h-9"
+                      onClick={() => scenarioFileInputRef.current?.click()}
+                    >
+                      <ImagePlus className="mr-2 h-4 w-4" />
+                      Add images
+                    </Button>
+                  </>
+                )}
               </CardContent>
             </Card>
           )}
@@ -1231,7 +1532,7 @@ export function SimulationEditor({
 
               </div>
             </CardHeader>
-            <CardContent>
+            <CardContent className="space-y-4">
               <div className="flex items-center justify-between gap-3">
                 <div className="space-y-1">
                   <div className="flex items-center gap-1.5 flex-wrap">
@@ -1259,22 +1560,19 @@ export function SimulationEditor({
                   />
                 </button>
               </div>
+              {isOwner && simulation.is_public && (
+                <>
+                  <Separator />
+                  <SourcesEditor
+                    variant="library"
+                    simulationId={simulation.id}
+                    sources={initialSources}
+                    onSave={handleSaveSources}
+                  />
+                </>
+              )}
             </CardContent>
           </Card>
-
-
-
-          {isOwner && (
-            <Card>
-              <CardContent className="pt-6">
-                <SourcesEditor
-                  simulationId={simulation.id}
-                  sources={initialSources}
-                  onSave={handleSaveSources}
-                />
-              </CardContent>
-            </Card>
-          )}
 
           </motion.div>
         )}

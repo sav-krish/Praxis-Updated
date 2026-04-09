@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { copilotDailyLimiter } from "@/lib/rate-limit-daily";
 import OpenAI from "openai";
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
@@ -78,17 +79,12 @@ When asked for something structurally impossible, respond with:
 - When the request is ambiguous, ask ONE clarifying question — don't guess.
 - When sectionContent is provided in context, that is the content of the specific section the professor is editing with the sparkle button. Use it to make targeted edits.`;
 
-const rateLimitMap = new Map<string, { count: number; date: string }>();
-const DAILY_LIMIT = 100;
-
 export async function POST(req: NextRequest) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const today = new Date().toISOString().split("T")[0];
-  const userUsage = rateLimitMap.get(user.id);
-  if (userUsage && userUsage.date === today && userUsage.count >= DAILY_LIMIT) {
+  if (copilotDailyLimiter.isExceeded(user.id)) {
     return NextResponse.json({ error: "Daily limit reached. Try again tomorrow." }, { status: 429 });
   }
 
@@ -126,11 +122,7 @@ export async function POST(req: NextRequest) {
     stream: false,
   });
 
-  if (userUsage && userUsage.date === today) {
-    userUsage.count++;
-  } else {
-    rateLimitMap.set(user.id, { count: 1, date: today });
-  }
+  copilotDailyLimiter.recordSuccess(user.id);
 
   return NextResponse.json({
     message: completion.choices[0].message.content,

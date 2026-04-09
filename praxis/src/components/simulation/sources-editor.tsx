@@ -19,9 +19,16 @@ interface SourcesEditorProps {
   simulationId: string;
   sources: SimulationSource[];
   onSave: (sources: SimulationSource[]) => Promise<void>;
+  /** When set from Share to Library, copy explains optional citations for published simulations. */
+  variant?: "default" | "library";
 }
 
-export function SourcesEditor({ simulationId, sources: initial, onSave }: SourcesEditorProps) {
+export function SourcesEditor({
+  simulationId,
+  sources: initial,
+  onSave,
+  variant = "default",
+}: SourcesEditorProps) {
   const [sources, setSources] = useState(initial);
   const [saving, setSaving] = useState(false);
 
@@ -55,14 +62,19 @@ export function SourcesEditor({ simulationId, sources: initial, onSave }: Source
     setSaving(false);
   };
 
+  const title =
+    variant === "library" ? "Sources & references (optional)" : "Sources & references";
+  const hint =
+    variant === "library"
+      ? "Optional for the library. Add citations or links so visitors can verify your scenario. The same entries appear on the scenario screen for learners, with types File, Link, Text, or Manual."
+      : "Shown on the scenario screen under this heading. Type labels (File, Link, Text, Manual) match the student view.";
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between gap-2">
         <div className="flex items-center gap-1.5 min-w-0">
-          <h3 className="text-sm font-semibold text-foreground">Sources & references</h3>
-          <FieldInfoHint>
-            Shown on the scenario screen under this heading. Type labels (File, Link, Text, Manual) match the student view.
-          </FieldInfoHint>
+          <h3 className="text-sm font-semibold text-foreground">{title}</h3>
+          <FieldInfoHint>{hint}</FieldInfoHint>
         </div>
         <Button size="sm" variant="outline" onClick={addSource}>
           <Plus className="h-4 w-4 mr-1" /> Add Source
@@ -70,7 +82,11 @@ export function SourcesEditor({ simulationId, sources: initial, onSave }: Source
       </div>
 
       {sources.length === 0 && (
-        <p className="text-xs text-muted-foreground italic">No sources added yet.</p>
+        <p className="text-xs text-muted-foreground italic">
+          {variant === "library"
+            ? "No sources added—you can publish without any, or add citations above."
+            : "No sources added yet."}
+        </p>
       )}
 
       {sources.map((source) => (
@@ -121,9 +137,9 @@ export function SourcesEditor({ simulationId, sources: initial, onSave }: Source
         </div>
       ))}
 
-      {sources.length > 0 && (
+      {(sources.length > 0 || initial.length > 0) && (
         <Button size="sm" onClick={handleSave} disabled={saving}>
-          {saving ? "Saving\u2026" : "Save Sources"}
+          {saving ? "Saving\u2026" : "Save sources"}
         </Button>
       )}
     </div>

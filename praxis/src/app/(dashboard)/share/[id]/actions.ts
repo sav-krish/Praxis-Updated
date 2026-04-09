@@ -2,6 +2,7 @@
 
 import { createClient } from "@/lib/supabase/server";
 import type { Database } from "@/types/database";
+import { publicScenarioImageUrl, SCENARIO_IMAGES_BUCKET } from "@/lib/scenario-image-url";
 
 type SimInsert = Database["public"]["Tables"]["simulations"]["Insert"];
 type DecInsert = Database["public"]["Tables"]["decisions"]["Insert"];
@@ -9,6 +10,7 @@ type OptInsert = Database["public"]["Tables"]["options"]["Insert"];
 type RQInsert = Database["public"]["Tables"]["reflection_questions"]["Insert"];
 type DataBlockInsert = Database["public"]["Tables"]["simulation_data_blocks"]["Insert"];
 type ProfileInsert = Database["public"]["Tables"]["simulation_profiles"]["Insert"];
+type ScenarioImageInsert = Database["public"]["Tables"]["simulation_scenario_images"]["Insert"];
 
 export async function copySimulationToAccount(simulationId: string): Promise<{ newId: string } | { error: string }> {
   const supabase = await createClient();
@@ -65,6 +67,12 @@ export async function copySimulationToAccount(simulationId: string): Promise<{ n
     .eq("simulation_id", simulationId)
     .order("order_num", { ascending: true });
 
+  const { data: scenarioImages } = await supabase
+    .from("simulation_scenario_images")
+    .select("id, storage_path, alt_text, order_num")
+    .eq("simulation_id", simulationId)
+    .order("order_num", { ascending: true });
+
   const {
     id: _id,
     professor_id: _pid,
@@ -79,6 +87,9 @@ export async function copySimulationToAccount(simulationId: string): Promise<{ n
       ...simInsert,
       professor_id: user.id,
       title: `${sim.title} (copy)`,
+      is_pinned: false,
+      pinned_order: null,
+      favorite_count: 0,
     } as SimInsert)
     .select("id")
     .single();
@@ -142,6 +153,36 @@ export async function copySimulationToAccount(simulationId: string): Promise<{ n
         ...profileRest,
         simulation_id: newSimId,
       } as ProfileInsert);
+  }
+
+  for (const img of scenarioImages ?? []) {
+    const path = img.storage_path as string;
+    if (!path) continue;
+    const srcUrl = publicScenarioImageUrl(path);
+    if (!srcUrl) continue;
+    try {
+      const res = await fetch(srcUrl);
+      if (!res.ok) continue;
+      const blob = await res.blob();
+      const leaf = path.split("/").pop() || "image";
+      const safeLeaf = leaf.replace(/[^a-zA-Z0-9._-]/g, "_").slice(0, 120) || "image";
+      const newPath = `${newSimId}/${crypto.randomUUID()}-${safeLeaf}`;
+      const { error: upErr } = await supabase.storage
+        .from(SCENARIO_IMAGES_BUCKET)
+        .upload(newPath, blob, {
+          contentType: blob.type || undefined,
+          upsert: false,
+        });
+      if (upErr) continue;
+      await supabase.from("simulation_scenario_images").insert({
+        simulation_id: newSimId,
+        storage_path: newPath,
+        alt_text: img.alt_text,
+        order_num: img.order_num,
+      } as ScenarioImageInsert);
+    } catch {
+      /* skip broken image */
+    }
   }
 
   return { newId: newSimId };

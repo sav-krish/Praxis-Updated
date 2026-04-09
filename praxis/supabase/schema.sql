@@ -34,6 +34,8 @@ CREATE TABLE IF NOT EXISTS simulations (
   is_public BOOLEAN DEFAULT false,
   favorite_count INTEGER DEFAULT 0,
   hidden_profiles_enabled BOOLEAN DEFAULT false,
+  is_pinned BOOLEAN DEFAULT false NOT NULL,
+  pinned_order INTEGER,
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
@@ -104,6 +106,26 @@ CREATE TABLE IF NOT EXISTS simulation_uploaded_files (
 );
 
 CREATE INDEX IF NOT EXISTS idx_simulation_uploaded_files_simulation ON simulation_uploaded_files(simulation_id);
+
+-- Scenario images (immersive background; files in storage bucket simulation-scenario-images)
+CREATE TABLE IF NOT EXISTS simulation_scenario_images (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  simulation_id UUID NOT NULL REFERENCES simulations(id) ON DELETE CASCADE,
+  storage_path TEXT NOT NULL,
+  alt_text TEXT,
+  order_num INTEGER NOT NULL,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  UNIQUE (simulation_id, order_num)
+);
+
+CREATE INDEX IF NOT EXISTS idx_simulation_scenario_images_simulation ON simulation_scenario_images(simulation_id);
+
+-- Existing DBs: table may predate pin columns (CREATE TABLE IF NOT EXISTS does not add new columns).
+ALTER TABLE simulations ADD COLUMN IF NOT EXISTS is_pinned BOOLEAN NOT NULL DEFAULT false;
+ALTER TABLE simulations ADD COLUMN IF NOT EXISTS pinned_order INTEGER NULL;
+
+CREATE INDEX IF NOT EXISTS idx_simulations_library_pins ON simulations (is_public, is_pinned, pinned_order)
+  WHERE is_public = true AND is_pinned = true;
 
 -- Sessions table (live classroom sessions)
 CREATE TABLE IF NOT EXISTS sessions (
@@ -257,7 +279,7 @@ DO $$
 DECLARE
   tbl TEXT;
 BEGIN
-  FOREACH tbl IN ARRAY '{professors,simulations,decisions,options,reflection_questions,sessions,teams,participants,responses,reflection_responses,simulation_data_blocks,simulation_uploaded_files,feedback,simulation_favorites,knowledge_chunks,simulation_profiles}'::TEXT[]
+  FOREACH tbl IN ARRAY '{professors,simulations,decisions,options,reflection_questions,sessions,teams,participants,responses,reflection_responses,simulation_data_blocks,simulation_scenario_images,simulation_uploaded_files,feedback,simulation_favorites,knowledge_chunks,simulation_profiles}'::TEXT[]
   LOOP
     IF EXISTS (
       SELECT 1 FROM pg_class c
@@ -344,6 +366,24 @@ CREATE POLICY "Access data blocks via simulation" ON simulation_data_blocks
 DROP POLICY IF EXISTS "Anyone can read data blocks" ON simulation_data_blocks;
 CREATE POLICY "Anyone can read data blocks" ON simulation_data_blocks
   FOR SELECT USING (true);
+
+-- Scenario images: professors manage via simulation; anyone can read (play + library context)
+DROP POLICY IF EXISTS "Scenario images manage via simulation" ON simulation_scenario_images;
+CREATE POLICY "Scenario images manage via simulation"
+  ON simulation_scenario_images
+  FOR ALL
+  USING (
+    simulation_id IN (SELECT id FROM simulations WHERE professor_id = auth.uid())
+  )
+  WITH CHECK (
+    simulation_id IN (SELECT id FROM simulations WHERE professor_id = auth.uid())
+  );
+
+DROP POLICY IF EXISTS "Anyone can read scenario images" ON simulation_scenario_images;
+CREATE POLICY "Anyone can read scenario images"
+  ON simulation_scenario_images
+  FOR SELECT
+  USING (true);
 
 -- Simulation uploaded files: professors can INSERT only (link when creating); admins can SELECT
 DROP POLICY IF EXISTS "Professors can manage own simulation files" ON simulation_uploaded_files;
@@ -490,6 +530,35 @@ CREATE TRIGGER update_simulations_updated_at
   FOR EACH ROW
   EXECUTE FUNCTION update_updated_at_column();
 
+-- Pin fields: only service_role JWT or DB admin professors
+CREATE OR REPLACE FUNCTION simulations_enforce_pin_fields()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+AS $$
+BEGIN
+  IF (NEW.is_pinned IS DISTINCT FROM OLD.is_pinned)
+     OR (NEW.pinned_order IS DISTINCT FROM OLD.pinned_order) THEN
+    IF COALESCE(auth.jwt() ->> 'role', '') = 'service_role' THEN
+      RETURN NEW;
+    END IF;
+    IF EXISTS (
+      SELECT 1 FROM public.professors p
+      WHERE p.id = auth.uid() AND p.is_admin = true
+    ) THEN
+      RETURN NEW;
+    END IF;
+    RAISE EXCEPTION 'Pin fields can only be changed by admins or service role';
+  END IF;
+  RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS trg_simulations_enforce_pin_fields ON simulations;
+CREATE TRIGGER trg_simulations_enforce_pin_fields
+  BEFORE UPDATE ON simulations
+  FOR EACH ROW
+  EXECUTE FUNCTION simulations_enforce_pin_fields();
+
 -- Function to generate random join code
 CREATE OR REPLACE FUNCTION generate_join_code()
 RETURNS TEXT AS $$
@@ -573,3 +642,22 @@ DROP TRIGGER IF EXISTS trg_favorite_count_delete ON simulation_favorites;
 CREATE TRIGGER trg_favorite_count_delete
   AFTER DELETE ON simulation_favorites
   FOR EACH ROW EXECUTE FUNCTION update_simulation_favorite_count();
+
+-- Admin analytics: session counts per simulation (non-preview), service_role only
+CREATE OR REPLACE FUNCTION public.admin_session_counts_by_simulation()
+RETURNS TABLE (simulation_id uuid, session_count bigint)
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path = public
+AS $$
+  SELECT s.simulation_id, COUNT(*)::bigint AS session_count
+  FROM public.sessions s
+  WHERE s.is_preview = false
+  GROUP BY s.simulation_id
+  ORDER BY session_count DESC
+  LIMIT 200;
+$$;
+
+REVOKE ALL ON FUNCTION public.admin_session_counts_by_simulation() FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.admin_session_counts_by_simulation() TO service_role;

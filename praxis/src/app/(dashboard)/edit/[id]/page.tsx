@@ -8,6 +8,7 @@ import {
   SIMULATION_DATA_BLOCK_EDITOR_ROW,
   SIMULATION_PROFILE_EDITOR_ROW,
   SIMULATION_SOURCE_EDITOR_ROW,
+  SIMULATION_SCENARIO_IMAGE_ROW,
 } from "@/lib/supabase-query-columns";
 
 interface PageProps {
@@ -72,6 +73,12 @@ export default async function EditSimulationPage({ params, searchParams }: PageP
     .eq("simulation_id", id)
     .order("created_at", { ascending: true });
 
+  const { data: scenarioImages } = await supabase
+    .from("simulation_scenario_images")
+    .select(SIMULATION_SCENARIO_IMAGE_ROW)
+    .eq("simulation_id", id)
+    .order("order_num", { ascending: true });
+
   // Sort options within each decision
   const sortedDecisions = decisions?.map(d => ({
     ...d,
@@ -89,6 +96,7 @@ export default async function EditSimulationPage({ params, searchParams }: PageP
         ...s,
         source_type: s.source_type as "file" | "url" | "text" | "manual",
       }))}
+      scenarioImages={scenarioImages || []}
       userId={user?.id}
       isNewlyGenerated={generated === "1"}
       isOwner={isOwner}

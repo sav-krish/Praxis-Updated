@@ -34,6 +34,7 @@ import { endPreviewSession } from "@/app/(dashboard)/session/[id]/actions";
 import { DataBlockRenderer } from "@/components/simulation/DataBlockRenderer";
 import { FeedbackCard } from "@/components/simulation/FeedbackCard";
 import { sourceTypeDisplayLabel } from "@/lib/source-display";
+import { publicScenarioImageUrl } from "@/lib/scenario-image-url";
 
 const MarkdownBody = dynamic(
   () =>
@@ -99,6 +100,9 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
   const [reflectionQuestions, setReflectionQuestions] = useState<ReflectionQuestion[]>([]);
   const [dataBlocks, setDataBlocks] = useState<Array<{ id: string; block_type: string; title: string | null; data: unknown }>>([]);
   const [sources, setSources] = useState<Array<{ id: string; label: string; url?: string | null; source_type?: string | null }>>([]);
+  const [scenarioImages, setScenarioImages] = useState<
+    Array<{ id: string; storage_path: string; alt_text: string | null; order_num: number }>
+  >([]);
   const [participantId, setParticipantId] = useState<string | null>(null);
   const [participantName, setParticipantName] = useState<string>("");
   const [playerProfile, setPlayerProfile] = useState<PlayerProfile | null>(null);
@@ -379,6 +383,14 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
       setSources(sourcesData);
     }
 
+    const { data: scenarioImgData } = await supabase
+      .from("simulation_scenario_images")
+      .select("id, storage_path, alt_text, order_num")
+      .eq("simulation_id", simulationData.id)
+      .order("order_num", { ascending: true });
+
+    setScenarioImages(scenarioImgData ?? []);
+
     // Load existing responses
     const { data: responsesData } = await supabase
       .from("responses")
@@ -641,6 +653,28 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
                   <p className="text-[11px] text-muted-foreground italic">
                     This briefing is private to your role. Other participants have different information.
                   </p>
+                </div>
+              )}
+              {scenarioImages.length > 0 && (
+                <div className="mb-6 grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  {scenarioImages.map((im) => {
+                    const src = publicScenarioImageUrl(im.storage_path);
+                    if (!src) return null;
+                    return (
+                      <figure key={im.id} className="overflow-hidden rounded-lg border border-border bg-muted/30">
+                        <img
+                          src={src}
+                          alt={im.alt_text || "Scenario image"}
+                          className="max-h-72 w-full object-cover"
+                        />
+                        {im.alt_text ? (
+                          <figcaption className="px-2 py-1.5 text-center text-xs text-muted-foreground">
+                            {im.alt_text}
+                          </figcaption>
+                        ) : null}
+                      </figure>
+                    );
+                  })}
                 </div>
               )}
               {session?.simulation.background_content ? (

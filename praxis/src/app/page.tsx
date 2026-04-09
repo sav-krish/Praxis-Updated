@@ -161,7 +161,7 @@ export default function HomePage() {
   };
 
   return (
-    <ReactLenis root>
+    <ReactLenis root options={{ lerp: 0.22, wheelMultiplier: 1 }}>
       <div
         data-landing="true"
         className="relative isolate min-h-screen overflow-x-visible text-ink"

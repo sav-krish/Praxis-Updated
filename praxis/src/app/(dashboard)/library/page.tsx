@@ -2,13 +2,33 @@ import { createClient } from "@/lib/supabase/server";
 import { LibraryView } from "./library-view";
 import type { LibrarySimulationRow } from "@/types/library";
 import { escapeIlikePattern } from "@/lib/utils";
+import { flagshipSimulations, sortLibrarySimulations } from "@/lib/library-sort";
 
 interface LibraryPageProps {
   searchParams: Promise<{ q?: string; subject?: string; difficulty?: string }>;
 }
 
 const LIBRARY_SIM_COLUMNS =
-  "id, title, course_topic, difficulty, estimated_minutes, favorite_count, professor_id, created_at, professors(name)" as const;
+  "id, title, course_topic, difficulty, estimated_minutes, favorite_count, professor_id, created_at, is_pinned, pinned_order, professors(name)" as const;
+
+function normalizeLibraryRows(rows: unknown[] | null): LibrarySimulationRow[] {
+  return (rows ?? []).map((r) => {
+    const row = r as Record<string, unknown>;
+    return {
+      id: row.id as string,
+      title: row.title as string,
+      course_topic: row.course_topic as string,
+      difficulty: (row.difficulty as string | null) ?? null,
+      estimated_minutes: (row.estimated_minutes as number | null) ?? null,
+      favorite_count: (row.favorite_count as number) ?? 0,
+      professor_id: row.professor_id as string,
+      created_at: row.created_at as string,
+      is_pinned: Boolean(row.is_pinned),
+      pinned_order: (row.pinned_order as number | null) ?? null,
+      professors: row.professors as { name: string | null } | null,
+    };
+  });
+}
 
 export default async function LibraryPage({ searchParams }: LibraryPageProps) {
   const { q, subject, difficulty } = await searchParams;
@@ -22,6 +42,7 @@ export default async function LibraryPage({ searchParams }: LibraryPageProps) {
     (difficulty && difficulty !== "all");
 
   let simulations: LibrarySimulationRow[];
+  let flagship: LibrarySimulationRow[];
   let topSimulations: LibrarySimulationRow[];
   let subjects: string[];
 
@@ -29,21 +50,19 @@ export default async function LibraryPage({ searchParams }: LibraryPageProps) {
     const { data: rows } = await supabase
       .from("simulations")
       .select(LIBRARY_SIM_COLUMNS)
-      .eq("is_public", true)
-      .order("favorite_count", { ascending: false });
+      .eq("is_public", true);
 
-    const list = (rows ?? []) as LibrarySimulationRow[];
-    simulations = list;
-    topSimulations = list.filter((s) => s.favorite_count > 0).slice(0, 10);
+    const list = normalizeLibraryRows(rows);
+    simulations = sortLibrarySimulations(list);
+    flagship = flagshipSimulations(simulations);
+    topSimulations = simulations
+      .filter((s) => s.favorite_count > 0 && !s.is_pinned)
+      .slice(0, 10);
     subjects = Array.from(
       new Set(list.map((s) => s.course_topic).filter(Boolean))
     ).sort() as string[];
   } else {
-    let filtered = supabase
-      .from("simulations")
-      .select(LIBRARY_SIM_COLUMNS)
-      .eq("is_public", true)
-      .order("favorite_count", { ascending: false });
+    let filtered = supabase.from("simulations").select(LIBRARY_SIM_COLUMNS).eq("is_public", true);
 
     if (subject && subject !== "all") {
       filtered = filtered.eq("course_topic", subject);
@@ -64,14 +83,16 @@ export default async function LibraryPage({ searchParams }: LibraryPageProps) {
         .from("simulations")
         .select(LIBRARY_SIM_COLUMNS)
         .eq("is_public", true)
-        .gt("favorite_count", 0)
-        .order("favorite_count", { ascending: false })
-        .limit(10),
+        .gt("favorite_count", 0),
       supabase.from("simulations").select("course_topic").eq("is_public", true),
     ]);
 
-    simulations = (simsRes.data ?? []) as LibrarySimulationRow[];
-    topSimulations = (topRes.data ?? []) as LibrarySimulationRow[];
+    const filteredList = normalizeLibraryRows(simsRes.data);
+    simulations = sortLibrarySimulations(filteredList);
+    flagship = flagshipSimulations(simulations);
+    topSimulations = sortLibrarySimulations(normalizeLibraryRows(topRes.data))
+      .filter((s) => s.favorite_count > 0 && !s.is_pinned)
+      .slice(0, 10);
     subjects = Array.from(
       new Set((topicsRes.data ?? []).map((s) => s.course_topic).filter(Boolean))
     ).sort() as string[];
@@ -89,6 +110,7 @@ export default async function LibraryPage({ searchParams }: LibraryPageProps) {
   return (
     <LibraryView
       simulations={simulations}
+      flagshipSimulations={flagship}
       topSimulations={topSimulations}
       userFavoriteIds={userFavoriteIds}
       subjects={subjects}

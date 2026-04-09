@@ -56,6 +56,8 @@ export interface Database {
           is_public: boolean
           favorite_count: number
           hidden_profiles_enabled: boolean
+          is_pinned: boolean
+          pinned_order: number | null
           created_at: string
           updated_at: string
         }
@@ -78,6 +80,8 @@ export interface Database {
           is_public?: boolean
           favorite_count?: number
           hidden_profiles_enabled?: boolean
+          is_pinned?: boolean
+          pinned_order?: number | null
           created_at?: string
           updated_at?: string
         }
@@ -100,6 +104,8 @@ export interface Database {
           is_public?: boolean
           favorite_count?: number
           hidden_profiles_enabled?: boolean
+          is_pinned?: boolean
+          pinned_order?: number | null
           created_at?: string
           updated_at?: string
         }
@@ -367,6 +373,41 @@ export interface Database {
           submitted_at?: string
         }
         Relationships: []
+      }
+      simulation_scenario_images: {
+        Row: {
+          id: string
+          simulation_id: string
+          storage_path: string
+          alt_text: string | null
+          order_num: number
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          simulation_id: string
+          storage_path: string
+          alt_text?: string | null
+          order_num: number
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          simulation_id?: string
+          storage_path?: string
+          alt_text?: string | null
+          order_num?: number
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "simulation_scenario_images_simulation_id_fkey"
+            columns: ["simulation_id"]
+            isOneToOne: false
+            referencedRelation: "simulations"
+            referencedColumns: ["id"]
+          }
+        ]
       }
       simulation_data_blocks: {
         Row: {
@@ -638,6 +679,13 @@ export interface Database {
       [_ in never]: never
     }
     Functions: {
+      admin_session_counts_by_simulation: {
+        Args: Record<string, never>
+        Returns: {
+          simulation_id: string
+          session_count: number | string
+        }[]
+      }
       match_knowledge_chunks: {
         Args: {
           query_embedding: string
@@ -684,6 +732,7 @@ export type ReflectionResponse = Database['public']['Tables']['reflection_respon
 export type Feedback = Database['public']['Tables']['feedback']['Row']
 export type SimulationFavorite = Database['public']['Tables']['simulation_favorites']['Row']
 export type SimulationProfile = Database['public']['Tables']['simulation_profiles']['Row']
+export type SimulationScenarioImage = Database['public']['Tables']['simulation_scenario_images']['Row']
 
 // Extended types with relations
 export type SimulationWithDecisions = Simulation & {
