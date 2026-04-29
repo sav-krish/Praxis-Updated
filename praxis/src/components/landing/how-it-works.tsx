@@ -8,7 +8,6 @@ import {
 } from "react";
 import Image from "next/image";
 import { Wand2, PenLine } from "lucide-react";
-import { animate, scroll } from "motion";
 import { FadeIn } from "@/components/landing/fade-in";
 
 const steps = [
@@ -280,31 +279,32 @@ export function HowItWorksHorizontalScroll() {
     const ul = ulRef.current;
     if (!section || !ul) return;
 
-    const stripKeyframes = {
-      transform: [
-        "none",
-        `translateX(-${(stepCount - 1) * 100}vw)`,
-      ] as [string, string],
+    const maxTranslate = (stepCount - 1) * window.innerWidth;
+    let frameId = 0;
+
+    const updateTransform = () => {
+      const rect = section.getBoundingClientRect();
+      const scrollRange = Math.max(section.offsetHeight - window.innerHeight, 1);
+      const progress = Math.min(Math.max(-rect.top / scrollRange, 0), 1);
+      ul.style.transform = `translateX(-${progress * maxTranslate}px)`;
+      frameId = 0;
     };
 
-    let controls: ReturnType<typeof animate> | undefined;
-    let stopScroll: (() => void) | undefined;
-    let innerRaf = 0;
-    const outerRaf = requestAnimationFrame(() => {
-      innerRaf = requestAnimationFrame(() => {
-        controls = animate(ul, stripKeyframes);
-        stopScroll = scroll(controls, {
-          target: section,
-          offset: ["start start", "end end"],
-        });
-      });
-    });
+    const requestUpdate = () => {
+      if (frameId !== 0) return;
+      frameId = window.requestAnimationFrame(updateTransform);
+    };
+
+    requestUpdate();
+    window.addEventListener("scroll", requestUpdate, { passive: true });
+    window.addEventListener("resize", requestUpdate);
 
     return () => {
-      cancelAnimationFrame(outerRaf);
-      cancelAnimationFrame(innerRaf);
-      stopScroll?.();
-      controls?.stop();
+      if (frameId !== 0) {
+        window.cancelAnimationFrame(frameId);
+      }
+      window.removeEventListener("scroll", requestUpdate);
+      window.removeEventListener("resize", requestUpdate);
     };
   }, [prefersReducedMotion]);
 

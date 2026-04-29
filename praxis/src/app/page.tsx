@@ -4,7 +4,6 @@ import { useEffect, useState, useRef } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { motion, useInView } from "framer-motion";
-import { ReactLenis } from "lenis/react";
 import { FadeIn } from "@/components/landing/fade-in";
 import { HowItWorksHorizontalScroll } from "@/components/landing/how-it-works";
 import { FaqSection } from "@/components/landing/faq-section";
@@ -162,11 +161,10 @@ export default function HomePage() {
   };
 
   return (
-    <ReactLenis root options={{ lerp: 0.22, wheelMultiplier: 1 }}>
-      <div
-        data-landing="true"
-        className="relative isolate min-h-screen overflow-x-visible text-ink"
-      >
+    <div
+      data-landing="true"
+      className="relative isolate min-h-screen overflow-x-visible text-ink"
+    >
       {/* Background: fixed gradient + soft accents (scrolls with viewport) */}
       <LandingBackground />
 
@@ -557,7 +555,6 @@ export default function HomePage() {
           </div>
         </div>
       </footer>
-      </div>
-    </ReactLenis>
+    </div>
   );
 }
