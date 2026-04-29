@@ -1,4 +1,4 @@
-import type { Step, Tour } from "nextstepjs";
+import type { Step, Tour } from "@/components/tutorial/nextstep-compat";
 
 /**
  * Stable tour identifier — referenced by `useNextStep().startNextStep()` from the

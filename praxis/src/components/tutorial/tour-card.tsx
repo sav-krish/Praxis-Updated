@@ -1,7 +1,7 @@
 "use client";
 
 import { ArrowLeft, ArrowRight, X } from "lucide-react";
-import type { CardComponentProps } from "nextstepjs";
+import type { CardComponentProps } from "@/components/tutorial/nextstep-compat";
 
 /**
  * Custom NextStep card matching Praxis design language. Replaces the library's
