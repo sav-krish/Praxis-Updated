@@ -163,6 +163,40 @@
   --border: #D6E1F2;
 }
 
+/* Dashboard / app palette — mirrors landing tokens but tuned for app density.
+   Applied via the [data-app="true"] attribute on the (dashboard) layout
+   wrapper, so the entire app subtree inherits without touching the landing
+   page or marketing routes. */
+[data-app="true"] {
+  --background: #F3F7FF;
+  --foreground: #0F2447;
+  --primary: #5BA2D8;
+  --primary-foreground: #ffffff;
+  --secondary: #E5EEFF;
+  --secondary-foreground: #0F2447;
+  /* Accent is the universal hover/focus tint used by ghost & outline Buttons,
+     DropdownMenuItem, Select/Command items, Accordion triggers, and Badge
+     links. Keep it a soft ink wash so the hover state is always visible on
+     light, white, and pastel surfaces alike — without competing with the
+     bright sky-blue --primary used for real CTAs. */
+  --accent: rgba(15, 36, 71, 0.06);
+  --accent-foreground: #0F2447;
+  --border: #D6E1F2;
+  --muted: #EAF1FF;
+  --muted-foreground: #516481;
+  --card: #ffffff;
+  --card-foreground: #0F2447;
+  --popover: #ffffff;
+  --popover-foreground: #0F2447;
+  --input: #D6E1F2;
+  --ring: #5BA2D8;
+  --chart-1: #5BA2D8;
+  --chart-2: #0F2447;
+  --chart-3: #60A5FA;
+  --chart-4: #93C5FD;
+  --chart-5: #BFDBFE;
+}
+
 /* Landing: no horizontal page scroll / scrollbar (wide How it works strip, etc.) */
 html:has([data-landing="true"]) {
   overflow-x: hidden;
@@ -174,6 +208,28 @@ html:has([data-landing="true"]) {
 }
 .safe-area-inset-bottom {
   padding-bottom: env(safe-area-inset-bottom, 0);
+}
+
+/* ── Tour scroll offsets ─────────────────────────────────────────────
+   nextstepjs uses the browser's native `Element.scrollIntoView()` to bring
+   each tour anchor into view, with `block: 'start'` for `side: 'bottom'`
+   steps — meaning the target gets pinned to viewport y = 0. Our dashboard
+   has a sticky header (`min-h-14 sm:h-16` ≈ 56–64 px) at `top-0`, so the
+   default scroll position drops the target *behind* the header, leaving
+   the card hovering over a blank area (the user has to scroll up to see
+   what's being highlighted).
+
+   `scroll-margin-top` is the standardised CSS hook for exactly this case:
+   the browser's scroll-into-view algorithm respects it and stops short by
+   that many pixels, so the target lands fully in view *below* the sticky
+   header. We add a touch of extra breathing room (~32 px) so the
+   spotlight cutout's padding still has a comfortable gap above it.
+
+   Scoped to `[data-tour]` so it can't affect any other scroll behaviour
+   in the app (e.g. anchor links or in-page navigation). */
+[data-tour] {
+  scroll-margin-top: 6rem; /* 64 px sticky header + 32 px breathing room */
+  scroll-margin-bottom: 2rem; /* gentle gap when block: 'end' is used */
 }
 
 /* ── Praxis Copilot Animations ───────────────────────────────────────── */
@@ -228,4 +284,13 @@ html:has([data-landing="true"]) {
   -webkit-text-fill-color: transparent;
   background-clip: text;
   animation: shimmer-text 2.5s linear infinite;
+}
+
+/* TipTap placeholder (extension sets data-placeholder on empty first paragraph) */
+.background-rich-text-root .tiptap p.is-editor-empty:first-child::before {
+  content: attr(data-placeholder);
+  color: var(--muted-foreground);
+  float: left;
+  height: 0;
+  pointer-events: none;
 }

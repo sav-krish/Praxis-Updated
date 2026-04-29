@@ -12,6 +12,15 @@ type DataBlockInsert = Database["public"]["Tables"]["simulation_data_blocks"]["I
 type ProfileInsert = Database["public"]["Tables"]["simulation_profiles"]["Insert"];
 type ScenarioImageInsert = Database["public"]["Tables"]["simulation_scenario_images"]["Insert"];
 
+/** Returns a shallow copy of `row` without the listed keys — used when cloning rows for insert. */
+function omitKeys(row: Record<string, unknown>, keys: string[]): Record<string, unknown> {
+  const out = { ...row };
+  for (const k of keys) {
+    delete out[k];
+  }
+  return out;
+}
+
 export async function copySimulationToAccount(simulationId: string): Promise<{ newId: string } | { error: string }> {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
@@ -73,13 +82,12 @@ export async function copySimulationToAccount(simulationId: string): Promise<{ n
     .eq("simulation_id", simulationId)
     .order("order_num", { ascending: true });
 
-  const {
-    id: _id,
-    professor_id: _pid,
-    created_at: _ca,
-    updated_at: _ua,
-    ...simInsert
-  } = sim as Record<string, unknown>;
+  const simInsert = omitKeys(sim as Record<string, unknown>, [
+    "id",
+    "professor_id",
+    "created_at",
+    "updated_at",
+  ]);
 
   const { data: newSim, error: insertSimError } = await supabase
     .from("simulations")
@@ -102,7 +110,9 @@ export async function copySimulationToAccount(simulationId: string): Promise<{ n
   const decisionIdMap: Record<string, string> = {};
 
   for (const d of decisions ?? []) {
-    const { id: _did, simulation_id: _sid, created_at: _dca, options: opts, ...dRest } = d as Record<string, unknown> & { options?: Record<string, unknown>[] };
+    const row = d as Record<string, unknown> & { options?: Record<string, unknown>[] };
+    const opts = row.options;
+    const dRest = omitKeys(row, ["id", "simulation_id", "created_at", "options"]);
     const { data: newDec, error: decErr } = await supabase
       .from("decisions")
       .insert({
@@ -115,7 +125,7 @@ export async function copySimulationToAccount(simulationId: string): Promise<{ n
     decisionIdMap[d.id as string] = newDec.id as string;
 
     for (const opt of opts ?? []) {
-      const { id: _oid, decision_id: _did2, created_at: _oca, ...optRest } = opt as Record<string, unknown>;
+      const optRest = omitKeys(opt as Record<string, unknown>, ["id", "decision_id", "created_at"]);
       await supabase
         .from("options")
         .insert({
@@ -126,7 +136,7 @@ export async function copySimulationToAccount(simulationId: string): Promise<{ n
   }
 
   for (const rq of reflectionQuestions ?? []) {
-    const { id: _rqid, simulation_id: _rqsid, created_at: _rqca, ...rqRest } = rq as Record<string, unknown>;
+    const rqRest = omitKeys(rq as Record<string, unknown>, ["id", "simulation_id", "created_at"]);
     await supabase
       .from("reflection_questions")
       .insert({
@@ -136,7 +146,7 @@ export async function copySimulationToAccount(simulationId: string): Promise<{ n
   }
 
   for (const block of dataBlocks ?? []) {
-    const { id: _bid, simulation_id: _bsid, created_at: _bca, ...blockRest } = block as Record<string, unknown>;
+    const blockRest = omitKeys(block as Record<string, unknown>, ["id", "simulation_id", "created_at"]);
     await supabase
       .from("simulation_data_blocks")
       .insert({
@@ -146,7 +156,7 @@ export async function copySimulationToAccount(simulationId: string): Promise<{ n
   }
 
   for (const profile of profiles ?? []) {
-    const { id: _pid, simulation_id: _psid, created_at: _pca, ...profileRest } = profile as Record<string, unknown>;
+    const profileRest = omitKeys(profile as Record<string, unknown>, ["id", "simulation_id", "created_at"]);
     await supabase
       .from("simulation_profiles")
       .insert({

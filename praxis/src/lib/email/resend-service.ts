@@ -2,6 +2,7 @@
  * Email service for Praxis. Uses Resend when RESEND_API_KEY is set;
  * otherwise logs and returns success (stub mode for development).
  */
+import { logger } from "@/lib/logger";
 import { Resend } from "resend";
 
 const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null;
@@ -56,12 +57,12 @@ export async function sendAdminEmail(data: AdminEmailData): Promise<boolean> {
       html,
     });
     if (error) {
-      console.error("Resend sendAdminEmail error:", error);
+      logger.error("Resend sendAdminEmail error:", error);
       return false;
     }
     return true;
   } catch (e) {
-    console.error("Resend sendAdminEmail exception:", e);
+    logger.error("Resend sendAdminEmail exception:", e);
     return false;
   }
 }
@@ -80,12 +81,12 @@ export async function sendCustomEmail(options: EmailOptions): Promise<boolean> {
       ...(options.replyTo && { replyTo: options.replyTo }),
     });
     if (error) {
-      console.error("Resend sendCustomEmail error:", error);
+      logger.error("Resend sendCustomEmail error:", error);
       return false;
     }
     return true;
   } catch (e) {
-    console.error("Resend sendCustomEmail exception:", e);
+    logger.error("Resend sendCustomEmail exception:", e);
     return false;
   }
 }

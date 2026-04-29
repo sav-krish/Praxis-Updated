@@ -15,7 +15,11 @@ const buttonVariants = cva(
         outline:
           "border-input bg-background shadow-xs hover:bg-accent hover:text-accent-foreground dark:bg-input/30 dark:border-input dark:hover:bg-input/50",
         secondary:
-          "bg-secondary text-secondary-foreground hover:bg-secondary/80",
+          // `bg-secondary/80` becomes invisible when --secondary is already a
+          // near-white token (most app/landing themes). Darken the rendered
+          // pixels instead so the hover state is always visibly distinct from
+          // rest, regardless of the theme's secondary color.
+          "bg-secondary text-secondary-foreground hover:brightness-95 hover:saturate-105",
         ghost:
           "hover:bg-accent hover:text-accent-foreground dark:hover:bg-accent/50",
         link: "text-primary underline-offset-4 hover:underline",

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getStripe } from "@/lib/stripe/server";
 import { createServiceRoleClient } from "@/lib/supabase/server";
+import { logger } from "@/lib/logger";
 import type Stripe from "stripe";
 
 /**
@@ -32,7 +33,7 @@ export async function POST(request: NextRequest) {
   try {
     event = stripe.webhooks.constructEvent(body, sig, webhookSecret);
   } catch (err) {
-    console.error("Stripe webhook signature verification failed:", err);
+    logger.error("Stripe webhook signature verification failed:", err);
     return NextResponse.json({ error: "Invalid signature" }, { status: 400 });
   }
 
@@ -71,7 +72,7 @@ export async function POST(request: NextRequest) {
     }
     return NextResponse.json({ received: true });
   } catch (err) {
-    console.error("Stripe webhook handler error:", err);
+    logger.error("Stripe webhook handler error:", err);
     return NextResponse.json(
       { error: "Webhook handler failed" },
       { status: 500 }
@@ -87,7 +88,7 @@ async function handleSubscriptionCreated(
   const userId = session.metadata?.userId as string | null;
   const customerId = session.customer as string;
   if (!userId) {
-    console.error("No userId in checkout session metadata");
+    logger.error("No userId in checkout session metadata");
     return;
   }
 

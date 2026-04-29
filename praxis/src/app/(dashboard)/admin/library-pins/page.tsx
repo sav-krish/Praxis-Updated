@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { isAdmin } from "@/lib/admin";
+import { logger } from "@/lib/logger";
 import { AdminLibraryPinsView } from "./admin-library-pins-view";
 
 export default async function AdminLibraryPinsPage() {
@@ -20,7 +21,7 @@ export default async function AdminLibraryPinsPage() {
     .order("title", { ascending: true });
 
   if (error) {
-    console.error(error);
+    logger.error(error);
   }
 
   const simulations = (rows ?? []).map((r) => ({

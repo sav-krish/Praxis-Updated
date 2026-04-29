@@ -8,6 +8,7 @@ import { ReactLenis } from "lenis/react";
 import { FadeIn } from "@/components/landing/fade-in";
 import { HowItWorksHorizontalScroll } from "@/components/landing/how-it-works";
 import { FaqSection } from "@/components/landing/faq-section";
+import { LandingBackground } from "@/components/landing/landing-background";
 
 /* ─────────────────────────── Data ─────────────────────────── */
 
@@ -156,7 +157,7 @@ export default function HomePage() {
   const handleSubscribe = (e: React.FormEvent) => {
     e.preventDefault();
     if (!email.trim()) return;
-    // TODO: integrate with a mailing list backend
+    // TODO [handoff]: integrate with a mailing list backend when product direction is decided
     setSubscribed(true);
   };
 
@@ -167,24 +168,7 @@ export default function HomePage() {
         className="relative isolate min-h-screen overflow-x-visible text-ink"
       >
       {/* Background: fixed gradient + soft accents (scrolls with viewport) */}
-      <div className="pointer-events-none fixed inset-0 -z-10 overflow-hidden">
-        <div
-          className="absolute inset-0 opacity-80"
-          style={{
-            background:
-              "linear-gradient(155deg, #e4e9ff 0%, #f3f7ff 32%, #e3f2ff 62%, #efe8ff 100%)",
-          }}
-        />
-        <div
-          className="absolute inset-0 opacity-50"
-          style={{
-            background:
-              "radial-gradient(ellipse 85% 55% at 15% 12%, rgba(168, 85, 247, 0.1), transparent 52%), radial-gradient(ellipse 75% 50% at 88% 78%, rgba(6, 182, 212, 0.08), transparent 48%), radial-gradient(ellipse 60% 40% at 50% 100%, rgba(99, 102, 241, 0.05), transparent 55%)",
-          }}
-        />
-        <div className="absolute -top-32 right-10 h-64 w-64 rounded-full bg-[#c7d7ff]/40 blur-3xl" />
-        <div className="absolute bottom-0 left-0 h-72 w-72 rounded-full bg-[#b8e4ff]/30 blur-3xl" />
-      </div>
+      <LandingBackground />
 
       {/* ── Nav ── */}
       <header className="sticky top-0 z-40 border-b border-line/60 bg-white/65 backdrop-blur-md safe-area-inset-top supports-backdrop-filter:bg-white/55">

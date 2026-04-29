@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { logger } from "@/lib/logger";
 import type { Json } from "@/types/database";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -16,26 +17,14 @@ import { toast } from "sonner";
 import { PrivacyNotice } from "@/components/ui/privacy-notice";
 import { SubjectSelector } from "@/components/ui/subject-selector";
 import { FieldInfoHint } from "@/components/ui/field-info-hint";
+import { FadeIn } from "@/components/landing/fade-in";
+import { APP_TILE_BACKGROUNDS } from "@/lib/app-tile-backgrounds";
+import { PREFERENCE_CATEGORIES } from "@/lib/simulation-metadata-presets";
 import type { GeneratedSimulation } from "@/lib/openai";
-
-const PREFERENCE_CATEGORIES = {
-  style: {
-    label: "Simulation Style",
-    options: ["Case Study", "Role Play", "Crisis Management", "Negotiation", "Ethical Dilemma", "Strategic Planning"],
-  },
-  interaction: {
-    label: "Student Interaction",
-    options: ["Individual Reflection", "Group Discussion", "Debate", "Peer Review"],
-  },
-  focus: {
-    label: "Content Focus",
-    options: ["Data-Driven", "Narrative-Heavy", "Visual/Charts", "Timeline-Based"],
-  },
-  assessment: {
-    label: "Assessment Style",
-    options: ["Clear Right/Wrong", "Nuanced Tradeoffs", "No Correct Answer"],
-  },
-} as const;
+import {
+  ensureProfessorRow,
+  persistGeneratedSimulation,
+} from "@/lib/persist-generated-simulation";
 
 const DIFFICULTY_LENGTH_OPTIONS = [
   { value: "easy" as const, label: "Easy", time: "~15 min" },
@@ -102,181 +91,27 @@ export default function CreateSimulationPage() {
       throw new Error("You must be logged in");
     }
 
-    // Ensure professor row exists (trigger might not have run)
-    const { data: professor } = await supabase
-      .from("professors")
-      .select("id")
-      .eq("id", user.id)
-      .single();
-    if (!professor) {
-      const { error: profError } = await supabase.from("professors").insert({
-        id: user.id,
-        email: user.email ?? "",
-        name: (user.user_metadata?.name as string) ?? null,
-      });
-      if (profError) {
-        throw new Error(profError.message || "Could not create professor profile");
-      }
-    }
+    await ensureProfessorRow(supabase, user);
 
-    const bgContent = generated.backgroundContent ?? "";
-
-    // Create the simulation
-    const difficultyEstimates = { easy: 15, hard: 25, challenge: 40 } as const;
-    const { data: simulation, error: simError } = await supabase
-      .from("simulations")
-      .insert({
-        professor_id: user.id,
-        title: (generated.title || formData.title) || "Untitled Simulation",
-        course_topic: formData.courseTopic || "General",
-        difficulty: formData.difficulty || "hard",
-        estimated_minutes: difficultyEstimates[formData.difficulty] ?? 25,
-        goal: formData.goal || null,
-        target_decisions: formData.targetDecisions || null,
-        background_content: bgContent,
-        ai_notes: formData.aiNotes || null,
-        status: "draft",
-        hidden_profiles_enabled: hiddenProfilesEnabled,
-      })
-      .select()
-      .single();
-
-    if (simError) throw new Error(simError.message || "Could not create simulation");
-
-    // Link uploaded files to simulation
-    if (uploadedFilePaths?.length) {
-      for (const { path, originalName } of uploadedFilePaths) {
-        const { error: fileError } = await supabase
-          .from("simulation_uploaded_files")
-          .insert({
-            simulation_id: simulation.id,
-            storage_path: path,
-            original_name: originalName,
-          });
-        if (fileError) console.warn("Could not link uploaded file:", fileError);
-      }
-    }
-
-    const decisions = Array.isArray(generated.decisions) ? generated.decisions : [];
-    if (decisions.length === 0) throw new Error("Generated simulation has no decisions");
-
-    // Create decisions with AI-generated content
-    for (let i = 0; i < decisions.length; i++) {
-      const genDecision = decisions[i];
-      const { data: decision, error: decError } = await supabase
-        .from("decisions")
-        .insert({
-          simulation_id: simulation.id,
-          order_num: i + 1,
-          prompt: genDecision.prompt,
-        })
-        .select()
-        .single();
-
-      if (decError) throw new Error(decError.message || "Could not save decisions");
-
-      const options = Array.isArray(genDecision.options) ? genDecision.options : [];
-      for (const option of options) {
-        const { error: optError } = await supabase
-          .from("options")
-          .insert({
-            decision_id: decision.id,
-            label: option.label,
-            title: option.title,
-            description: option.description ?? null,
-            consequence: option.consequence ?? null,
-            score: option.score,
-          });
-
-        if (optError) throw new Error(optError.message || "Could not save options");
-      }
-    }
-
-    // Create reflection questions
-    const questions = generated.reflectionQuestions?.length > 0
-      ? generated.reflectionQuestions
-      : ["What were your key takeaways from this simulation?", "What did you learn that you can apply in real situations?"];
-
-    for (let i = 0; i < Math.min(questions.length, 2); i++) {
-      const { error: refError } = await supabase
-        .from("reflection_questions")
-        .insert({
-          simulation_id: simulation.id,
-          order_num: i + 1,
-          question: questions[i],
-        });
-
-      if (refError) throw new Error(refError.message || "Could not save reflection questions");
-    }
-
-    // Create data blocks (tables, charts, timelines, etc.)
-    const dataBlocks = Array.isArray(generated.dataBlocks) ? generated.dataBlocks : [];
-    const validTypes = ["table", "bar_chart", "line_chart", "kpi_cards", "timeline", "pie_chart"];
-    for (let i = 0; i < dataBlocks.length; i++) {
-      const block = dataBlocks[i];
-      if (!block || !validTypes.includes(block.block_type) || !block.data) continue;
-      const { error: blockError } = await supabase
-        .from("simulation_data_blocks")
-        .insert({
-          simulation_id: simulation.id,
-          order_num: i + 1,
-          block_type: block.block_type,
-          title: block.title || null,
-          data: block.data as unknown as Json,
-        });
-      if (blockError) console.warn("Could not save data block:", blockError);
-    }
-
-    // Auto-save sources from uploaded files and pasted text
-    const fileSources: { simulation_id: string; label: string; source_type: "file" | "text" }[] = [];
-    if (uploadedFilePaths?.length) {
-      for (const { originalName } of uploadedFilePaths) {
-        fileSources.push({
-          simulation_id: simulation.id,
-          label: originalName,
-          source_type: "file" as const,
-        });
-      }
-    }
-    if (formData.pastedText?.trim()) {
-      fileSources.push({
-        simulation_id: simulation.id,
-        label: "Pasted course material",
-        source_type: "text" as const,
-      });
-    }
-    if (fileSources.length > 0) {
-      await supabase.from("simulation_sources").insert(fileSources);
-    }
-
-    if (hiddenProfilesEnabled) {
-      const hp = Array.isArray(generated.hiddenProfiles) ? generated.hiddenProfiles : [];
-      const roles =
-        hp.length > 0
-          ? hp.filter((p) => p?.profile_name?.trim() && p?.private_briefing != null).slice(0, 6)
-          : [];
-      const toInsert =
-        roles.length > 0
-          ? roles
-          : [
-              { profile_name: "Role 1", private_briefing: "Edit this briefing in Run Settings." },
-              { profile_name: "Role 2", private_briefing: "Edit this briefing in Run Settings." },
-            ];
-      for (let i = 0; i < toInsert.length; i++) {
-        const p = toInsert[i];
-        await supabase.from("simulation_profiles").insert({
-          simulation_id: simulation.id,
-          profile_name: p.profile_name,
-          private_briefing: p.private_briefing,
-          order_num: i + 1,
-        });
-      }
-    }
-
-    return simulation.id;
+    return persistGeneratedSimulation(supabase, {
+      professorId: user.id,
+      professorEmail: user.email ?? "",
+      professorName: (user.user_metadata?.name as string) ?? null,
+      generated,
+      formTitle: formData.title,
+      courseTopic: formData.courseTopic || "General",
+      difficulty: formData.difficulty || "hard",
+      goal: formData.goal || null,
+      targetDecisions: formData.targetDecisions || null,
+      aiNotes: formData.aiNotes || null,
+      hiddenProfilesEnabled,
+      preferences: hasAnyPreferences ? (preferences as unknown as Json) : undefined,
+      uploadedFilePaths,
+      pastedText: formData.pastedText || null,
+    });
   };
 
-  // Generate with AI
+  // Generate with AI (SSE: outline → streaming background → parallel sections → save)
   const handleGenerateWithAI = async () => {
     if (!formData.title) {
       toast.error("Please enter a title first");
@@ -284,7 +119,7 @@ export default function CreateSimulationPage() {
     }
 
     setGeneratingAI(true);
-    toast.info("Generating simulation with AI... This may take 30-60 seconds.");
+    toast.info("Generating… you’ll see the title and background stream in first.");
 
     try {
       const formPayload = new FormData();
@@ -307,38 +142,60 @@ export default function CreateSimulationPage() {
 
       const response = await fetch("/api/generate-simulation", {
         method: "POST",
+        headers: {
+          Accept: "text/event-stream",
+          "x-praxis-sse": "1",
+        },
         body: formPayload,
       });
 
-      let data: {
-        success?: boolean;
-        error?: string;
-        simulation?: unknown;
-        uploadedFilePaths?: { path: string; originalName: string }[];
-      };
-      try {
-        data = await response.json();
-      } catch {
-        throw new Error(response.ok ? "Invalid response from server" : `Request failed (${response.status})`);
+      if (!response.ok || !response.body) {
+        throw new Error(`Request failed (${response.status})`);
       }
 
-      if (!response.ok || !data.success) {
-        throw new Error(data?.error || `Request failed (${response.status})`);
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+      let lastSim: GeneratedSimulation | null = null;
+      let uploaded: { path: string; originalName: string }[] = [];
+
+      for (;;) {
+        const { value, done } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        const parts = buffer.split("\n\n");
+        buffer = parts.pop() ?? "";
+        for (const block of parts) {
+          if (!block.startsWith("data: ")) continue;
+          let payload: Record<string, unknown>;
+          try {
+            payload = JSON.parse(block.slice(6)) as Record<string, unknown>;
+          } catch {
+            continue;
+          }
+          if (payload.type === "error") {
+            throw new Error(String(payload.error ?? "Generation failed"));
+          }
+          if (payload.type === "done") {
+            lastSim = payload.simulation as GeneratedSimulation;
+          }
+          if (payload.type === "uploaded" && Array.isArray(payload.uploadedFilePaths)) {
+            uploaded = payload.uploadedFilePaths as { path: string; originalName: string }[];
+          }
+        }
       }
-      if (!data.simulation) {
-        throw new Error("No simulation data returned");
+
+      if (!lastSim) {
+        throw new Error("No simulation data returned from stream");
       }
 
       toast.info("Saving simulation…");
-      const simulationId = await saveGeneratedSimulation(
-        data.simulation as GeneratedSimulation,
-        data.uploadedFilePaths
-      );
+      const simulationId = await saveGeneratedSimulation(lastSim, uploaded);
 
       toast.success("Simulation generated! Review and edit the content.");
       router.push(`/edit/${simulationId}?generated=1`);
     } catch (error) {
-      console.error("Create simulation error:", error);
+      logger.error("Create simulation error:", error);
       const message =
         error instanceof Error
           ? error.message
@@ -471,7 +328,7 @@ export default function CreateSimulationPage() {
       toast.success("Simulation created! Now let's edit the details.");
       router.push(`/edit/${simulation.id}`);
     } catch (error) {
-      console.error("Create simulation error:", error);
+      logger.error("Create simulation error:", error);
       const message =
         error instanceof Error
           ? error.message
@@ -486,10 +343,17 @@ export default function CreateSimulationPage() {
 
   return (
     <div className="max-w-3xl mx-auto px-0 sm:px-4">
-      <div className="mb-6 sm:mb-8">
-        <h1 className="text-2xl sm:text-3xl font-bold">Create New Simulation</h1>
-
-      </div>
+      <FadeIn className="mb-6 sm:mb-8">
+        <div
+          className={`rounded-3xl p-6 sm:p-8 shadow-[var(--shadow-soft)] ring-1 ring-border/60 ${APP_TILE_BACKGROUNDS[0]}`}
+        >
+          <h1 className="text-2xl sm:text-3xl font-bold text-foreground">Create New Simulation</h1>
+          <p className="mt-2 text-sm text-muted-foreground max-w-prose">
+            Set intent, add materials, then generate. Streaming generation shows a title quickly, then fills the
+            scenario and decisions in parallel.
+          </p>
+        </div>
+      </FadeIn>
 
       <form onSubmit={handleCreateManually}>
         <Card className="mb-6">
@@ -499,7 +363,7 @@ export default function CreateSimulationPage() {
             </div>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="space-y-2">
+            <div className="space-y-2" data-tour="create-title">
               <Label htmlFor="title">Simulation Title</Label>
               <Input
                 id="title"
@@ -509,10 +373,12 @@ export default function CreateSimulationPage() {
                 required
               />
             </div>
-            <SubjectSelector
-              value={formData.courseTopic}
-              onChange={(value) => setFormData({ ...formData, courseTopic: value })}
-            />
+            <div data-tour="create-subject">
+              <SubjectSelector
+                value={formData.courseTopic}
+                onChange={(value) => setFormData({ ...formData, courseTopic: value })}
+              />
+            </div>
             <div className="space-y-2">
               <div className="flex items-center gap-1.5">
                 <Label id="difficulty-length-label">Difficulty / Length</Label>
@@ -583,7 +449,10 @@ export default function CreateSimulationPage() {
               </FieldInfoHint>
             </div>
 
-            <div className="border-2 border-dashed rounded-lg p-6 text-center hover:border-primary/50 transition-colors">
+            <div
+              data-tour="create-upload"
+              className="border-2 border-dashed rounded-lg p-6 text-center hover:border-primary/50 transition-colors"
+            >
               <input
                 type="file"
                 id="file-upload"
@@ -647,7 +516,7 @@ export default function CreateSimulationPage() {
             </div>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="space-y-2">
+            <div className="space-y-2" data-tour="create-goal">
               <div className="flex items-center gap-1.5">
                 <Label htmlFor="goal">Goal of the Simulation</Label>
               </div>
@@ -752,6 +621,7 @@ export default function CreateSimulationPage() {
             <div className="grid w-full min-w-0 grid-cols-1 gap-2 @min-[36rem]:grid-cols-2 @min-[36rem]:gap-1.5 @min-[48rem]:gap-2.5">
               <Button
                 type="button"
+                data-tour="create-generate"
                 variant="aiGradient"
                 size="sm"
                 onClick={handleGenerateWithAI}

@@ -29,6 +29,8 @@ interface UndoEntry {
 const CHARS_PER_TICK = 3;
 const TICK_MS = 8;
 
+/** Applies copilot-produced field patches with chunked typing UX, integrates undo/redo against `getField`/`setField`, and resolves pending `CopilotAction[]` from the sidebar. Returns typing state plus undo/redo stacks. */
+
 export function useAiEdit(setField: FieldSetter, getField: FieldGetter) {
   const [typing, setTyping] = useState(false);
   const [undoStack, setUndoStack] = useState<UndoEntry[]>([]);

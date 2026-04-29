@@ -20,7 +20,6 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { SUBJECT_CATEGORIES } from "@/lib/subjects";
-import { FieldInfoHint } from "@/components/ui/field-info-hint";
 
 interface SubjectSelectorProps {
   value: string;

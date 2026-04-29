@@ -3,8 +3,10 @@
 import { useState, useRef, useCallback, useEffect, useMemo, useLayoutEffect } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { useRouter } from "next/navigation";
+import Image from "next/image";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
+import { logger } from "@/lib/logger";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -13,6 +15,9 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { FieldInfoHint } from "@/components/ui/field-info-hint";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { MarkdownBody } from "@/components/ui/markdown-body";
+import { BackgroundRichTextEditor } from "@/components/ui/background-rich-text-editor";
 import { Badge } from "@/components/ui/badge";
 import {
   Collapsible,
@@ -116,11 +121,26 @@ function ScenarioImageThumb({ img }: { img: ScenarioImageEditorRow }) {
       </div>
     );
   }
+  /** `blob:` / `data:` previews are not routed through `next/image`; HTTPS URLs use images.remotePatterns. */
+  const needsPlainImg =
+    Boolean(objectUrl) || src.startsWith("blob:") || src.startsWith("data:");
+  if (needsPlainImg) {
+    return (
+      /* eslint-disable-next-line @next/next/no-img-element -- blob: / data: previews cannot use next/image here */
+      <img
+        src={src}
+        alt={img.alt_text || ""}
+        className="h-full w-full object-cover"
+      />
+    );
+  }
   return (
-    <img
+    <Image
       src={src}
       alt={img.alt_text || ""}
-      className="h-full w-full object-cover"
+      fill
+      className="object-cover"
+      sizes="280px"
     />
   );
 }
@@ -239,7 +259,10 @@ export function SimulationEditor({
           pendingFile: Boolean(r.localFile),
         })),
       });
-      scenarioImagesBaselineRef.current = imgs.map(({ localFile: _f, ...row }) => row);
+      scenarioImagesBaselineRef.current = imgs.map(({ localFile, ...row }) => {
+        void localFile;
+        return row;
+      });
       dirtyRef.current = false;
     },
     [simulation, decisions, reflectionQuestions, dataBlocks, profiles, scenarioImages]
@@ -480,7 +503,7 @@ export function SimulationEditor({
       if (!silent && !autosave) toast.success("Simulation saved!");
       return true;
     } catch (error) {
-      console.error(error);
+      logger.error(error);
       toast.error(autosave ? "Auto-save failed — try Save" : "Failed to save simulation");
       return false;
     } finally {
@@ -869,15 +892,33 @@ export function SimulationEditor({
                     </div>
                   </CardHeader>
                   <CardContent>
-                    <div className="flex justify-end -mb-1">
-                    </div>
-                    <Textarea
-                      placeholder="Write the background scenario here. This is what students will read to understand the context before making decisions..."
-                      value={simulation.background_content || ""}
-                      onChange={(e) => setSimulation({ ...simulation, background_content: e.target.value })}
-                      rows={15}
-                      className="font-mono text-sm"
-                    />
+                    <Tabs defaultValue="edit">
+                      <TabsList variant="line" className="mb-3 w-full max-w-full justify-start">
+                        <TabsTrigger value="edit">Write</TabsTrigger>
+                        <TabsTrigger value="preview">Preview</TabsTrigger>
+                      </TabsList>
+                      <TabsContent value="edit" className="mt-0" forceMount>
+                        <BackgroundRichTextEditor
+                          key={simulation.id}
+                          value={simulation.background_content || ""}
+                          onChange={(md) =>
+                            setSimulation({ ...simulation, background_content: md })
+                          }
+                          placeholder="Write the background scenario here. This is what students will read before making decisions…"
+                        />
+                      </TabsContent>
+                      <TabsContent value="preview" className="mt-0">
+                        <div className="max-h-[min(28rem,60vh)] min-h-80 overflow-y-auto rounded-md border border-border bg-muted/20 px-4 py-3">
+                          {simulation.background_content?.trim() ? (
+                            <MarkdownBody className="prose prose-sm dark:prose-invert max-w-none text-sm [&>*:first-child]:mt-0 [&>*:last-child]:mb-0 prose-headings:text-foreground prose-p:text-foreground prose-strong:text-foreground prose-li:text-foreground prose-ul:list-disc">
+                              {simulation.background_content}
+                            </MarkdownBody>
+                          ) : (
+                            <p className="text-sm text-muted-foreground">Nothing to preview yet.</p>
+                          )}
+                        </div>
+                      </TabsContent>
+                    </Tabs>
                   </CardContent>
                 </Card>
               )}
@@ -893,13 +934,32 @@ export function SimulationEditor({
                 </div>
               </CardHeader>
               <CardContent>
-                <Textarea
-                  placeholder="Write the background scenario here..."
-                  value={simulation.background_content || ""}
-                  rows={15}
-                  className="font-mono text-sm"
-                  disabled
-                />
+                <Tabs defaultValue="edit">
+                  <TabsList variant="line" className="mb-3 w-full max-w-full justify-start">
+                    <TabsTrigger value="edit">Write</TabsTrigger>
+                    <TabsTrigger value="preview">Preview</TabsTrigger>
+                  </TabsList>
+                  <TabsContent value="edit" className="mt-0" forceMount>
+                    <BackgroundRichTextEditor
+                      key={simulation.id}
+                      value={simulation.background_content || ""}
+                      onChange={() => {}}
+                      disabled
+                      placeholder="Background text (read-only)"
+                    />
+                  </TabsContent>
+                  <TabsContent value="preview" className="mt-0">
+                    <div className="max-h-[min(28rem,60vh)] min-h-80 overflow-y-auto rounded-md border border-border bg-muted/20 px-4 py-3">
+                      {simulation.background_content?.trim() ? (
+                        <MarkdownBody className="prose prose-sm dark:prose-invert max-w-none text-sm [&>*:first-child]:mt-0 [&>*:last-child]:mb-0 prose-headings:text-foreground prose-p:text-foreground prose-strong:text-foreground prose-li:text-foreground prose-ul:list-disc">
+                          {simulation.background_content}
+                        </MarkdownBody>
+                      ) : (
+                        <p className="text-sm text-muted-foreground">Nothing to preview yet.</p>
+                      )}
+                    </div>
+                  </TabsContent>
+                </Tabs>
               </CardContent>
             </Card>
           )}

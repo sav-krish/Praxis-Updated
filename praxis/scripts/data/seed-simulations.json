@@ -1,0 +1,1282 @@
+[
+  {
+    "key": "marketing-recall-sequencing",
+    "authorEmail": "showcase-author-06@example.com",
+    "title": "Recall sequencing for a Series-D consumer hardware brand",
+    "course_topic": "Marketing",
+    "difficulty": "hard",
+    "estimated_minutes": 25,
+    "goal": "Sequence external communications and remediation when a flagship SKU may have an intermittent battery defect.",
+    "background_content": "You are the CMO of HelioBuds, a Series-D consumer audio brand that just shipped 230,000 units of the H-Pro 2 across Q3 and Q4. Customer support is logging spontaneous case-warming complaints in roughly 4% of units shipped between weeks 28-41. Your engineering team believes the cell pack has an intermittent thermal-runaway risk in a single supplier lot — but the formal lab teardown won't finish for another seven business days.\n\nMeanwhile, your top three big-box partners are already asking for talking points before they choose how to merchandise H-Pro 2 over Black Friday. In-house counsel wants no admission of a defect until the lab signs off. The Consumer Product Safety Commission's reporting clock starts the moment HelioBuds 'has reasonable evidence of a defect that creates a substantial product hazard' (16 CFR §1115). Marketing owns the sequencing call: who hears what, in what order, and with what compensation on the table.\n\n**What you have.** A confirmed complaint count, a suspected defect rate, and a draft holding statement. **What you don't have.** Lab confirmation, a CPSC determination, or alignment between Sales (protect Black Friday) and Legal (no admissions).",
+    "decisions": [
+      {
+        "prompt": "Who do you brief first, and how much do you say?",
+        "options": [
+          {
+            "label": "A",
+            "title": "Quietly notify retailers, hold customer messaging",
+            "description": "Brief the three retail partners under NDA with the suspected-defect data so they can decide on shelf treatment, but keep the customer-facing site silent until lab results return.",
+            "consequence": "Buys retailer goodwill but leaks within 48 hours via a partner sales-rep Slack — Reddit catches the screenshot and the story breaks before you control it.",
+            "score": 1
+          },
+          {
+            "label": "B",
+            "title": "Public holding statement, formal CPSC notification",
+            "description": "Publish a one-page customer holding statement (acknowledge investigation, do not call it a recall, share what to watch for), file a §1115 initial report with the CPSC same day, brief retailers in parallel.",
+            "consequence": "You buy time and demonstrate good faith. CPSC opens a quiet file. Reuters writes a short story citing your statement, not a leak.",
+            "score": 3
+          },
+          {
+            "label": "C",
+            "title": "Wait for lab results before any external comm",
+            "description": "Hold all external messaging until the seven-day lab teardown completes. Continue Black Friday merchandising as planned in the meantime.",
+            "consequence": "Two more thermal incidents are reported during the wait; one local-news story names HelioBuds. CPSC notes the delayed disclosure in their later determination.",
+            "score": 2
+          }
+        ]
+      },
+      {
+        "prompt": "What scope of remediation do you commit to in the first communication?",
+        "options": [
+          {
+            "label": "A",
+            "title": "Free voluntary battery swap for affected lots only",
+            "description": "Offer a free in-warranty battery replacement for serial numbers in the suspect lot range. Keep the offer narrow until lab confirms scope.",
+            "consequence": "Cost is contained at roughly $1.4M in service exposure; customers in adjacent lots feel excluded and complaints continue.",
+            "score": 2
+          },
+          {
+            "label": "B",
+            "title": "Full refund or replacement, all units shipped 2024",
+            "description": "Extend the offer to every unit shipped in 2024 regardless of lot. Frame it as 'no questions asked' to remove friction.",
+            "consequence": "Service exposure jumps to roughly $11M but the brand emerges as the standard-setter; press coverage is overwhelmingly positive.",
+            "score": 1
+          },
+          {
+            "label": "C",
+            "title": "Replacement + $25 credit for affected lots, refund optional",
+            "description": "Replace any unit in the suspect lot range and add a small store-credit gesture; offer a refund path for customers who'd rather walk away.",
+            "consequence": "Service exposure ~ $2.6M; CSAT lift among affected customers is measurable; Wall Street reads it as proportionate.",
+            "score": 3
+          }
+        ]
+      },
+      {
+        "prompt": "How do you handle Black Friday merchandising for the H-Pro 2?",
+        "options": [
+          {
+            "label": "A",
+            "title": "Pause the H-Pro 2 promotion, swap in the H-Pro 1",
+            "description": "Pull the H-Pro 2 from your Black Friday email and homepage; promote the prior generation at a discount instead.",
+            "consequence": "Lose ~$3.1M in expected Black Friday GMV but signal seriousness; analysts cite the move as 'mature brand discipline.'",
+            "score": 3
+          },
+          {
+            "label": "B",
+            "title": "Continue Black Friday as planned with a footer disclosure",
+            "description": "Run the H-Pro 2 promotion as planned; add a small footer noting an active safety review and a link to the holding statement.",
+            "consequence": "Hit the GMV plan but draw a Wirecutter blog post titled 'HelioBuds is selling a product they're investigating'.",
+            "score": 1
+          },
+          {
+            "label": "C",
+            "title": "Promote the H-Pro 2 only to confirmed-safe lots",
+            "description": "Restrict the Black Friday promotion to units from lot ranges outside the suspect window; communicate to retail partners which SKUs are 'green-lit.'",
+            "consequence": "Logistics complexity is real but workable; you protect ~70% of the GMV plan and avoid re-shipping suspect inventory.",
+            "score": 2
+          }
+        ]
+      }
+    ],
+    "reflectionQuestions": [
+      "What does the Tylenol case (Johnson & Johnson, 1982) suggest about the relationship between speed of disclosure and long-term brand equity? Where does that map to your decision in this sim, and where does it not?",
+      "If a future executive looks back at the trail of decisions you made this week, which decision do you think will look most defensible — and which most costly — and why?"
+    ],
+    "dataBlocks": [
+      {
+        "block_type": "kpi_cards",
+        "title": "Defect picture (as of this morning)",
+        "data": {
+          "items": [
+            {
+              "label": "Units shipped (Q3-Q4)",
+              "value": "230,000",
+              "subtext": "H-Pro 2, all SKUs"
+            },
+            {
+              "label": "Suspected affected lots",
+              "value": "9,200",
+              "subtext": "≈ 4% of Q3-Q4 shipments"
+            },
+            {
+              "label": "Confirmed thermal incidents",
+              "value": "31",
+              "subtext": "All non-injury, 12 with case damage"
+            },
+            {
+              "label": "Service exposure (high-end est.)",
+              "value": "$11M",
+              "subtext": "If we extend to all 2024 units"
+            }
+          ]
+        }
+      },
+      {
+        "block_type": "timeline",
+        "title": "Complaint and notification timeline",
+        "data": {
+          "events": [
+            {
+              "date": "Sep 4",
+              "title": "First three case-warming complaints",
+              "detail": "Logged via support ticket, no escalation."
+            },
+            {
+              "date": "Oct 1",
+              "title": "Engineering opens internal review",
+              "detail": "Suspect supplier-lot pattern flagged."
+            },
+            {
+              "date": "Oct 18",
+              "title": "Cell-pack lab teardown initiated",
+              "detail": "Outside lab, 7-day estimate."
+            },
+            {
+              "date": "Oct 22",
+              "title": "Today — CMO holding meeting",
+              "detail": "First Black Friday merchandising decision is due tomorrow."
+            },
+            {
+              "date": "Oct 29",
+              "title": "Lab results expected",
+              "detail": "Will determine §1115 reporting status."
+            }
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "key": "management-restructuring",
+    "authorEmail": "showcase-author-03@example.com",
+    "title": "Restructuring a 200-person engineering org after a pivot",
+    "course_topic": "Strategy & Consulting",
+    "difficulty": "challenge",
+    "estimated_minutes": 40,
+    "goal": "Re-shape a 200-person engineering org after a pivot from horizontal SaaS to a healthcare vertical, balancing speed, talent retention, and ARR continuity.",
+    "background_content": "You are the new VP of Engineering at FieldOS, a $42M-ARR horizontal SaaS company that just announced a pivot to vertical-specific products — starting with healthcare scheduling for outpatient clinics. The board wants the engineering org reshaped to look like 'a healthcare engineering company' within one quarter. Today you have ~200 engineers split across 14 platform teams, only 18 of whom have any healthcare-domain experience.\n\nYour CEO wants speed (board pressure, runway), HR wants a process that holds up to scrutiny (40% of engineers are H-1B), and Sales wants no slowdown in renewals on the legacy platform that still funds the pivot. The McKinsey playbook on org redesign emphasizes that 70% of restructurings fail to deliver their value — usually because they over-index on the org chart and under-invest in role clarity, manager calibration, and the talent matching exercise.",
+    "decisions": [
+      {
+        "prompt": "What restructuring approach do you anchor the plan to?",
+        "options": [
+          {
+            "label": "A",
+            "title": "Top-down redesign, announce-then-implement",
+            "description": "You and three trusted lieutenants design the new org chart in a closed room over a week, then announce all role moves at once.",
+            "consequence": "Speed is real (live in 3 weeks) but you lose ~28 of the top quartile within a quarter; legacy renewals slip because the new owners are still onboarding.",
+            "score": 1
+          },
+          {
+            "label": "B",
+            "title": "Bottoms-up internal mobility window",
+            "description": "Publish the target capability map, open a two-week internal application window for engineers to bid on the new roles, then run calibration.",
+            "consequence": "Slower (8 weeks) but morale and retention hold; healthcare-domain engineers self-select up; some critical legacy roles take longer to backfill.",
+            "score": 3
+          },
+          {
+            "label": "C",
+            "title": "Hybrid: top-down spine + open mobility for leaves",
+            "description": "Lock the leadership layer top-down for speed, then open the IC layer to internal mobility with a calibration board.",
+            "consequence": "Live in 5 weeks, retention holds at the IC layer, but the top-down EM picks become the focus of grievance and slow you in week 3.",
+            "score": 2
+          }
+        ]
+      },
+      {
+        "prompt": "How do you handle the people whose roles don't survive the new design?",
+        "options": [
+          {
+            "label": "A",
+            "title": "Voluntary attrition program first, RIF only if needed",
+            "description": "Offer a generous voluntary-departure package (4 months severance + accelerated RSU vest) to anyone whose role is being eliminated, then RIF the gap.",
+            "consequence": "Higher cash cost (~$4.6M) but the public narrative stays clean; you avoid most of the H-1B legal complexity.",
+            "score": 3
+          },
+          {
+            "label": "B",
+            "title": "Single mass-RIF with standard severance",
+            "description": "Single layoff of ~38 engineers in week one with the standard 8-week severance package and outplacement.",
+            "consequence": "Cheap (~$1.2M) and fast, but you trigger a public Glassdoor moment, an H-1B legal complaint, and 60-day press coverage.",
+            "score": 1
+          },
+          {
+            "label": "C",
+            "title": "Aggressive redeployment + 90-day retraining",
+            "description": "Move every affected engineer into a healthcare-domain bootcamp; commit to no involuntary departures for 90 days while you re-skill.",
+            "consequence": "Best-in-industry retention story but ~$3M in productivity loss and ~$0.9M in training costs; some redeployed engineers churn anyway by month 6.",
+            "score": 2
+          }
+        ]
+      },
+      {
+        "prompt": "How fast do you commit to running the change end-to-end?",
+        "options": [
+          {
+            "label": "A",
+            "title": "Two weeks: pull the bandaid",
+            "description": "Compress everything into a two-week change cycle: announce, finalize org, run people decisions, close the legacy.",
+            "consequence": "Board claps in week 3; you spend weeks 4-26 firefighting, missing two quarterly product targets in a row.",
+            "score": 1
+          },
+          {
+            "label": "B",
+            "title": "Six weeks: time-bounded but humane",
+            "description": "Six-week transition with weekly milestones: design (W1-2), people decisions (W3-4), team cuts/ramps (W5-6).",
+            "consequence": "Hits the board's 'one quarter' constraint with room to spare; legacy renewals stay roughly on plan; healthcare team ships its first prototype on schedule.",
+            "score": 3
+          },
+          {
+            "label": "C",
+            "title": "One quarter: deliberate, milestone-gated",
+            "description": "Twelve weeks with explicit gates and an external HR partner running the people-process workstream.",
+            "consequence": "High-quality outcome, but the board reads the timeline as foot-dragging and pushes you to compress mid-stream — which itself causes attrition.",
+            "score": 2
+          }
+        ]
+      }
+    ],
+    "reflectionQuestions": [
+      "Where do your decisions diverge from the McKinsey '70% of reorgs fail' framing — and which of those divergences do you think is justified by the specifics of this scenario?",
+      "If you re-ran this simulation with your CFO in the seat instead of you, which decision do you think would shift, and what does that tell you about how reorganizations get scoped?"
+    ],
+    "dataBlocks": [
+      {
+        "block_type": "pie_chart",
+        "title": "Engineering org today (200 people)",
+        "data": {
+          "labels": [
+            "Platform infra",
+            "Legacy product",
+            "ML/data",
+            "Mobile",
+            "Healthcare-domain"
+          ],
+          "values": [
+            62,
+            78,
+            24,
+            18,
+            18
+          ]
+        }
+      },
+      {
+        "block_type": "kpi_cards",
+        "title": "Operating reality",
+        "data": {
+          "items": [
+            {
+              "label": "ARR",
+              "value": "$42M",
+              "subtext": "62% from legacy product"
+            },
+            {
+              "label": "Runway",
+              "value": "14 mo",
+              "subtext": "At current burn, no bridge"
+            },
+            {
+              "label": "Healthcare-domain experience",
+              "value": "9%",
+              "subtext": "18 of 200 engineers"
+            },
+            {
+              "label": "H-1B share",
+              "value": "40%",
+              "subtext": "Adds ~30 days to most RIF actions"
+            }
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "key": "finance-bridge-vs-rif",
+    "authorEmail": "showcase-author-03@example.com",
+    "title": "Bridge round vs. layoffs: 9 months of runway",
+    "course_topic": "Finance",
+    "difficulty": "hard",
+    "estimated_minutes": 25,
+    "goal": "Decide how to extend runway to 18 months when 9 months remain — bridge financing, RIF, or hybrid — and how to position the choice to the team.",
+    "background_content": "You are the CFO of Routelab, a Series-B logistics SaaS with $9.4M cash and a current monthly burn of $1.05M — exactly nine months of runway. The board wants you to land at 18+ months by the end of next month. Your existing investors will entertain a bridge note, but only at terms that step on the next-round price (a 25% discount and a warrant kicker). The market is in a 'capital-efficiency' moment: Bessemer's most recent State of the Cloud report shows median Series-C valuations down 41% YoY and the 'Rule of 40' coming back into vogue.\n\nYou run a 92-person team. Your VP Eng has already mapped out two RIF scenarios (10% and 22%) that hit the runway target. Sales is mid-quarter and any people change before quota close will read as panic; engineering retention is the asset that protects the next-round narrative.",
+    "decisions": [
+      {
+        "prompt": "Which path do you commit to to get to 18 months of runway?",
+        "options": [
+          {
+            "label": "A",
+            "title": "Take the bridge at the 25% discount + warrant",
+            "description": "Accept a $5M insider bridge at a 25% discount to the next priced round with a 10% warrant coverage.",
+            "consequence": "Runway extends cleanly to 22 months, but your next-round optics take a hit — sophisticated outsiders will read the cap table as 'they had to.'",
+            "score": 2
+          },
+          {
+            "label": "B",
+            "title": "10% RIF + tighter spend, no bridge",
+            "description": "Reduce headcount by ~9 roles, freeze hiring, cut T&E and tooling spend by 30%, hold the next round at fair-market terms.",
+            "consequence": "Runway extends to 18.4 months; team morale dips but recovers; you keep the cap table clean for the next round.",
+            "score": 3
+          },
+          {
+            "label": "C",
+            "title": "Aggressive 22% RIF, full focus on profitability",
+            "description": "Cut 20 roles, kill two product lines, and steer toward profitability inside the next 12 months.",
+            "consequence": "Runway extends past 24 months but ARR growth halves; the next round becomes a recap conversation rather than a growth round.",
+            "score": 1
+          }
+        ]
+      },
+      {
+        "prompt": "If you take any reduction, when do you announce it?",
+        "options": [
+          {
+            "label": "A",
+            "title": "Friday this week, before quota close",
+            "description": "Announce on Friday, severed employees gone Monday, all-hands the same day; absorb the quota-close hit.",
+            "consequence": "Some Q-end revenue slips; trust spikes among the people who stay; outside narrative is 'they're acting fast.'",
+            "score": 3
+          },
+          {
+            "label": "B",
+            "title": "Day after quota close (12 days from now)",
+            "description": "Wait the 12 days for the quarter to close, then announce.",
+            "consequence": "Quota lands clean but the rumor mill leaks the plan internally inside a week; trust takes a hit you don't fully recover.",
+            "score": 1
+          },
+          {
+            "label": "C",
+            "title": "Pre-announce intent, then act in two weeks",
+            "description": "All-hands today: 'we're tightening the org over the next two weeks; details by next Friday.' Then execute on a known timeline.",
+            "consequence": "Reduces shock and gives managers time to do calibration well; risks two weeks of distracted execution and one or two voluntary departures from people you wanted to keep.",
+            "score": 2
+          }
+        ]
+      },
+      {
+        "prompt": "How do you message the choice to your team?",
+        "options": [
+          {
+            "label": "A",
+            "title": "Full transparency: numbers, runway, plan",
+            "description": "Share the actual cash, burn, runway, and the math behind the path you chose. Acknowledge what you don't know.",
+            "consequence": "Some employees forward the numbers externally; counterintuitively, recruiters report stronger inbound interest from senior IC candidates who 'respected the post.'",
+            "score": 3
+          },
+          {
+            "label": "B",
+            "title": "Reassuring narrative, no specifics",
+            "description": "Frame as 'we're focusing the business' with no numbers, no runway, no acknowledgement of the decision space.",
+            "consequence": "Short-term calm, longer-term skepticism; engagement scores drop in the next pulse survey.",
+            "score": 1
+          },
+          {
+            "label": "C",
+            "title": "Manager-led 1:1s before any all-hands",
+            "description": "Brief managers Wednesday, equip them with a one-page narrative and FAQ, run individual conversations Thursday-Friday, then an all-hands Monday.",
+            "consequence": "Highest message fidelity but highest leak risk inside the manager layer; net positive when execution is tight.",
+            "score": 2
+          }
+        ]
+      }
+    ],
+    "reflectionQuestions": [
+      "When the same set of facts (9 months of runway, board pressure) leads two CFOs to opposite choices, which assumptions drove the divergence — and which of those assumptions did this simulation force you to make explicit?",
+      "How does taking a bridge note at a 25% discount today compare, on the cap table, to taking a 10% RIF and raising at fair value in 9 months? Sketch the rough math."
+    ],
+    "dataBlocks": [
+      {
+        "block_type": "kpi_cards",
+        "title": "Runway snapshot (start of week)",
+        "data": {
+          "items": [
+            {
+              "label": "Cash",
+              "value": "$9.4M",
+              "subtext": "in operating account"
+            },
+            {
+              "label": "Monthly burn",
+              "value": "$1.05M",
+              "subtext": "trailing-3-month average"
+            },
+            {
+              "label": "Runway",
+              "value": "9.0 mo",
+              "subtext": "at current burn"
+            },
+            {
+              "label": "Headcount",
+              "value": "92",
+              "subtext": "31 eng / 22 GTM / 12 customer / 27 other"
+            }
+          ]
+        }
+      },
+      {
+        "block_type": "line_chart",
+        "title": "Cash trajectory under three paths",
+        "data": {
+          "xLabel": "Month from today",
+          "series": [
+            {
+              "label": "No action",
+              "data": [
+                {
+                  "x": "M0",
+                  "y": 9.4
+                },
+                {
+                  "x": "M3",
+                  "y": 6.25
+                },
+                {
+                  "x": "M6",
+                  "y": 3.1
+                },
+                {
+                  "x": "M9",
+                  "y": 0
+                }
+              ]
+            },
+            {
+              "label": "Bridge $5M",
+              "data": [
+                {
+                  "x": "M0",
+                  "y": 14.4
+                },
+                {
+                  "x": "M6",
+                  "y": 8.1
+                },
+                {
+                  "x": "M12",
+                  "y": 1.8
+                },
+                {
+                  "x": "M18",
+                  "y": -4.5
+                }
+              ]
+            },
+            {
+              "label": "10% RIF",
+              "data": [
+                {
+                  "x": "M0",
+                  "y": 9.4
+                },
+                {
+                  "x": "M6",
+                  "y": 4.8
+                },
+                {
+                  "x": "M12",
+                  "y": 0.5
+                },
+                {
+                  "x": "M18",
+                  "y": -3.5
+                }
+              ]
+            }
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "key": "sales-quota-miss",
+    "authorEmail": "showcase-author-02@example.com",
+    "title": "Enterprise quota miss: pull forward, discount, or hold",
+    "course_topic": "Sales",
+    "difficulty": "easy",
+    "estimated_minutes": 15,
+    "goal": "Decide how a quota-carrying enterprise rep closes a $300K Q4 gap without breaking pricing discipline or trust with the CRO.",
+    "background_content": "You are an enterprise AE at SignalDesk with a $1.2M annual quota, $300K behind plan with 11 days left in Q4. Three deals sit in your pipeline:\n\n- **Acme** — $180K, 80% closed, mutual action plan locked, no discount asked for.\n- **Brando** — $220K, 50% closed, procurement asked for a 'best-and-final' last week.\n- **Caldera** — $410K, 20% closed, executive sponsor changed two weeks ago, decision likely Q1.\n\nYour CRO is publicly skeptical of pull-forward tactics; she calls them 'borrowing from Q1 to embarrass yourself in Q2.' Salesforce's most recent State of Sales report shows that reps who pull forward more than one large deal per year see their full-year quota attainment drop by 18 points the following year. You believe two of these three deals are makeable in Q4 with the right play.",
+    "decisions": [
+      {
+        "prompt": "Which deal do you most aggressively work to close in Q4?",
+        "options": [
+          {
+            "label": "A",
+            "title": "Push Caldera ($410K) to Q4",
+            "description": "Apply maximum pressure on Caldera to land in Q4 — call the new exec sponsor's boss, propose 'pilot now, expand Q1.'",
+            "consequence": "Caldera signs a smaller $90K pilot in Q4, real expansion lands in Q3 next year; you also burn the new sponsor's trust.",
+            "score": 1
+          },
+          {
+            "label": "B",
+            "title": "Lock Acme + run Brando 'best-and-final' clean",
+            "description": "Confirm Acme paperwork by Wednesday and counter Brando's procurement with a tight 'best-and-final' that holds discount under 10%.",
+            "consequence": "Acme lands at $180K, Brando lands at $200K (9% discount), Caldera moves cleanly into Q1 — total Q4 add: $380K, you beat plan.",
+            "score": 3
+          },
+          {
+            "label": "C",
+            "title": "Discount-stack Acme + Brando",
+            "description": "Offer 18% on Acme to lock 'multi-year commit', and 18% on Brando to win the best-and-final outright.",
+            "consequence": "Both close at lower ACV ($150K + $180K). You hit the number, but the discount precedent walks into your renewal conversations next year.",
+            "score": 2
+          }
+        ]
+      },
+      {
+        "prompt": "What discount do you authorize to win Brando?",
+        "options": [
+          {
+            "label": "A",
+            "title": "Hold list price, give value-adds (training, integration credits)",
+            "description": "No discount on ACV. Add 8 hours of premium implementation and a $15K credit for an integration package.",
+            "consequence": "Brando's procurement walks; deal slips to Q1, you miss your Q4 number by ~$120K but renewal pricing stays clean.",
+            "score": 2
+          },
+          {
+            "label": "B",
+            "title": "9% discount with multi-year commit",
+            "description": "Authorize 9% off ACV in exchange for a 24-month pre-paid commit.",
+            "consequence": "Brando signs at $200K; 24-month commit smooths your forecast; CRO posts the deal as a 'how to discount with discipline' example.",
+            "score": 3
+          },
+          {
+            "label": "C",
+            "title": "18% to win it outright",
+            "description": "Match procurement's number — 18% off ACV.",
+            "consequence": "Brando signs at $180K; you hit Q4 but next year your renewal team has to fight to reset price.",
+            "score": 1
+          }
+        ]
+      },
+      {
+        "prompt": "How do you communicate the Q4 plan to your CRO this week?",
+        "options": [
+          {
+            "label": "A",
+            "title": "One-pager: forecast, plan, risk",
+            "description": "Send a one-pager today: forecast number, deal-by-deal plan, named risks, what you need from her (none).",
+            "consequence": "CRO publicly calls out the message in the next sales all-hands as the model way to communicate near the end of a quarter.",
+            "score": 3
+          },
+          {
+            "label": "B",
+            "title": "Wait for the Friday forecast call",
+            "description": "Don't pre-empt the standing forecast call; bring the plan there.",
+            "consequence": "Lose three days of CRO support on Brando; deal still closes but you spend Friday in the hot seat.",
+            "score": 1
+          },
+          {
+            "label": "C",
+            "title": "DM the CRO informally Monday morning",
+            "description": "Slack DM the CRO with the gist; offer to formalize if she wants.",
+            "consequence": "Builds trust quickly, but the lack of a paper trail creates a small surprise in the QBR when finance asks about the Acme term.",
+            "score": 2
+          }
+        ]
+      }
+    ],
+    "reflectionQuestions": [
+      "When does discounting protect a quota number, and when does it quietly destroy a renewal book? Where on that line did your decisions land?",
+      "If you re-ran this sim as the CRO instead of the rep, how would your view of 'pulling forward Caldera' change?"
+    ],
+    "dataBlocks": [
+      {
+        "block_type": "kpi_cards",
+        "title": "Q4 picture (today)",
+        "data": {
+          "items": [
+            {
+              "label": "Quota gap",
+              "value": "$300K",
+              "subtext": "of $1.2M annual plan"
+            },
+            {
+              "label": "Days remaining",
+              "value": "11",
+              "subtext": "Q4 closes Dec 31"
+            },
+            {
+              "label": "Open deals (top-3 ACV)",
+              "value": "$810K",
+              "subtext": "Acme + Brando + Caldera"
+            },
+            {
+              "label": "Trailing 4-Q win rate",
+              "value": "33%",
+              "subtext": "by ACV-weighted opportunities"
+            }
+          ]
+        }
+      },
+      {
+        "block_type": "pie_chart",
+        "title": "Pipeline composition (top-3 deals)",
+        "data": {
+          "labels": [
+            "Acme (Q4 likely)",
+            "Brando (negotiating)",
+            "Caldera (Q1 likely)"
+          ],
+          "values": [
+            180,
+            220,
+            410
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "key": "operations-supplier-failure",
+    "authorEmail": "showcase-author-01@example.com",
+    "title": "Single-source supplier failure during peak season",
+    "course_topic": "Operations Management",
+    "difficulty": "hard",
+    "estimated_minutes": 25,
+    "goal": "Decide how to absorb a six-week supply outage from a single-source vendor of a critical part during the highest-revenue quarter.",
+    "background_content": "You are the COO of Northwall, a mid-market consumer-electronics company that sells a $279 connected security camera through Amazon, Best Buy, and DTC. The injection-molded front bezel for your flagship SKU comes from a single contract manufacturer in Tijuana — they had a fire on the shop floor Friday night that knocks out their tooling for at least six weeks. You sell the bulk of your annual volume between Black Friday and Christmas Eve. You have ~14 days of finished-goods inventory on the SKU and ~21 days of bezel sub-assemblies on hand.\n\nYour board requires a same-week answer on revenue impact and customer communication. Your supply-chain lead has identified two alternatives — a second-source mold available in 18 days at 1.6× cost, or air-freight inventory from EU stock at 2.4× freight cost — and your CMO is asking which retail partners you'll deprioritize if you can't keep all three channels supplied.",
+    "decisions": [
+      {
+        "prompt": "What is the immediate-week supply move?",
+        "options": [
+          {
+            "label": "A",
+            "title": "Air-freight EU stock + spin up second source in parallel",
+            "description": "Pay 2.4× freight to bring 8,000 finished units from the EU warehouse this week, while spinning up the second-source mold for week 4 onwards.",
+            "consequence": "Higher COGS hit (~$1.6M) but DTC and Amazon stay in stock through Cyber Week; Best Buy gets a clear allocation conversation rather than a stockout.",
+            "score": 3
+          },
+          {
+            "label": "B",
+            "title": "Wait for second-source tooling, accept 18-day stockout",
+            "description": "Don't air-freight; let the second-source mold come online in 18 days and accept the gap.",
+            "consequence": "DTC stays in stock for ~14 days then collapses; lost revenue ~$4.2M; Amazon Buy Box ranking drops and takes 6 weeks to recover.",
+            "score": 1
+          },
+          {
+            "label": "C",
+            "title": "Allocate to highest-margin channel only (DTC)",
+            "description": "Pull all remaining inventory from retail partners; sell only through DTC for the next 30 days.",
+            "consequence": "Margin per unit holds; relationships with Best Buy and Amazon take a 12-month chill, and Amazon delists the SKU temporarily for low fulfillment rate.",
+            "score": 2
+          }
+        ]
+      },
+      {
+        "prompt": "How do you communicate to retail partners?",
+        "options": [
+          {
+            "label": "A",
+            "title": "Proactive call today + signed allocation plan by Friday",
+            "description": "Senior buyers at Best Buy and Amazon get a personal call this morning with the supply picture and an allocation plan in writing by Friday.",
+            "consequence": "Buyers grumble but cooperate; both retailers run their own substitute promotions; Northwall is invited back into Best Buy's category review.",
+            "score": 3
+          },
+          {
+            "label": "B",
+            "title": "Wait until you know whether you can rescue them",
+            "description": "Hold communication for a week to see whether the air-freight rescue keeps you whole.",
+            "consequence": "Buyers find out from missed PO acknowledgments; Best Buy charge-backs for late shipments hit ~$280K and the relationship cools.",
+            "score": 1
+          },
+          {
+            "label": "C",
+            "title": "Generic statement to all partners; specifics later",
+            "description": "Send a same-day generic statement to all partners ('temporary supply constraint, plan inbound by week's end'), follow up with specifics when known.",
+            "consequence": "Partners feel respected for the ack but lean on you all week for specifics; you spend operational bandwidth fielding the calls.",
+            "score": 2
+          }
+        ]
+      },
+      {
+        "prompt": "What policy change do you commit to for next year?",
+        "options": [
+          {
+            "label": "A",
+            "title": "Mandatory dual-source for any sole-source >$5M annual spend",
+            "description": "Codify a policy: any component with >$5M annual spend or >40% of a SKU's BOM must be dual-sourced within 12 months.",
+            "consequence": "Adds ~3% to landed cost on affected components but eliminates the recurring single-failure risk; board cites it as risk-discipline win.",
+            "score": 3
+          },
+          {
+            "label": "B",
+            "title": "No change — incident was an outlier",
+            "description": "Treat the fire as an outlier and don't restructure sourcing policy.",
+            "consequence": "Saves money in year one; in year two, a different sole-source vendor (the lens supplier) has its own outage and you're caught flat.",
+            "score": 1
+          },
+          {
+            "label": "C",
+            "title": "Higher safety stock + supplier audit, no dual-source mandate",
+            "description": "Increase safety stock for sole-source components from ~21 days to ~60 days; institute an annual supplier-resilience audit.",
+            "consequence": "Working capital up ~$2.1M; you reduce some risk, but the next major outage still slips through because a 60-day buffer doesn't cover a 90-day outage.",
+            "score": 2
+          }
+        ]
+      }
+    ],
+    "reflectionQuestions": [
+      "Which of your three decisions implicitly traded off COGS against brand or retailer trust? Make the trade-off explicit and defend the side you took.",
+      "Where in this sim did the lessons from Toyota's tier-1 supplier playbook (HBR) most apply? Where did they not, given the consumer-electronics context?"
+    ],
+    "dataBlocks": [
+      {
+        "block_type": "timeline",
+        "title": "First 14 days of the outage",
+        "data": {
+          "events": [
+            {
+              "date": "Day 0 (Fri)",
+              "title": "Fire at sole-source CM",
+              "detail": "Tooling for the front bezel destroyed; supplier estimates 6 weeks to rebuild."
+            },
+            {
+              "date": "Day 1 (Sat)",
+              "title": "Internal incident commander appointed",
+              "detail": "Supply, ops, CX leads on a daily standup."
+            },
+            {
+              "date": "Day 3",
+              "title": "Second-source bid received",
+              "detail": "18 days to first parts, 1.6× unit cost."
+            },
+            {
+              "date": "Day 4",
+              "title": "Air-freight quote from EU",
+              "detail": "8,000 units, 2.4× freight cost, lands Day 8."
+            },
+            {
+              "date": "Day 14",
+              "title": "Today — board check-in",
+              "detail": "Channel allocation and customer communication decisions are due."
+            }
+          ]
+        }
+      },
+      {
+        "block_type": "kpi_cards",
+        "title": "Revenue at risk",
+        "data": {
+          "items": [
+            {
+              "label": "Q4 SKU revenue plan",
+              "value": "$24M",
+              "subtext": "Black Friday → Christmas Eve"
+            },
+            {
+              "label": "Days of finished goods",
+              "value": "14",
+              "subtext": "as of this morning"
+            },
+            {
+              "label": "Days of sub-assemblies",
+              "value": "21",
+              "subtext": "bezel + lens"
+            },
+            {
+              "label": "Channel mix",
+              "value": "DTC 38% / BBY 26% / AMZ 36%",
+              "subtext": "by trailing 90-day units"
+            }
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "key": "ap-env-landfill-nepa",
+    "authorEmail": "showcase-author-04@example.com",
+    "title": "Permitting a regional landfill expansion under NEPA",
+    "course_topic": "AP Environmental Science",
+    "difficulty": "hard",
+    "estimated_minutes": 25,
+    "goal": "Apply NEPA's environmental-review framework to a real-world permitting decision — scope of the EIS, public engagement, and required mitigation.",
+    "background_content": "You are an EPA Region 4 environmental reviewer assigned to the proposed 35-acre expansion of Smithville Landfill in central Georgia. The current footprint is 110 acres, accepts ~1,400 tons/day of municipal solid waste, and has an active gas-collection system. The expansion would extend operating life by ~18 years. The applicant has submitted a draft Environmental Impact Statement (EIS) under the National Environmental Policy Act (NEPA).\n\nKey context: the landfill is 0.7 miles from a majority-Black neighborhood (1980s redlining map), reported emissions on the EPA Toxics Release Inventory have included methane and trace H₂S, and groundwater monitoring wells last quarter showed leachate-indicator chemicals just under MCLs. The state environmental agency wants to accept the applicant's draft as-is. Local residents and a regional environmental-justice coalition are demanding cumulative-impact analysis. You have 45 days to issue your formal scoping decision.",
+    "decisions": [
+      {
+        "prompt": "What scope do you require for the EIS?",
+        "options": [
+          {
+            "label": "A",
+            "title": "Site-specific only (applicant's preferred scope)",
+            "description": "Limit the EIS to direct impacts of the 35-acre expansion footprint — no cumulative-impact analysis, no environmental-justice section.",
+            "consequence": "Quickest path to permit (≈8 months) but draws a Title VI civil-rights complaint and likely a court challenge that delays the project ≈18 months.",
+            "score": 1
+          },
+          {
+            "label": "B",
+            "title": "Cumulative impact + EJ analysis required",
+            "description": "Require cumulative-impact analysis (other regional emitters, groundwater system) and a formal environmental-justice analysis per Executive Order 12898.",
+            "consequence": "Adds ~6 months to permitting but the resulting EIS withstands legal challenge; community trust improves.",
+            "score": 3
+          },
+          {
+            "label": "C",
+            "title": "Cumulative impact only, no EJ section",
+            "description": "Add cumulative-impact analysis but skip the EJ section to save time.",
+            "consequence": "Partial improvement; civil-rights complaint still filed and prevails on the EJ-omission grounds.",
+            "score": 2
+          }
+        ]
+      },
+      {
+        "prompt": "How do you structure public engagement during scoping?",
+        "options": [
+          {
+            "label": "A",
+            "title": "Single public hearing at the county courthouse",
+            "description": "One evening hearing at the county courthouse 14 miles from the affected neighborhood, English only.",
+            "consequence": "Low attendance from the impacted community; public-record concerns are weak and the EJ groups document the access gap.",
+            "score": 1
+          },
+          {
+            "label": "B",
+            "title": "Three hearings, two locations, Spanish + English",
+            "description": "Three hearings: two at a community center inside the affected neighborhood (one daytime, one evening), one at the county courthouse; Spanish interpretation provided.",
+            "consequence": "High-quality public record; comments shape the final scope; community sees the process as legitimate.",
+            "score": 3
+          },
+          {
+            "label": "C",
+            "title": "Online comment portal + 30-day comment window",
+            "description": "Launch an online portal with a 30-day comment window; no in-person hearings.",
+            "consequence": "Fast, but the affected community has lower broadband access; record is dominated by industry submissions.",
+            "score": 2
+          }
+        ]
+      },
+      {
+        "prompt": "Which mitigation requirements do you write into the Record of Decision?",
+        "options": [
+          {
+            "label": "A",
+            "title": "Standard gas-collection upgrades only",
+            "description": "Require enhanced landfill-gas collection and standard groundwater monitoring; no air-monitoring at the property line, no community advisory committee.",
+            "consequence": "Lowest cost to applicant; community continues to report odor incidents that you have no data to investigate.",
+            "score": 1
+          },
+          {
+            "label": "B",
+            "title": "Gas + leachate + property-line air + advisory committee",
+            "description": "Require enhanced gas collection, leachate treatment, continuous fenceline air monitoring (PM2.5, H₂S), a 200-ft vegetative buffer, and a community advisory committee with quarterly reporting.",
+            "consequence": "Adds ~$11M to the project but creates a defensible monitoring record; complaint volume drops 80% in year one.",
+            "score": 3
+          },
+          {
+            "label": "C",
+            "title": "Gas + leachate + groundwater, no air monitoring",
+            "description": "Add leachate treatment and stricter groundwater monitoring but skip air-quality monitoring.",
+            "consequence": "Captures most water-quality risk; community odor concerns remain unaddressed and surface as a re-permitting issue in year five.",
+            "score": 2
+          }
+        ]
+      }
+    ],
+    "reflectionQuestions": [
+      "How does NEPA's procedural focus (scoping, public process, EIS) map to the substantive environmental-justice harms in this case? Where do you think procedure is enough, and where is it insufficient?",
+      "Pick one of the three EPA TRI emissions in the data block. How would you explain to a non-scientist neighbor what the number means and why it matters?"
+    ],
+    "dataBlocks": [
+      {
+        "block_type": "table",
+        "title": "EPA Toxics Release Inventory — Smithville Landfill (last reporting year)",
+        "data": {
+          "headers": [
+            "Pollutant",
+            "On-site air release (lbs/yr)",
+            "Federal MCL or guideline"
+          ],
+          "rows": [
+            [
+              "Methane (CH₄)",
+              "1,840,000",
+              "No federal MCL; fugitive-emission limit per NSPS Subpart Cf"
+            ],
+            [
+              "Hydrogen sulfide (H₂S)",
+              "12,400",
+              "30 µg/m³ acute (CalEPA REL)"
+            ],
+            [
+              "Mercury (Hg)",
+              "9",
+              "No air MCL; drinking-water MCL 2 µg/L"
+            ],
+            [
+              "Vinyl chloride (groundwater MW-3)",
+              "1.2 µg/L",
+              "Drinking-water MCL 2 µg/L"
+            ]
+          ]
+        }
+      },
+      {
+        "block_type": "kpi_cards",
+        "title": "Community context",
+        "data": {
+          "items": [
+            {
+              "label": "Population within 1 mi",
+              "value": "4,820",
+              "subtext": "76% Black or Hispanic"
+            },
+            {
+              "label": "EJScreen demographic index",
+              "value": "92nd",
+              "subtext": "national percentile"
+            },
+            {
+              "label": "Cancer-risk percentile (NATA)",
+              "value": "78th",
+              "subtext": "national percentile"
+            },
+            {
+              "label": "Median household income",
+              "value": "$31,200",
+              "subtext": "vs $58,200 county-wide"
+            }
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "key": "ap-gov-redistricting",
+    "authorEmail": "showcase-author-04@example.com",
+    "title": "Drafting a state redistricting map after Rucho v. Common Cause",
+    "course_topic": "AP US Government & Politics",
+    "difficulty": "challenge",
+    "estimated_minutes": 40,
+    "goal": "Apply Wesberry, Reynolds, Shaw, and Rucho v. Common Cause to a real redistricting cycle — choosing criteria, public process, and submission strategy.",
+    "background_content": "You are the lead staffer to a 9-member state redistricting commission for a swing state with 14 congressional districts. The 2020 census added one district. The state's commission is bipartisan (4 R, 4 D, 1 independent) and must submit a final map within 90 days. After *Rucho v. Common Cause* (2019, 5-4), federal courts are barred from reviewing partisan-gerrymandering claims, leaving state courts and process as the primary checks. Your state's constitution also requires equal population (Wesberry / Reynolds), Voting-Rights-Act compliance (Allen v. Milligan, 2023), and 'reasonable' compactness — but not competitiveness or proportionality.\n\nThe political context: the previous map was struck down by the state supreme court for racial gerrymandering. Two commissioners are running for higher office and have public political brands. National party committees are openly funding 'public-input' campaigns through nonprofits.",
+    "decisions": [
+      {
+        "prompt": "Which criteria do you prioritize, in order, when scoring draft maps?",
+        "options": [
+          {
+            "label": "A",
+            "title": "Equal population only (literal Wesberry compliance)",
+            "description": "Score maps strictly on population equality; let other criteria emerge from public input but don't score them.",
+            "consequence": "Likely VRA-noncompliant; state supreme court strikes down the eventual map; commission's credibility damaged.",
+            "score": 1
+          },
+          {
+            "label": "B",
+            "title": "Equal population → VRA → contiguity → compactness → political fairness",
+            "description": "Adopt a written rubric: equal population first, then VRA §2 compliance, then contiguity and compactness, then a tiebreaker on partisan symmetry.",
+            "consequence": "Defensible in court; final map survives state supreme court review; both major parties claim partial victory.",
+            "score": 3
+          },
+          {
+            "label": "C",
+            "title": "Equal population + VRA, ignore compactness",
+            "description": "Apply only the federal-floor criteria (population + VRA); skip compactness because it's subjective.",
+            "consequence": "Partially defensible; one district draws a bizarre snake shape and is struck down on state-constitutional grounds (Shaw v. Reno reasoning).",
+            "score": 2
+          }
+        ]
+      },
+      {
+        "prompt": "How do you structure public input?",
+        "options": [
+          {
+            "label": "A",
+            "title": "Single statehouse hearing during business hours",
+            "description": "One six-hour hearing at the capitol; written-comment portal open for 14 days.",
+            "consequence": "Low and unrepresentative turnout; later struck down on state-process grounds and forces a 60-day re-do.",
+            "score": 1
+          },
+          {
+            "label": "B",
+            "title": "Five regional hearings + portal, evenings & weekends",
+            "description": "Five regional hearings spread geographically and across weekday evenings and weekend mornings; public portal accepts both written comments and constituent-drawn maps for 60 days.",
+            "consequence": "Strong public record; the commission's draft map incorporates two community-of-interest changes and survives challenge.",
+            "score": 3
+          },
+          {
+            "label": "C",
+            "title": "Online portal only with 30-day comment window",
+            "description": "Online portal with mandatory address verification; no in-person hearings.",
+            "consequence": "Convenient and accessible to the digitally fluent; rural and lower-broadband counties under-represented; opens a Voting Rights Act §2 question.",
+            "score": 2
+          }
+        ]
+      },
+      {
+        "prompt": "Which final-map strategy does the commission submit?",
+        "options": [
+          {
+            "label": "A",
+            "title": "5-4 majority map favoring whoever has the 5th vote",
+            "description": "One faction whips the independent commissioner and submits a 5-4 majority map.",
+            "consequence": "Speed, but minority commissioners file a public dissent and a Brennan Center study scores the map a 'pro-incumbent gerrymander.'",
+            "score": 1
+          },
+          {
+            "label": "B",
+            "title": "8-1 negotiated bipartisan map after iterative scoring",
+            "description": "Spend 30 days iterating maps against the rubric with the independent commissioner as honest broker; submit the version that scores highest with broad commission support.",
+            "consequence": "Slower, but the resulting map clears the state supreme court and earns positive editorial coverage in three of the state's largest papers.",
+            "score": 3
+          },
+          {
+            "label": "C",
+            "title": "Hire an independent expert to draw the final map",
+            "description": "Commission an independent academic to draw the final map; commission ratifies or rejects without amendment.",
+            "consequence": "Procedurally clean; legislators feel cut out and the commission's authority is challenged at next reauthorization.",
+            "score": 2
+          }
+        ]
+      }
+    ],
+    "reflectionQuestions": [
+      "Which of the four landmark cases (Wesberry, Reynolds, Shaw, Rucho) most constrained your decisions in this simulation, and which had the least practical effect? Why?",
+      "Rucho left partisan-gerrymandering claims to state courts and democratic processes. Did your commission process feel like a meaningful check, or did the political incentives still dominate? What would you change?"
+    ],
+    "dataBlocks": [
+      {
+        "block_type": "timeline",
+        "title": "Modern redistricting jurisprudence",
+        "data": {
+          "events": [
+            {
+              "date": "1964",
+              "title": "Wesberry v. Sanders",
+              "detail": "U.S. House districts must have roughly equal population."
+            },
+            {
+              "date": "1964",
+              "title": "Reynolds v. Sims",
+              "detail": "State legislative districts must follow 'one person, one vote.'"
+            },
+            {
+              "date": "1993",
+              "title": "Shaw v. Reno",
+              "detail": "Districts drawn primarily on race must survive strict scrutiny."
+            },
+            {
+              "date": "2019",
+              "title": "Rucho v. Common Cause",
+              "detail": "Federal courts cannot review partisan-gerrymandering claims."
+            },
+            {
+              "date": "2023",
+              "title": "Allen v. Milligan",
+              "detail": "VRA §2 still requires majority-Black districts where population supports them."
+            }
+          ]
+        }
+      },
+      {
+        "block_type": "table",
+        "title": "Commission criteria — federal floor vs your state's constitution",
+        "data": {
+          "headers": [
+            "Criterion",
+            "Federal requirement",
+            "State constitution"
+          ],
+          "rows": [
+            [
+              "Equal population",
+              "Required (Wesberry / Reynolds)",
+              "Required, ±0.5%"
+            ],
+            [
+              "Voting Rights Act §2",
+              "Required (Allen v. Milligan)",
+              "Required"
+            ],
+            [
+              "Contiguity",
+              "Not required",
+              "Required"
+            ],
+            [
+              "Compactness",
+              "Not required",
+              "'Reasonable' (judge-made standard)"
+            ],
+            [
+              "Partisan symmetry",
+              "Not justiciable in federal court (Rucho)",
+              "Optional tiebreaker"
+            ]
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "key": "ap-ush-1850-compromise",
+    "authorEmail": "showcase-author-07@example.com",
+    "title": "1850 Compromise: who gets what in Henry Clay's package",
+    "course_topic": "AP US History",
+    "difficulty": "hard",
+    "estimated_minutes": 25,
+    "goal": "Negotiate the political trade-offs of the Compromise of 1850 from Henry Clay's chief aide's seat — sequencing, concessions, and persuasion strategy.",
+    "background_content": "It is March 1850. You are Henry Clay's chief aide. The Mexican Cession has put five disputes on the Senate's table simultaneously: California's bid to enter as a free state, the territorial status of New Mexico and Utah, the Texas-New Mexico border, the slave trade in the District of Columbia, and Southern demands for a stronger Fugitive Slave Act. Clay has put together a draft 'omnibus' bill bundling all five resolutions. John C. Calhoun is dying but has just delivered a fierce defense of the South's position; Daniel Webster is preparing what he expects to be the speech of his life; Stephen Douglas is privately telling Clay the omnibus will fail and that the issues should be split.\n\nFree states currently outnumber slave states 15-15 in the Senate. The fastest-growing economic forces — railroads, Northern textile mills, Western settlement — are pulling the Union in incompatible directions. President Zachary Taylor opposes the omnibus. Your job: shape Clay's strategy this week.",
+    "decisions": [
+      {
+        "prompt": "How do you structure the legislative push?",
+        "options": [
+          {
+            "label": "A",
+            "title": "Single omnibus bill (Clay's preference)",
+            "description": "Bundle all five resolutions into one bill. Force every senator to take a single up-or-down vote.",
+            "consequence": "Fails — exactly as Stephen Douglas warned. Senators object to different pieces and the omnibus collapses on July 31, 1850.",
+            "score": 1
+          },
+          {
+            "label": "B",
+            "title": "Five separate bills (Douglas's strategy)",
+            "description": "Pass each resolution as its own bill so different majorities can carry different pieces.",
+            "consequence": "All five bills pass between September 9 and 20, 1850 — the historical outcome. The Union holds for another decade; the Fugitive Slave Act inflames Northern abolitionism.",
+            "score": 3
+          },
+          {
+            "label": "C",
+            "title": "Two-bill compromise: California first, package the rest",
+            "description": "Pass California admission alone first to relieve the most acute pressure, then bundle the remaining four in a second omnibus.",
+            "consequence": "California passes; the second bundle still faces the same coalition problems and stalls; eventually splits anyway under Douglas's prodding.",
+            "score": 2
+          }
+        ]
+      },
+      {
+        "prompt": "What is your largest concession to the South?",
+        "options": [
+          {
+            "label": "A",
+            "title": "Stronger Fugitive Slave Act with federal enforcement",
+            "description": "Commit to the harshest version of the Fugitive Slave Act — federal commissioners, no jury trial for the accused, financial incentives for return.",
+            "consequence": "Buys Southern votes for California's admission; ignites a Northern resistance movement, drives Uncle Tom's Cabin (1852), and accelerates abolitionism.",
+            "score": 2
+          },
+          {
+            "label": "B",
+            "title": "Popular sovereignty in New Mexico and Utah",
+            "description": "Leave the slavery question in New Mexico and Utah to the territorial legislatures (popular sovereignty) instead of legislating it from Washington.",
+            "consequence": "Aligns with Douglas; sets the precedent that re-emerges catastrophically in Kansas-Nebraska (1854); short-term tension reduced.",
+            "score": 3
+          },
+          {
+            "label": "C",
+            "title": "DC slave-trade ban only, no other concessions",
+            "description": "Ban only the slave *trade* (not slavery) in the District of Columbia in exchange for California, no other concessions.",
+            "consequence": "Reads as one-sided; Southern senators reject the package and the omnibus's collapse comes faster.",
+            "score": 1
+          }
+        ]
+      },
+      {
+        "prompt": "Which persuasive frame does Clay lead with on the floor?",
+        "options": [
+          {
+            "label": "A",
+            "title": "Constitutional argument: the Union is perpetual",
+            "description": "Anchor Clay's address in constitutional first principles — the perpetuity of the Union, the Founders' design, and the Supreme Court's role.",
+            "consequence": "Plays well in the chamber and in the press; persuades few border-state senators who already share the framing; doesn't move the wavering bloc.",
+            "score": 2
+          },
+          {
+            "label": "B",
+            "title": "Economic argument: railroads, ports, growth",
+            "description": "Argue the practical economics — California's gold, the Pacific railroad, Northern textile demand for Southern cotton.",
+            "consequence": "Wins newspaper editorials; bores the chamber; doesn't materially shift votes on the slavery questions.",
+            "score": 1
+          },
+          {
+            "label": "C",
+            "title": "Moral-rhetorical: 'preservation of the Union' as duty",
+            "description": "Frame the package as the price of preserving the Union itself — invoke duty, sacrifice, and the threat of disunion.",
+            "consequence": "Sets up Webster's famous 'Seventh of March' speech; moves three wavering senators; gives Clay's argument a place in textbooks for 175 years.",
+            "score": 3
+          }
+        ]
+      }
+    ],
+    "reflectionQuestions": [
+      "The 1850 Compromise held the Union together for ten more years. Was that ten years 'won' or 'borrowed'? Make the case both ways.",
+      "Compare Stephen Douglas's split-bill strategy here to his role in Kansas-Nebraska four years later. What does the comparison say about how legislative tactics can outlive their original justification?"
+    ],
+    "dataBlocks": [
+      {
+        "block_type": "kpi_cards",
+        "title": "The Senate, March 1850",
+        "data": {
+          "items": [
+            {
+              "label": "Free states",
+              "value": "15",
+              "subtext": "30 senators"
+            },
+            {
+              "label": "Slave states",
+              "value": "15",
+              "subtext": "30 senators"
+            },
+            {
+              "label": "California's bid",
+              "value": "Free",
+              "subtext": "Would tip Senate balance to free"
+            },
+            {
+              "label": "Disputes on the table",
+              "value": "5",
+              "subtext": "Cal admission · NM/UT status · TX border · DC slave trade · Fugitive Slave Act"
+            }
+          ]
+        }
+      },
+      {
+        "block_type": "timeline",
+        "title": "1850 — from omnibus to five bills",
+        "data": {
+          "events": [
+            {
+              "date": "Jan 29, 1850",
+              "title": "Clay introduces omnibus resolutions",
+              "detail": "Eight resolutions bundling all five disputes."
+            },
+            {
+              "date": "Mar 4, 1850",
+              "title": "Calhoun's last speech",
+              "detail": "Read aloud by Mason; defends Southern position."
+            },
+            {
+              "date": "Mar 7, 1850",
+              "title": "Webster's 'Seventh of March' speech",
+              "detail": "Endorses the compromise; loses Massachusetts allies."
+            },
+            {
+              "date": "Jul 9, 1850",
+              "title": "Pres. Taylor dies",
+              "detail": "Fillmore (pro-compromise) ascends."
+            },
+            {
+              "date": "Jul 31, 1850",
+              "title": "Omnibus collapses",
+              "detail": "Coalition unable to hold all five pieces together."
+            },
+            {
+              "date": "Sep 9-20, 1850",
+              "title": "Five bills pass separately",
+              "detail": "Douglas's strategy succeeds; Compromise of 1850 enacted."
+            }
+          ]
+        }
+      }
+    ]
+  }
+]

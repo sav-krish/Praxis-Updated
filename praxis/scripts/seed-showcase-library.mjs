@@ -21,6 +21,23 @@
  */
 
 import { createClient } from "@supabase/supabase-js";
+import { readFileSync } from "node:fs";
+import { dirname, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
+
+/**
+ * Hand-authored simulation graphs (background, decisions, options, reflection
+ * questions, data blocks) live in a sibling JSON so this script stays small.
+ */
+const SEED_SIMULATIONS_JSON = resolve(
+  __dirname,
+  "data/seed-simulations.json"
+);
+const SEED_SIMULATIONS_GRAPH = JSON.parse(
+  readFileSync(SEED_SIMULATIONS_JSON, "utf8")
+);
 
 const URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const SERVICE_KEY =
@@ -64,104 +81,36 @@ const LIKERS = [
 ];
 
 /**
- * authorEmail must match AUTHORS[].email — titles must stay unique per author for idempotency.
- * course_topic values match src/lib/subjects.ts (Subject selector).
+ * Hand-authored sims with full graphs. Pulled from data/seed-simulations.json
+ * so the catalog stays reviewable. authorEmail must match AUTHORS[].email and
+ * titles stay unique per author so re-runs are idempotent.
  */
-const SIMULATION_SPECS = [
-  {
-    authorEmail: "showcase-author-01@example.com",
-    title: "Surgical supply triage across a three-hospital system",
-    course_topic: "Healthcare Management",
-    difficulty: "challenge",
-    estimated_minutes: 40,
-    goal: "Balance OR schedules, vendor alternatives, and patient safety when a critical supplier fails.",
-    background_content:
-      "A regional health system shares one central sterile-processing partner; a contamination scare forces same-day rationing across campuses.",
-  },
-  {
-    authorEmail: "showcase-author-02@example.com",
-    title: "Piloting an AI resume screener in career services",
-    course_topic: "Human Resources",
-    difficulty: "easy",
-    estimated_minutes: 15,
-    goal: "Decide how far to go with automation before peak recruiting season.",
-    background_content:
-      "Career services wants faster employer matching; student advocates and legal counsel disagree on bias testing and opt-out rules.",
-  },
-  {
-    authorEmail: "showcase-author-03@example.com",
-    title: "Runway vs. vertical: where should this SaaS place its next bet?",
-    course_topic: "Entrepreneurship",
-    difficulty: "hard",
-    estimated_minutes: 25,
-    goal: "Choose between deepening the core ICP or opening a second vertical with limited engineering capacity.",
-    background_content:
-      "Eighteen months of runway, one flagship customer cohort growing fast, and a board slide that shows two incompatible growth curves.",
-  },
-  {
-    authorEmail: "showcase-author-04@example.com",
-    title: "Transit strike countdown: shaping the last-best-offer package",
-    course_topic: "Public Administration",
-    difficulty: "challenge",
-    estimated_minutes: 40,
-    goal: "Thread elected officials, riders, and union priorities before a binding arbitration window closes.",
-    background_content:
-      "A mid-size city’s transit authority faces a mandatory cooling-off period ending in fourteen days; media is already running rider polls.",
-  },
-  {
-    authorEmail: "showcase-author-05@example.com",
-    title: "First climate disclosure on the eve of the earnings call",
-    course_topic: "Environmental Policy",
-    difficulty: "easy",
-    estimated_minutes: 15,
-    goal: "Pick what ships in the inaugural disclosure vs. what waits for the next cycle.",
-    background_content:
-      "A manufacturer’s first TCFD-style appendix is due the night before Q3 guidance; the CFO wants one clear narrative for analysts.",
-  },
-  {
-    authorEmail: "showcase-author-06@example.com",
-    title: "Consumer recall: sequencing legal, comms, and retail partners",
-    course_topic: "Marketing",
-    difficulty: "hard",
-    estimated_minutes: 25,
-    goal: "Order external statements and channel holds when a SKU may have a battery fault.",
-    background_content:
-      "Big-box partners are asking for talking points before your lab sign-off; legal wants no admission of defect until tests complete.",
-  },
-  {
-    authorEmail: "showcase-author-07@example.com",
-    title: "Mid-year scholarship cuts across faculty committees",
-    course_topic: "Education",
-    difficulty: "hard",
-    estimated_minutes: 25,
-    goal: "Allocate a reduced pool while satisfying donor restrictions and access goals.",
-    background_content:
-      "Central admin cut discretionary awards by twenty percent after the census; each college submitted incompatible priority lists.",
-  },
-];
+const SIMULATION_SPECS = SEED_SIMULATIONS_GRAPH.map((sim) => ({
+  authorEmail: sim.authorEmail,
+  title: sim.title,
+  course_topic: sim.course_topic,
+  difficulty: sim.difficulty,
+  estimated_minutes: sim.estimated_minutes,
+  goal: sim.goal,
+  background_content: sim.background_content,
+  decisions: sim.decisions,
+  reflectionQuestions: sim.reflectionQuestions,
+  dataBlocks: sim.dataBlocks,
+}));
 
-/** Top sim gets 10 likes, then 8, 6, 4, 2; remaining sims have no seeded favorites. */
+/**
+ * Favorite plan: distribute likes across the 8 sims so the library has visible
+ * 'top picks' but every sim still has at least a few.
+ */
 const FAVORITE_PLAN = [
-  {
-    simulationTitle: "Surgical supply triage across a three-hospital system",
-    likerEmails: LIKERS.map((l) => l.email),
-  },
-  {
-    simulationTitle: "Piloting an AI resume screener in career services",
-    likerEmails: LIKERS.slice(0, 8).map((l) => l.email),
-  },
-  {
-    simulationTitle: "Runway vs. vertical: where should this SaaS place its next bet?",
-    likerEmails: LIKERS.slice(0, 6).map((l) => l.email),
-  },
-  {
-    simulationTitle: "Transit strike countdown: shaping the last-best-offer package",
-    likerEmails: LIKERS.slice(0, 4).map((l) => l.email),
-  },
-  {
-    simulationTitle: "First climate disclosure on the eve of the earnings call",
-    likerEmails: LIKERS.slice(0, 2).map((l) => l.email),
-  },
+  { simulationTitle: SIMULATION_SPECS[0].title, likerEmails: LIKERS.map((l) => l.email) },
+  { simulationTitle: SIMULATION_SPECS[1].title, likerEmails: LIKERS.slice(0, 9).map((l) => l.email) },
+  { simulationTitle: SIMULATION_SPECS[2].title, likerEmails: LIKERS.slice(0, 8).map((l) => l.email) },
+  { simulationTitle: SIMULATION_SPECS[3].title, likerEmails: LIKERS.slice(0, 6).map((l) => l.email) },
+  { simulationTitle: SIMULATION_SPECS[4].title, likerEmails: LIKERS.slice(0, 5).map((l) => l.email) },
+  { simulationTitle: SIMULATION_SPECS[5].title, likerEmails: LIKERS.slice(0, 4).map((l) => l.email) },
+  { simulationTitle: SIMULATION_SPECS[6].title, likerEmails: LIKERS.slice(0, 3).map((l) => l.email) },
+  { simulationTitle: SIMULATION_SPECS[7].title, likerEmails: LIKERS.slice(0, 2).map((l) => l.email) },
 ];
 
 async function ensureUser(email, password, displayName) {
@@ -259,6 +208,125 @@ async function ensureFavorite(simulationId, userId) {
   throw error;
 }
 
+/**
+ * Insert the 3 decisions + 9 options for a simulation. Idempotent: skips
+ * decisions whose order_num already exists for that simulation.
+ *
+ * UPSERT is avoided because the unique key on (simulation_id, order_num)
+ * doesn't carry the option's `label` so we'd risk duplicating options.
+ */
+async function ensureDecisions(simulationId, decisions) {
+  const { data: existing, error } = await supabase
+    .from("decisions")
+    .select("id, order_num")
+    .eq("simulation_id", simulationId);
+  if (error) throw error;
+  const existingByOrder = new Map(
+    (existing ?? []).map((d) => [d.order_num, d.id])
+  );
+
+  for (let i = 0; i < decisions.length; i++) {
+    const orderNum = i + 1;
+    if (existingByOrder.has(orderNum)) {
+      console.log(`    Decision ${orderNum} exists, skipping.`);
+      continue;
+    }
+    const dec = decisions[i];
+    const { data: insertedDec, error: decErr } = await supabase
+      .from("decisions")
+      .insert({
+        simulation_id: simulationId,
+        order_num: orderNum,
+        prompt: dec.prompt,
+      })
+      .select("id")
+      .single();
+    if (decErr) throw decErr;
+
+    const optionRows = (dec.options ?? []).map((opt) => ({
+      decision_id: insertedDec.id,
+      label: opt.label,
+      title: opt.title,
+      description: opt.description ?? null,
+      consequence: opt.consequence ?? null,
+      score: opt.score ?? 1,
+    }));
+    if (optionRows.length > 0) {
+      const { error: optErr } = await supabase.from("options").insert(optionRows);
+      if (optErr) throw optErr;
+    }
+    console.log(
+      `    Inserted decision ${orderNum} (+${optionRows.length} options).`
+    );
+  }
+}
+
+/**
+ * Insert reflection questions (max 2, by `order_num`). Skips questions whose
+ * order_num is already present for the simulation.
+ */
+async function ensureReflectionQuestions(simulationId, questions) {
+  if (!Array.isArray(questions) || questions.length === 0) return;
+  const { data: existing, error } = await supabase
+    .from("reflection_questions")
+    .select("order_num")
+    .eq("simulation_id", simulationId);
+  if (error) throw error;
+  const existingOrders = new Set((existing ?? []).map((q) => q.order_num));
+
+  const rows = questions
+    .slice(0, 2)
+    .map((q, i) => ({
+      simulation_id: simulationId,
+      order_num: i + 1,
+      question: q,
+    }))
+    .filter((r) => !existingOrders.has(r.order_num));
+
+  if (rows.length === 0) {
+    console.log(`    Reflection questions exist, skipping.`);
+    return;
+  }
+  const { error: insErr } = await supabase
+    .from("reflection_questions")
+    .insert(rows);
+  if (insErr) throw insErr;
+  console.log(`    Inserted ${rows.length} reflection question(s).`);
+}
+
+/**
+ * Insert simulation_data_blocks. Skips by order_num (unique on simulation_id+order_num).
+ */
+async function ensureDataBlocks(simulationId, blocks) {
+  if (!Array.isArray(blocks) || blocks.length === 0) return;
+  const { data: existing, error } = await supabase
+    .from("simulation_data_blocks")
+    .select("order_num")
+    .eq("simulation_id", simulationId);
+  if (error) throw error;
+  const existingOrders = new Set((existing ?? []).map((b) => b.order_num));
+
+  const rows = blocks
+    .map((b, i) => ({
+      simulation_id: simulationId,
+      order_num: i + 1,
+      block_type: b.block_type,
+      title: b.title ?? null,
+      data: b.data,
+    }))
+    .filter((r) => !existingOrders.has(r.order_num));
+
+  if (rows.length === 0) {
+    console.log(`    Data blocks exist, skipping.`);
+    return;
+  }
+  const { error: insErr } = await supabase
+    .from("simulation_data_blocks")
+    .insert(rows);
+  if (insErr) throw insErr;
+  console.log(`    Inserted ${rows.length} data block(s).`);
+}
+
 async function main() {
   console.log("Showcase library seed — starting\n");
 
@@ -290,6 +358,11 @@ async function main() {
     if (!profId) throw new Error(`Missing professor for ${spec.authorEmail}`);
     const id = await ensureSimulation(spec, profId);
     simulationIdByTitle[spec.title] = id;
+
+    // Children: decisions + options, reflection questions, data blocks.
+    await ensureDecisions(id, spec.decisions ?? []);
+    await ensureReflectionQuestions(id, spec.reflectionQuestions ?? []);
+    await ensureDataBlocks(id, spec.dataBlocks ?? []);
   }
 
   console.log("\nFavorites (triggers update favorite_count):");

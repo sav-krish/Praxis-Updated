@@ -17,6 +17,8 @@ export interface Database {
           active_role: 'professor' | 'student'
           is_admin: boolean
           created_at: string
+          tutorial_completed_at: string | null
+          library_show_display_name: boolean
         }
         Insert: {
           id: string
@@ -25,6 +27,8 @@ export interface Database {
           active_role?: 'professor' | 'student'
           is_admin?: boolean
           created_at?: string
+          tutorial_completed_at?: string | null
+          library_show_display_name?: boolean
         }
         Update: {
           id?: string
@@ -33,6 +37,8 @@ export interface Database {
           active_role?: 'professor' | 'student'
           is_admin?: boolean
           created_at?: string
+          tutorial_completed_at?: string | null
+          library_show_display_name?: boolean
         }
         Relationships: []
       }
@@ -676,7 +682,16 @@ export interface Database {
       }
     }
     Views: {
-      [_ in never]: never
+      session_metrics_v: {
+        Row: {
+          session_id: string
+          simulation_id: string
+          participant_count: number | null
+          response_count: number | null
+          reflection_participant_count: number | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       admin_session_counts_by_simulation: {
@@ -697,6 +712,13 @@ export interface Database {
           subject: string
           source_filename: string
           similarity: number
+        }[]
+      }
+      library_author_display_names: {
+        Args: { prof_ids: string[] }
+        Returns: {
+          professor_id: string
+          display_name: string | null
         }[]
       }
     }

@@ -34,6 +34,7 @@ export default async function ProfilePage() {
         email={user.email || ""}
         name={professor?.name || user.user_metadata?.name || ""}
         activeRole={professor?.active_role || "professor"}
+        libraryShowDisplayName={Boolean(professor?.library_show_display_name)}
         isAdmin={admin}
       />
     </div>

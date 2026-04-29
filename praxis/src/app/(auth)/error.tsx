@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
+import { logger } from "@/lib/logger";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -14,7 +15,7 @@ export default function AuthError({
   reset: () => void;
 }) {
   useEffect(() => {
-    console.error("[auth error]", error);
+    logger.error("[auth error]", error);
   }, [error]);
 
   return (

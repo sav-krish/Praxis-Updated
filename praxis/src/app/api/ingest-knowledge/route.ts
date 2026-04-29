@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { extractTextFromFiles } from "@/lib/file-parser";
+import { logger } from "@/lib/logger";
 import { chunkText, embedText } from "@/lib/knowledge-base";
 
 export async function POST(request: NextRequest) {
@@ -51,7 +52,7 @@ export async function POST(request: NextRequest) {
         });
 
         if (error) {
-          console.error(`Failed to insert chunk ${i} from ${file.name}:`, error);
+          logger.error(`Failed to insert chunk ${i} from ${file.name}:`, error);
         } else {
           totalChunks++;
         }
@@ -64,7 +65,7 @@ export async function POST(request: NextRequest) {
       totalChunks,
     });
   } catch (error) {
-    console.error("[ingest-knowledge] Error:", error);
+    logger.error("[ingest-knowledge] Error:", error);
     return NextResponse.json(
       { error: error instanceof Error ? error.message : "Ingestion failed" },
       { status: 500 }

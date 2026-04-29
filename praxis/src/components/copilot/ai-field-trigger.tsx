@@ -26,7 +26,7 @@ function cleanAiResponse(raw: string, fieldLabel: string): string {
 interface AiFieldTriggerProps {
   fieldLabel: string;
   onApply: (value: string) => void;
-  previousValue?: string;
+  /** Optional rollback when applying AI edits (wired by parent patterns). */
   onUndo?: () => void;
   context?: Record<string, string>;
   className?: string;
@@ -35,7 +35,6 @@ interface AiFieldTriggerProps {
 export function AiFieldTrigger({
   fieldLabel,
   onApply,
-  previousValue,
   onUndo,
   context,
   className,

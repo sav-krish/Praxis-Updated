@@ -7,15 +7,17 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Search } from "lucide-react";
+import { FadeIn } from "@/components/landing/fade-in";
+import { APP_TILE_BACKGROUNDS } from "@/lib/app-tile-backgrounds";
 import { toast } from "sonner";
 import { LibrarySimulationCard } from "@/components/simulation/library-simulation-card";
 import type { LibrarySimulationRow } from "@/types/library";
+import {
+  SIMULATION_CARD_GRID_CLASS,
+  SIMULATION_CARD_GRID_ITEM_CLASS,
+} from "@/lib/simulation-card-layout";
 
 export type { LibrarySimulationRow };
-
-/** As many ~320px columns as fit per row (wraps); tracks shrink only below 320px when the row is narrower than 320px. */
-const LIBRARY_SIM_GRID =
-  "mt-4 grid w-full gap-4 [grid-template-columns:repeat(auto-fill,minmax(min(100%,320px),320px))] [justify-content:start]";
 
 interface LibraryViewProps {
   simulations: LibrarySimulationRow[];
@@ -45,6 +47,17 @@ export function LibraryView({
   const [favorites, setFavorites] = useState<Set<string>>(new Set(initialFavorites));
   const [togglingFavorite, setTogglingFavorite] = useState<string | null>(null);
   const [searchInput, setSearchInput] = useState(currentQuery);
+
+  // Pin the tour anchor to the FIRST simulation that will actually render
+  // on the page. Flagship strip first, then community favorites, then the
+  // generic results grid. Without this fallback, environments without seeded
+  // flagship/top sims would never receive the favorite-button anchor and
+  // NextStep would fall back to a centered card with no spotlight.
+  const tourAnchorSimId =
+    flagshipSimulations[0]?.id ??
+    topSimulations[0]?.id ??
+    simulations[0]?.id ??
+    null;
 
   const toggleFavorite = async (simulationId: string) => {
     if (!userId) {
@@ -96,9 +109,17 @@ export function LibraryView({
 
   return (
     <div className="space-y-8">
-      <div>
-        <h1 className="text-2xl sm:text-3xl font-bold">Simulation Library</h1>
-      </div>
+      <FadeIn>
+        <div
+          className={`rounded-3xl p-6 sm:p-8 shadow-[var(--shadow-soft)] ring-1 ring-border/60 ${APP_TILE_BACKGROUNDS[1]}`}
+        >
+          <h1 className="text-2xl sm:text-3xl font-bold">Simulation Library</h1>
+          <p className="mt-2 max-w-2xl text-sm text-muted-foreground">
+            Discover community-built simulations, filter by subject, and copy one into your account to edit and run
+            in class.
+          </p>
+        </div>
+      </FadeIn>
 
       {flagshipSimulations.length > 0 && (
         <section>
@@ -108,15 +129,16 @@ export function LibraryView({
               Curated simulations highlighted by the Praxis team.
             </p>
           </div>
-          <div className={LIBRARY_SIM_GRID}>
+          <div className={`mt-4 ${SIMULATION_CARD_GRID_CLASS}`}>
             {flagshipSimulations.map((sim) => (
-              <div key={sim.id} className="min-w-0 w-full">
+              <div key={sim.id} className={SIMULATION_CARD_GRID_ITEM_CLASS}>
                 <LibrarySimulationCard
                   variant="spotlight"
                   sim={sim}
                   isFavorite={favorites.has(sim.id)}
                   favoritePending={togglingFavorite === sim.id}
                   onToggleFavorite={() => toggleFavorite(sim.id)}
+                  isTourFavoriteAnchor={sim.id === tourAnchorSimId}
                 />
               </div>
             ))}
@@ -133,14 +155,15 @@ export function LibraryView({
               Simulations educators save most often.
             </p>
           </div>
-          <div className={LIBRARY_SIM_GRID}>
+          <div className={`mt-4 ${SIMULATION_CARD_GRID_CLASS}`}>
             {topSimulations.map((sim) => (
-              <div key={sim.id} className="min-w-0 w-full">
+              <div key={sim.id} className={SIMULATION_CARD_GRID_ITEM_CLASS}>
                 <LibrarySimulationCard
                   sim={sim}
                   isFavorite={favorites.has(sim.id)}
                   favoritePending={togglingFavorite === sim.id}
                   onToggleFavorite={() => toggleFavorite(sim.id)}
+                  isTourFavoriteAnchor={sim.id === tourAnchorSimId}
                 />
               </div>
             ))}
@@ -150,9 +173,6 @@ export function LibraryView({
 
       {/* Search + Filters */}
       <section className="space-y-4">
-        <div className="flex items-center gap-2 mb-2">
-          <h2 className="text-lg font-semibold">Browse and discover community-shared simulations</h2>
-        </div>
         <div className="flex flex-col sm:flex-row gap-3">
           <form onSubmit={handleSearch} className="flex gap-2 flex-1">
             <div className="relative flex-1">
@@ -220,14 +240,15 @@ export function LibraryView({
           )}
         </div>
       ) : (
-        <div className={LIBRARY_SIM_GRID}>
+        <div className={`mt-4 ${SIMULATION_CARD_GRID_CLASS}`}>
           {simulations.map((sim) => (
-            <div key={sim.id} className="min-w-0 w-full">
+            <div key={sim.id} className={SIMULATION_CARD_GRID_ITEM_CLASS}>
               <LibrarySimulationCard
                 sim={sim}
                 isFavorite={favorites.has(sim.id)}
                 favoritePending={togglingFavorite === sim.id}
                 onToggleFavorite={() => toggleFavorite(sim.id)}
+                isTourFavoriteAnchor={sim.id === tourAnchorSimId}
               />
             </div>
           ))}

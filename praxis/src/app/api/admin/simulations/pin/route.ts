@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { createClient, createServiceRoleClient } from "@/lib/supabase/server";
 import { isAdmin } from "@/lib/admin";
+import { logger } from "@/lib/logger";
 
 const bodySchema = z.object({
   simulationId: z.string().uuid(),
@@ -77,7 +78,7 @@ export async function POST(request: NextRequest) {
     .eq("id", simulationId);
 
   if (updateError) {
-    console.error(updateError);
+    logger.error(updateError);
     return NextResponse.json({ error: "Failed to update pin" }, { status: 500 });
   }
 

@@ -1,4 +1,9 @@
 # Reference materials (not part of the app)
+
+# Local case-study bulk-import folders (large PDFs; user-specific)
+praxis/Praxis_simulations/
+praxis/praxis_simulations/
+
 *.pdf
 *.docx
 *.doc
@@ -22,12 +27,11 @@ yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
 
-# env files
+# env files (secrets — never commit)
 .env
-.env.local
-.env.development.local
-.env.test.local
-.env.production.local
+.env.*
+!.env.local.example
+!.praxis/.env.local.example
 
 # macOS
 .DS_Store

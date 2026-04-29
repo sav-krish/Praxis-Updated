@@ -1,7 +1,7 @@
-# Praxis — Cursor Implementation Guide
+# Praxis — Feature implementation guide
 **4 Features, Ordered by Priority**
 
-> Paste each section into Cursor's composer (Cmd+I / Ctrl+I) one feature at a time. Complete and test each feature before moving to the next.
+> Historical step-by-step notes: work through one feature at a time in your editor, test before moving on.
 
 ---
 

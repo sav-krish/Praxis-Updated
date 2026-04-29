@@ -1,0 +1,329 @@
+--- a/dist/SmoothSpotlight.js
++++ b/dist/SmoothSpotlight.js
+@@ -1,10 +1,16 @@
+ import { jsx as _jsx, jsxs as _jsxs } from "react/jsx-runtime";
+ import { motion } from 'motion/react';
+ const SmoothSpotlight = ({ x, y, width, height, padding, radius, shadowOpacity, shadowRgb, zIndex, }) => {
+-    const px = x - padding / 2;
+-    const py = y - padding / 2;
+-    const pw = width + padding;
+-    const ph = height + padding;
++    // Patched: NextStepReact already pre-pads (x, y, width, height) by `padding`
++    // before handing them off — applying `padding / 2` again here shifted the
++    // cutout up-left by padding/2 and oversized it by padding on every side,
++    // which is what produced the visible offset between the dark hole and the
++    // pointer rectangle / card arrow. Use the rect verbatim.
++    void padding;
++    const px = x;
++    const py = y;
++    const pw = width;
++    const ph = height;
+     return (_jsx("div", { style: {
+             position: 'absolute',
+             inset: 0,
+--- a/src/SmoothSpotlight.tsx
++++ b/src/SmoothSpotlight.tsx
+@@ -26,10 +26,16 @@
+   shadowRgb,
+   zIndex,
+ }) => {
+-  const px = x - padding / 2;
+-  const py = y - padding / 2;
+-  const pw = width + padding;
+-  const ph = height + padding;
++  // Patched: NextStepReact already pre-pads (x, y, width, height) by `padding`
++  // before handing them off — applying `padding / 2` again here shifted the
++  // cutout up-left by padding/2 and oversized it by padding on every side,
++  // which is what produced the visible offset between the dark hole and the
++  // pointer rectangle / card arrow. Use the rect verbatim.
++  void padding;
++  const px = x;
++  const py = y;
++  const pw = width;
++  const ph = height;
+ 
+   return (
+     <div
+--- a/dist/NextStepReact.js
++++ b/dist/NextStepReact.js
+@@ -111,19 +111,22 @@
+                     setPointerPosition(getElementPosition(element));
+                     currentElementRef.current = element;
+                     setElementToScroll(element);
+-                    const rect = element.getBoundingClientRect();
+-                    const isInViewportWithOffset = rect.top >= -offset && rect.bottom <= window.innerHeight + offset;
+-                    if (!isInViewportWithOffset) {
+-                        const side = checkSideCutOff(currentTourSteps?.[currentStep]?.side || 'right');
+-                        element.scrollIntoView({
+-                            behavior: 'smooth',
+-                            block: side.includes('top')
+-                                ? 'end'
+-                                : side.includes('bottom')
+-                                    ? 'start'
+-                                    : 'center',
+-                        });
+-                    }
++                    // Patched: skip the `isInViewportWithOffset` heuristic — it
++                    // ignores sticky headers/footers and reports elements
++                    // partially hidden behind them as "already visible".
++                    // `scrollIntoView` is a no-op when the element is already
++                    // at the right position, and the host app's
++                    // `scroll-margin-top` on `[data-tour]` enforces the
++                    // landing offset. Result: every step lands predictably.
++                    const side = checkSideCutOff(currentTourSteps?.[currentStep]?.side || 'right');
++                    element.scrollIntoView({
++                        behavior: 'smooth',
++                        block: side.includes('top')
++                            ? 'end'
++                            : side.includes('bottom')
++                                ? 'start'
++                                : 'center',
++                    });
+                 }
+             }
+             else {
+@@ -239,19 +242,22 @@
+                     setPointerPosition(getElementPosition(element));
+                     currentElementRef.current = element;
+                     setElementToScroll(element);
+-                    const rect = element.getBoundingClientRect();
+-                    const isInViewportWithOffset = rect.top >= -offset && rect.bottom <= window.innerHeight + offset;
+-                    if (!isInViewportWithOffset) {
+-                        const side = checkSideCutOff(currentTourSteps?.[currentStep]?.side || 'right');
+-                        element.scrollIntoView({
+-                            behavior: 'smooth',
+-                            block: side.includes('top')
+-                                ? 'end'
+-                                : side.includes('bottom')
+-                                    ? 'start'
+-                                    : 'center',
+-                        });
+-                    }
++                    // Patched: skip the `isInViewportWithOffset` heuristic — it
++                    // ignores sticky headers/footers and reports elements
++                    // partially hidden behind them as "already visible".
++                    // `scrollIntoView` is a no-op when the element is already
++                    // at the right position, and the host app's
++                    // `scroll-margin-top` on `[data-tour]` enforces the
++                    // landing offset. Result: every step lands predictably.
++                    const side = checkSideCutOff(currentTourSteps?.[currentStep]?.side || 'right');
++                    element.scrollIntoView({
++                        behavior: 'smooth',
++                        block: side.includes('top')
++                            ? 'end'
++                            : side.includes('bottom')
++                                ? 'start'
++                                : 'center',
++                    });
+                 }
+             }
+             else {
+@@ -346,6 +352,30 @@
+         }
+     }, [currentStep, currentTourSteps, isNextStepVisible]);
+     // - -
++    // Patched: keep the spotlight glued to the target on user scroll.
++    // `position: sticky` anchors (e.g. items inside a sticky header) have a
++    // document-coordinate position that *changes* with scroll, but the base
++    // library only recomputes `pointerPosition` on resize — so scrolling
++    // visually detaches the cutout from the element. A passive,
++    // rAF-throttled scroll listener is cheap and resolves this for every
++    // anchor type (sticky, fixed, or in-flow).
++    useEffect(() => {
++        if (!isNextStepVisible) return;
++        let raf = 0;
++        const onScroll = () => {
++            if (raf) return;
++            raf = window.requestAnimationFrame(() => {
++                raf = 0;
++                updatePointerPosition();
++            });
++        };
++        window.addEventListener('scroll', onScroll, { passive: true });
++        return () => {
++            window.removeEventListener('scroll', onScroll);
++            if (raf) window.cancelAnimationFrame(raf);
++        };
++    }, [currentStep, currentTourSteps, isNextStepVisible]);
++    // - -
+     // Update document height on window resize
+     useEffect(() => {
+         const updateDocumentHeight = () => {
+@@ -506,19 +536,17 @@
+             if (selector) {
+                 const element = document.querySelector(selector);
+                 if (element) {
+-                    const { top } = element.getBoundingClientRect();
+-                    const isInViewport = top >= -offset && top <= window.innerHeight + offset;
+-                    if (!isInViewport) {
+-                        const side = checkSideCutOff(currentTourSteps?.[stepIndex]?.side || 'right');
+-                        element.scrollIntoView({
+-                            behavior: 'smooth',
+-                            block: side.includes('top')
+-                                ? 'end'
+-                                : side.includes('bottom')
+-                                    ? 'start'
+-                                    : 'center',
+-                        });
+-                    }
++                    // Patched: always scroll on step change. See note above
++                    // re: sticky-header occlusion + `scroll-margin-top`.
++                    const side = checkSideCutOff(currentTourSteps?.[stepIndex]?.side || 'right');
++                    element.scrollIntoView({
++                        behavior: 'smooth',
++                        block: side.includes('top')
++                            ? 'end'
++                            : side.includes('bottom')
++                                ? 'start'
++                                : 'center',
++                    });
+                     // Update pointer position after scrolling
+                     setPointerPosition(getElementPosition(element));
+                 }
+--- a/src/NextStepReact.tsx
++++ b/src/NextStepReact.tsx
+@@ -153,23 +153,23 @@
+           currentElementRef.current = element;
+           setElementToScroll(element);
+ 
+-          const rect = element.getBoundingClientRect();
+-          const isInViewportWithOffset =
+-            rect.top >= -offset && rect.bottom <= window.innerHeight + offset;
+-
+-          if (!isInViewportWithOffset) {
+-            const side = checkSideCutOff(
+-              currentTourSteps?.[currentStep]?.side || 'right',
+-            );
+-            element.scrollIntoView({
+-              behavior: 'smooth',
+-              block: side.includes('top')
+-                ? 'end'
+-                : side.includes('bottom')
+-                ? 'start'
+-                : 'center',
+-            });
+-          }
++          // Patched: skip the `isInViewportWithOffset` heuristic — it
++          // ignores sticky headers/footers and reports elements partially
++          // hidden behind them as "already visible". `scrollIntoView` is a
++          // no-op when the element is already at the right position, and
++          // the host app's `scroll-margin-top` on `[data-tour]` enforces
++          // the landing offset. Result: every step lands predictably.
++          const side = checkSideCutOff(
++            currentTourSteps?.[currentStep]?.side || 'right',
++          );
++          element.scrollIntoView({
++            behavior: 'smooth',
++            block: side.includes('top')
++              ? 'end'
++              : side.includes('bottom')
++              ? 'start'
++              : 'center',
++          });
+         }
+       } else {
+         // Reset pointer position to middle of the screen when selector is empty, undefined, or ""
+@@ -300,23 +300,23 @@
+           currentElementRef.current = element;
+           setElementToScroll(element);
+ 
+-          const rect = element.getBoundingClientRect();
+-          const isInViewportWithOffset =
+-            rect.top >= -offset && rect.bottom <= window.innerHeight + offset;
+-
+-          if (!isInViewportWithOffset) {
+-            const side = checkSideCutOff(
+-              currentTourSteps?.[currentStep]?.side || 'right',
+-            );
+-            element.scrollIntoView({
+-              behavior: 'smooth',
+-              block: side.includes('top')
+-                ? 'end'
+-                : side.includes('bottom')
+-                ? 'start'
+-                : 'center',
+-            });
+-          }
++          // Patched: skip the `isInViewportWithOffset` heuristic — it
++          // ignores sticky headers/footers and reports elements partially
++          // hidden behind them as "already visible". `scrollIntoView` is a
++          // no-op when the element is already at the right position, and
++          // the host app's `scroll-margin-top` on `[data-tour]` enforces
++          // the landing offset. Result: every step lands predictably.
++          const side = checkSideCutOff(
++            currentTourSteps?.[currentStep]?.side || 'right',
++          );
++          element.scrollIntoView({
++            behavior: 'smooth',
++            block: side.includes('top')
++              ? 'end'
++              : side.includes('bottom')
++              ? 'start'
++              : 'center',
++          });
+         }
+       } else {
+         // Reset pointer position to middle of the screen when selector is empty, undefined, or ""
+@@ -414,6 +414,31 @@
+   }, [currentStep, currentTourSteps, isNextStepVisible]);
+ 
+   // - -
++  // Patched: keep the spotlight glued to the target on user scroll.
++  // `position: sticky` anchors (e.g. items inside a sticky header) have a
++  // document-coordinate position that *changes* with scroll, but the base
++  // library only recomputes `pointerPosition` on resize — so scrolling
++  // visually detaches the cutout from the element. A passive,
++  // rAF-throttled scroll listener is cheap and resolves this for every
++  // anchor type (sticky, fixed, or in-flow).
++  useEffect(() => {
++    if (!isNextStepVisible) return;
++    let raf = 0;
++    const onScroll = () => {
++      if (raf) return;
++      raf = window.requestAnimationFrame(() => {
++        raf = 0;
++        updatePointerPosition();
++      });
++    };
++    window.addEventListener('scroll', onScroll, { passive: true });
++    return () => {
++      window.removeEventListener('scroll', onScroll);
++      if (raf) window.cancelAnimationFrame(raf);
++    };
++  }, [currentStep, currentTourSteps, isNextStepVisible]);
++
++  // - -
+   // Update document height on window resize
+   useEffect(() => {
+     const updateDocumentHeight = () => {
+@@ -596,19 +621,17 @@
+       if (selector) {
+         const element = document.querySelector(selector) as Element | null;
+         if (element) {
+-          const { top } = element.getBoundingClientRect();
+-          const isInViewport = top >= -offset && top <= window.innerHeight + offset;
+-          if (!isInViewport) {
+-            const side = checkSideCutOff(currentTourSteps?.[stepIndex]?.side || 'right');
+-            element.scrollIntoView({
+-              behavior: 'smooth',
+-              block: side.includes('top')
+-                ? 'end'
+-                : side.includes('bottom')
+-                ? 'start'
+-                : 'center',
+-            });
+-          }
++          // Patched: always scroll on step change. See note above re:
++          // sticky-header occlusion + `scroll-margin-top`.
++          const side = checkSideCutOff(currentTourSteps?.[stepIndex]?.side || 'right');
++          element.scrollIntoView({
++            behavior: 'smooth',
++            block: side.includes('top')
++              ? 'end'
++              : side.includes('bottom')
++              ? 'start'
++              : 'center',
++          });
+           // Update pointer position after scrolling
+           setPointerPosition(getElementPosition(element));
+         }

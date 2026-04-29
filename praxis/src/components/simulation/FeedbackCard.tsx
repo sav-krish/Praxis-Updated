@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { logger } from "@/lib/logger";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -98,7 +99,7 @@ export function FeedbackCard({
 
     if (error) {
       toast.error("Could not save feedback");
-      console.error(error);
+      logger.error(error);
     } else {
       setSubmitted(true);
       toast.success("Thanks for the feedback!");

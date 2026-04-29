@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { logger } from "@/lib/logger";
 
 interface PageProps {
   params: Promise<{ id: string }>;
@@ -47,7 +48,7 @@ export default async function NewSessionPage({ params }: PageProps) {
     .single();
 
   if (error || !session) {
-    console.error(error);
+    logger.error(error);
     redirect("/dashboard");
   }
 

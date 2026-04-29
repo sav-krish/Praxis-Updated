@@ -1,8 +1,9 @@
 "use client";
 
 import { useState, useRef, useEffect, useCallback } from "react";
+import Image from "next/image";
 import dynamic from "next/dynamic";
-import { Bot, X, Send, RotateCcw, Zap, CheckCircle2, Loader2, Sparkles, Undo2 } from "lucide-react";
+import { X, Send, RotateCcw, Zap, CheckCircle2, Loader2, Sparkles, Undo2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -130,14 +131,27 @@ export function CopilotPanel({ context, onAction, onUndo, open, onToggle, focuse
       {/* FAB */}
       <button
         onClick={onToggle}
+        data-tour="copilot-fab"
         className={cn(
-          "fixed bottom-4 right-4 sm:bottom-6 sm:right-6 z-50 flex h-11 w-11 sm:h-12 sm:w-12 items-center justify-center rounded-full shadow-lg transition-all duration-300",
-          "bg-linear-to-br from-purple-500 to-cyan-500 text-white hover:from-purple-600 hover:to-cyan-600",
-          open && "rotate-12 animate-copilot-glow"
+          "fixed bottom-4 right-4 sm:bottom-6 sm:right-6 z-50 flex h-11 w-11 sm:h-12 sm:w-12 items-center justify-center rounded-full shadow-lg transition-all duration-300 ring-2 ring-white",
+          open
+            ? "bg-linear-to-br from-purple-500 to-cyan-500 text-white hover:from-purple-600 hover:to-cyan-600 rotate-12 animate-copilot-glow"
+            : "bg-white hover:scale-105"
         )}
         aria-label={open ? "Close Praxis Copilot" : "Open Praxis Copilot"}
       >
-        {open ? <X className="h-5 w-5" /> : <Bot className="h-5 w-5" />}
+        {open ? (
+          <X className="h-5 w-5" />
+        ) : (
+          <Image
+            src="/logo.jpg"
+            alt="Praxis"
+            width={32}
+            height={32}
+            className="h-7 w-7 sm:h-8 sm:w-8 rounded-full object-cover"
+            priority
+          />
+        )}
       </button>
 
       {/* Floating chat panel */}
@@ -162,7 +176,13 @@ export function CopilotPanel({ context, onAction, onUndo, open, onToggle, focuse
             {/* Header */}
             <div className="flex items-center justify-between border-b px-3 sm:px-4 py-2.5 shrink-0">
               <div className="flex items-center gap-2 min-w-0">
-                <Bot className="h-4 w-4 text-primary shrink-0" />
+                <Image
+                  src="/logo.jpg"
+                  alt="Praxis"
+                  width={20}
+                  height={20}
+                  className="h-5 w-5 rounded-full object-cover shrink-0"
+                />
                 <span className="font-semibold text-sm">Praxis Copilot</span>
               </div>
               <div className="flex gap-1">
@@ -198,60 +218,42 @@ export function CopilotPanel({ context, onAction, onUndo, open, onToggle, focuse
             {/* Messages */}
             <ScrollArea className="flex-1 px-3 sm:px-4 py-3">
               {messages.length === 0 && (
-                <div className="space-y-2 text-sm text-muted-foreground">
-                  <p className="font-medium text-foreground">Hi! I&apos;m your Praxis Copilot</p>
-                  {focusedSection ? (
-                    <p>
-                      Ready to edit <strong className="text-foreground">{focusedSection.label}</strong>. Describe what you want changed.
-                    </p>
-                  ) : (
-                    <p>I can <strong className="text-foreground">directly edit</strong> your simulation:</p>
-                  )}
-                  {!focusedSection && (
-                    <ul className="list-disc pl-4 space-y-1 text-xs">
-                      <li>Rewrite or improve any text field</li>
-                      <li>Add or edit charts, tables, KPI cards, and timelines (Apply, then Undo if needed)</li>
-                      <li>Remove, shorten, or expand content</li>
-                      <li>Make decisions more realistic and draft reflection questions</li>
-                    </ul>
-                  )}
-                  <p className="text-xs">
-                    {focusedSection
-                      ? <em>e.g. &quot;Make it more concise&quot; or &quot;Add more detail&quot;</em>
-                      : <>Try: <em>&quot;Remove the second paragraph of the background&quot;</em></>}
-                  </p>
-
-                  <div className="flex flex-wrap gap-1.5 mt-3">
-                    {(focusedSection
+                <div className="flex flex-wrap gap-1.5">
+                  {(focusedSection
+                    ? [
+                        "Improve this section",
+                        "Make it more concise",
+                        "More detail",
+                        "Make it more challenging",
+                      ]
+                    : onAction
                       ? [
-                          "Improve this section",
-                          "Make it more concise",
-                          "More detail",
-                          "Make it more challenging",
+                          "Improve the background",
+                          "Add a bar chart for the KPIs",
+                          "Rewrite Decision 1",
+                          "Edit",
                         ]
-                      : onAction
-                        ? [
-                            "Improve the background",
-                            "Add a bar chart for the KPIs",
-                            "Rewrite Decision 1",
-                            "Better consequences",
-                          ]
-                        : [
-                            "Simulation ideas",
-                            "Help write a decision",
-                            "Good consequences?",
-                            "Reflection questions",
-                          ]
-                    ).map((chip) => (
-                      <button
-                        key={chip}
-                        className="text-xs rounded-full border px-2.5 py-1 hover:bg-muted transition-colors"
-                        onClick={() => send(chip, mergedContext())}
-                      >
-                        {chip}
-                      </button>
-                    ))}
-                  </div>
+                      : [
+                          "Simulation ideas",
+                          "Help write a decision",
+                          "Edit",
+                          "Reflection questions",
+                        ]
+                  ).map((chip) => (
+                    <button
+                      key={chip}
+                      type="button"
+                      className="text-xs rounded-full border px-2.5 py-1 hover:bg-muted transition-colors"
+                      onClick={() => {
+                        // Prefill the textarea so the user can tweak the prompt
+                        // before sending, instead of firing off the chip verbatim.
+                        setInput(chip);
+                        requestAnimationFrame(() => inputRef.current?.focus());
+                      }}
+                    >
+                      {chip}
+                    </button>
+                  ))}
                 </div>
               )}
               {messages.map((m, i) => (

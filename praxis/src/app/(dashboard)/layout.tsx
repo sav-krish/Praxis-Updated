@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import Image from "next/image";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { Button } from "@/components/ui/button";
@@ -10,20 +11,12 @@ import {
   DropdownMenuTrigger 
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import {
-  LogOut,
-  Plus,
-  BookOpen,
-  User,
-  Mail,
-  MessageSquareHeart,
-  CreditCard,
-  Home,
-  Pin,
-  BarChart3,
-} from "lucide-react";
+import { LogOut, Plus, BookOpen, User, Mail, MessageSquareHeart, CreditCard, Home, BarChart3, Pin } from "lucide-react";
 import { createServiceRoleClient } from "@/lib/supabase/server";
 import { CopilotLazy } from "@/components/copilot/copilot-lazy";
+import { ReplayTutorialMenuItem } from "@/components/tutorial/replay-tutorial-menu-item";
+import { TourProvider } from "@/components/tutorial/tour-provider";
+import { LandingBackground } from "@/components/landing/landing-background";
 
 export const dynamic = "force-dynamic";
 
@@ -46,10 +39,14 @@ export default async function DashboardLayout({
     redirect("/login");
   }
 
-  let professor: { active_role?: string; is_admin?: boolean } | null = null;
+  let professor: {
+    active_role?: string;
+    is_admin?: boolean;
+    tutorial_completed_at?: string | null;
+  } | null = null;
   const { data: profById } = await supabase
     .from("professors")
-    .select("active_role, is_admin")
+    .select("active_role, is_admin, tutorial_completed_at")
     .eq("id", user.id)
     .single();
   professor = profById;
@@ -59,7 +56,7 @@ export default async function DashboardLayout({
       const adminSupabase = createServiceRoleClient();
       const { data: profByEmail } = await adminSupabase
         .from("professors")
-        .select("active_role, is_admin")
+        .select("active_role, is_admin, tutorial_completed_at")
         .eq("email", user.email.toLowerCase())
         .maybeSingle();
       if (profByEmail) professor = profByEmail;
@@ -69,6 +66,28 @@ export default async function DashboardLayout({
   }
 
   const isStudentMode = professor?.active_role === "student";
+  const tutorialCompleted = Boolean(professor?.tutorial_completed_at);
+
+  // Drives whether the tutorial's "favorite" step is included at all.
+  // The step spotlights the heart icon on a public library card; if there
+  // are zero public sims there's no card to point at, so we drop the step
+  // from the tour up-front rather than letting the watchdog auto-skip it
+  // mid-flight (the latter briefly shows a card pointing at nothing).
+  //
+  // We query whenever the tour can mount (i.e. non-student mode), even
+  // when `tutorial_completed_at` is set, so that "Replay tutorial" from
+  // the avatar menu also gets the correctly-built tour. The query is a
+  // single-row existence check — cheap enough for every layout render.
+  let libraryHasFavoritableSims = false;
+  if (!isStudentMode) {
+    const { data: publicSimRow } = await supabase
+      .from("simulations")
+      .select("id")
+      .eq("is_public", true)
+      .limit(1)
+      .maybeSingle();
+    libraryHasFavoritableSims = Boolean(publicSimRow);
+  }
   const adminEmails = (process.env.ADMIN_EMAILS ?? "").split(",").map((e) => e.trim().toLowerCase()).filter(Boolean);
   const admin =
     !isStudentMode &&
@@ -78,15 +97,34 @@ export default async function DashboardLayout({
     ? user.user_metadata.name.split(" ").map((n: string) => n[0]).join("").toUpperCase()
     : user.email?.[0].toUpperCase() || "U";
 
-  return (
-    <div className="min-h-screen bg-muted/30">
+  // Whole-layout shell — wrapped in TourProvider for non-student modes so:
+  //   1. `useNextStep()` works in the header's ReplayTutorialMenuItem.
+  //   2. The tour state survives in-app navigations (the layout is the
+  //      stable mount point above the route segment).
+  // Students don't see the tour, so we skip the provider entirely.
+  const shell = (
+    <div
+      className="relative isolate min-h-screen text-ink"
+      data-app="true"
+    >
+      {/* Shared marketing-page gradient — keeps every dashboard route on the
+          same visual surface as the landing page. */}
+      <LandingBackground />
+
       {/* Header */}
-      <header className="bg-background border-b sticky top-0 z-50 safe-area-inset-top">
+      <header className="bg-white/65 backdrop-blur-md border-b border-line/60 sticky top-0 z-50 safe-area-inset-top supports-backdrop-filter:bg-white/55">
         <div className="container mx-auto px-3 sm:px-4 min-h-14 sm:h-16 flex items-center justify-between gap-2">
           <Link href="/dashboard" className="flex items-center gap-2 min-w-0">
             <span className="inline-flex shrink-0 items-center justify-center rounded-sm bg-white p-0.5">
-            <img src="/logo.jpg" alt="Praxis" className="h-8 w-auto sm:h-9" />
-          </span>
+              <Image
+                src="/logo.jpg"
+                alt="Praxis"
+                width={96}
+                height={73}
+                className="h-8 w-auto sm:h-9"
+                priority
+              />
+            </span>
             <span className="text-lg sm:text-xl font-bold truncate">Praxis</span>
           </Link>
           
@@ -97,14 +135,14 @@ export default async function DashboardLayout({
                 <span className="hidden sm:inline">Home</span>
               </Button>
             </Link>
-            <Link href="/library">
+            <Link href="/library" data-tour="library-link">
               <Button variant="ghost" className="min-h-[44px] px-3 text-sm">
                 <BookOpen className="h-4 w-4 mr-1.5 shrink-0" />
                 <span className="hidden sm:inline">Library</span>
               </Button>
             </Link>
             {!isStudentMode && (
-              <Link href="/create">
+              <Link href="/create" data-tour="new-sim">
                 <Button className="min-h-[44px] px-3 sm:px-4 text-sm sm:text-base">
                   <Plus className="h-4 w-4 mr-1.5 sm:mr-2 shrink-0" />
                   <span className="hidden sm:inline">New Simulation</span>
@@ -115,7 +153,7 @@ export default async function DashboardLayout({
             
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="ghost" className="relative h-10 w-10 rounded-full">
+                <Button variant="ghost" className="relative h-10 w-10 rounded-full" data-tour="profile-menu">
                   <Avatar className="h-10 w-10">
                     <AvatarFallback>{initials}</AvatarFallback>
                   </Avatar>
@@ -134,27 +172,27 @@ export default async function DashboardLayout({
                 {admin && (
                   <>
                     <DropdownMenuItem asChild>
+                      <Link href="/admin/analytics" className="cursor-pointer">
+                        <BarChart3 className="mr-2 h-4 w-4" />
+                        Admin – Analytics
+                      </Link>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem asChild>
                       <Link href="/admin/feedback" className="cursor-pointer">
                         <MessageSquareHeart className="mr-2 h-4 w-4" />
                         Admin – Feedback
                       </Link>
                     </DropdownMenuItem>
                     <DropdownMenuItem asChild>
+                      <Link href="/admin/library-pins" className="cursor-pointer">
+                        <Pin className="mr-2 h-4 w-4" />
+                        Admin – Library Pins
+                      </Link>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem asChild>
                       <Link href="/admin/emails" className="cursor-pointer">
                         <Mail className="mr-2 h-4 w-4" />
                         Admin – Emails
-                      </Link>
-                    </DropdownMenuItem>
-                    <DropdownMenuItem asChild>
-                      <Link href="/admin/library-pins" className="cursor-pointer">
-                        <Pin className="mr-2 h-4 w-4" />
-                        Admin – Library pins
-                      </Link>
-                    </DropdownMenuItem>
-                    <DropdownMenuItem asChild>
-                      <Link href="/admin/analytics" className="cursor-pointer">
-                        <BarChart3 className="mr-2 h-4 w-4" />
-                        Admin – Analytics
                       </Link>
                     </DropdownMenuItem>
                     <DropdownMenuItem asChild>
@@ -171,6 +209,7 @@ export default async function DashboardLayout({
                     Profile
                   </Link>
                 </DropdownMenuItem>
+                {!isStudentMode && <ReplayTutorialMenuItem />}
                 <DropdownMenuSeparator />
                 <form action={signOut}>
                   <DropdownMenuItem asChild>
@@ -193,5 +232,15 @@ export default async function DashboardLayout({
 
       {!isStudentMode && <CopilotLazy />}
     </div>
+  );
+
+  if (isStudentMode) return shell;
+  return (
+    <TourProvider
+      tutorialCompleted={tutorialCompleted}
+      libraryHasFavoritableSims={libraryHasFavoritableSims}
+    >
+      {shell}
+    </TourProvider>
   );
 }

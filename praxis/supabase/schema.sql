@@ -14,6 +14,10 @@ CREATE TABLE IF NOT EXISTS professors (
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
+ALTER TABLE professors ADD COLUMN IF NOT EXISTS tutorial_completed_at TIMESTAMPTZ NULL;
+
+ALTER TABLE professors ADD COLUMN IF NOT EXISTS library_show_display_name BOOLEAN DEFAULT false NOT NULL;
+
 -- Simulations table
 CREATE TABLE IF NOT EXISTS simulations (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
@@ -233,6 +237,11 @@ CREATE INDEX IF NOT EXISTS idx_participants_session ON participants(session_id);
 CREATE INDEX IF NOT EXISTS idx_participants_team ON participants(team_id);
 CREATE INDEX IF NOT EXISTS idx_responses_session ON responses(session_id);
 CREATE INDEX IF NOT EXISTS idx_responses_decision ON responses(decision_id);
+CREATE INDEX IF NOT EXISTS idx_responses_session_submitted ON responses (session_id, submitted_at);
+CREATE INDEX IF NOT EXISTS idx_responses_session_participant_decision
+  ON responses (session_id, participant_id, decision_id)
+  WHERE participant_id IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_reflection_responses_session ON reflection_responses (session_id);
 CREATE INDEX IF NOT EXISTS idx_simulation_data_blocks_simulation ON simulation_data_blocks(simulation_id);
 CREATE INDEX IF NOT EXISTS idx_feedback_simulation ON feedback(simulation_id);
 CREATE INDEX IF NOT EXISTS idx_feedback_session ON feedback(session_id);
@@ -241,6 +250,23 @@ CREATE INDEX IF NOT EXISTS idx_simulation_favorites_user ON simulation_favorites
 CREATE INDEX IF NOT EXISTS idx_knowledge_chunks_subject ON knowledge_chunks(subject);
 CREATE INDEX IF NOT EXISTS idx_simulation_profiles_simulation ON simulation_profiles(simulation_id);
 CREATE INDEX IF NOT EXISTS idx_participants_profile ON participants(profile_id);
+
+-- Lightweight session aggregates for reports; detailed chart metrics in application code
+CREATE OR REPLACE VIEW session_metrics_v AS
+SELECT
+  s.id AS session_id,
+  s.simulation_id,
+  (SELECT count(*)::int FROM participants p WHERE p.session_id = s.id) AS participant_count,
+  (SELECT count(*)::int FROM responses r WHERE r.session_id = s.id) AS response_count,
+  (
+    SELECT count(DISTINCT rr.participant_id)::int
+    FROM reflection_responses rr
+    WHERE rr.session_id = s.id AND rr.participant_id IS NOT NULL
+  ) AS reflection_participant_count
+FROM sessions s;
+
+COMMENT ON VIEW session_metrics_v IS
+  'Lightweight session aggregates; detailed chart metrics computed in application code.';
 
 -- RPC for RAG: vector similarity search over knowledge_chunks
 CREATE OR REPLACE FUNCTION match_knowledge_chunks(
@@ -661,3 +687,31 @@ $$;
 
 REVOKE ALL ON FUNCTION public.admin_session_counts_by_simulation() FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION public.admin_session_counts_by_simulation() TO service_role;
+
+-- Public library: resolved author labels for opted-in professors only (cards query via RPC).
+CREATE OR REPLACE FUNCTION public.library_author_display_names(prof_ids uuid[])
+RETURNS TABLE (professor_id uuid, display_name text)
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path = public
+AS $$
+  SELECT p.id AS professor_id,
+    CASE
+      WHEN COALESCE(p.library_show_display_name, false)
+        AND NULLIF(trim(p.name), '') IS NOT NULL
+      THEN trim(p.name)
+      ELSE NULL::text
+    END AS display_name
+  FROM public.professors p
+  WHERE p.id = ANY(prof_ids)
+    AND EXISTS (
+      SELECT 1 FROM public.simulations s
+      WHERE s.professor_id = p.id AND s.is_public = true
+    );
+$$;
+
+REVOKE ALL ON FUNCTION public.library_author_display_names(uuid[]) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.library_author_display_names(uuid[]) TO anon;
+GRANT EXECUTE ON FUNCTION public.library_author_display_names(uuid[]) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.library_author_display_names(uuid[]) TO service_role;

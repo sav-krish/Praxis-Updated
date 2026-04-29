@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -24,6 +25,21 @@ import {
 import { toast } from "sonner";
 import { FeedbackCard } from "@/components/simulation/FeedbackCard";
 import type { Simulation, Session, Decision, Option, Participant, Team, Response } from "@/types/database";
+
+// Lazy-load the recharts-heavy metrics panel so the initial /reports route
+// bundle stays small. In dev mode, this keeps the route compile fast and lets
+// the user navigate away while charts code splits in.
+const DeterministicMetrics = dynamic(
+  () => import("@/components/reports/deterministic-metrics").then((m) => m.DeterministicMetrics),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="rounded-2xl border border-border/60 bg-muted/30 p-6 text-sm text-muted-foreground">
+        Loading analytics charts…
+      </div>
+    ),
+  },
+);
 
 interface DecisionWithOptions extends Decision {
   options: Option[];
@@ -88,26 +104,98 @@ export function ReportsView({
   const router = useRouter();
   const [debrief, setDebrief] = useState<DebriefGuide | null>(initialDebrief as DebriefGuide | null);
   const [generatingDebrief, setGeneratingDebrief] = useState(false);
+  const [streamingField, setStreamingField] = useState<string | null>(null);
 
   const generateDebrief = async () => {
     setGeneratingDebrief(true);
+    setDebrief(null);
+    setStreamingField(null);
     try {
       const res = await fetch("/api/generate-debrief", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ sessionId: selectedSession.id }),
       });
-      const data = await res.json();
-      if (data.success && data.debrief) {
-        setDebrief(data.debrief);
-        toast.success("Facilitator guide generated!");
-      } else {
-        toast.error(data.error || "Failed to generate guide");
+      if (!res.ok || !res.body) {
+        const err = await res.text().catch(() => "");
+        toast.error(err || "Failed to generate guide");
+        setGeneratingDebrief(false);
+        return;
+      }
+
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+      const partial: DebriefGuide = {};
+
+      const handleEvent = (event: string, data: unknown) => {
+        if (event === "cached" || event === "done") {
+          const next = (data as { debrief?: DebriefGuide }).debrief;
+          if (next) {
+            setDebrief(next);
+            setStreamingField(null);
+            if (event === "done") toast.success("Facilitator guide ready");
+          }
+          return;
+        }
+        if (event === "field") {
+          setStreamingField((data as { name: string }).name);
+          return;
+        }
+        if (event === "delta") {
+          const { name, t } = data as { name: keyof DebriefGuide; t: string };
+          if (name === "correctCourseOfAction" || name === "connectionToObjectives") {
+            partial[name] = ((partial[name] as string | undefined) ?? "") + t;
+            setDebrief({ ...partial });
+          }
+          return;
+        }
+        if (event === "field-done") {
+          const { name, value } = data as { name: keyof DebriefGuide; value: unknown };
+          // Type-narrow per field shape.
+          if (name === "correctCourseOfAction" || name === "connectionToObjectives") {
+            partial[name] = String(value ?? "");
+          } else if (name === "keyDiscussionPoints" || name === "commonMistakes" || name === "facilitatorTips") {
+            partial[name] = Array.isArray(value) ? (value as string[]) : [];
+          }
+          setDebrief({ ...partial });
+          return;
+        }
+        if (event === "error") {
+          toast.error((data as { message?: string }).message || "Failed to generate guide");
+        }
+      };
+
+      while (true) {
+        const { value, done } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        let blank = buffer.indexOf("\n\n");
+        while (blank !== -1) {
+          const raw = buffer.slice(0, blank);
+          buffer = buffer.slice(blank + 2);
+          const lines = raw.split("\n");
+          let event = "message";
+          let dataStr = "";
+          for (const line of lines) {
+            if (line.startsWith("event: ")) event = line.slice(7).trim();
+            else if (line.startsWith("data: ")) dataStr += line.slice(6);
+          }
+          if (dataStr) {
+            try {
+              handleEvent(event, JSON.parse(dataStr));
+            } catch {
+              /* ignore malformed packet */
+            }
+          }
+          blank = buffer.indexOf("\n\n");
+        }
       }
     } catch {
       toast.error("Failed to generate facilitator guide");
     } finally {
       setGeneratingDebrief(false);
+      setStreamingField(null);
     }
   };
 
@@ -341,6 +429,17 @@ export function ReportsView({
         </Card>
       </div>
 
+      <DeterministicMetrics
+        decisions={decisions}
+        responses={responses}
+        participants={participants}
+        teams={teams}
+        reflectionResponses={reflectionResponses}
+        mode={simulation.mode}
+      />
+
+      <div className="h-4 sm:h-6" />
+
       <Tabs defaultValue="distribution" className="space-y-4 sm:space-y-6">
         <TabsList className="grid w-full grid-cols-4 h-auto min-h-[44px] p-1">
           <TabsTrigger value="distribution" className="text-xs sm:text-sm py-2">Distribution</TabsTrigger>
@@ -480,7 +579,7 @@ export function ReportsView({
 
         {/* Debrief Tab */}
         <TabsContent value="debrief" className="space-y-4 sm:space-y-6">
-          {!debrief ? (
+          {!debrief && !generatingDebrief ? (
             <Card>
               <CardContent className="py-12 text-center space-y-4">
                 <BookOpen className="h-10 w-10 mx-auto text-muted-foreground" />
@@ -494,13 +593,20 @@ export function ReportsView({
                   </div>
                 </div>
                 <Button onClick={generateDebrief} disabled={generatingDebrief} className="min-h-[44px]">
-                  {generatingDebrief ? (
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  ) : (
-                    <Sparkles className="mr-2 h-4 w-4" />
-                  )}
-                  {generatingDebrief ? "Generating..." : "Generate Facilitator Guide"}
+                  <Sparkles className="mr-2 h-4 w-4" />
+                  Generate Facilitator Guide
                 </Button>
+              </CardContent>
+            </Card>
+          ) : !debrief ? (
+            <Card>
+              <CardContent className="py-12 text-center space-y-3">
+                <Loader2 className="h-6 w-6 animate-spin mx-auto text-primary" />
+                <p className="text-sm text-muted-foreground">
+                  {streamingField
+                    ? `Drafting ${streamingField.replace(/([A-Z])/g, " $1").toLowerCase()}…`
+                    : "Warming up the model…"}
+                </p>
               </CardContent>
             </Card>
           ) : (

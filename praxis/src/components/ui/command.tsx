@@ -6,7 +6,7 @@ import { Dialog as DialogPrimitive } from "radix-ui"
 import { SearchIcon } from "lucide-react"
 
 import { cn } from "@/lib/utils"
-import { DialogOverlay, DialogContent } from "@/components/ui/dialog"
+import { DialogContent } from "@/components/ui/dialog"
 
 function Command({
   className,

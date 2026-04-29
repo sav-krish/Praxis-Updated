@@ -3,32 +3,14 @@ import { LibraryView } from "./library-view";
 import type { LibrarySimulationRow } from "@/types/library";
 import { escapeIlikePattern } from "@/lib/utils";
 import { flagshipSimulations, sortLibrarySimulations } from "@/lib/library-sort";
+import { fetchLibraryAuthorMap, mergeLibraryRowsWithAuthors } from "./library-authors";
 
 interface LibraryPageProps {
   searchParams: Promise<{ q?: string; subject?: string; difficulty?: string }>;
 }
 
 const LIBRARY_SIM_COLUMNS =
-  "id, title, course_topic, difficulty, estimated_minutes, favorite_count, professor_id, created_at, is_pinned, pinned_order, professors(name)" as const;
-
-function normalizeLibraryRows(rows: unknown[] | null): LibrarySimulationRow[] {
-  return (rows ?? []).map((r) => {
-    const row = r as Record<string, unknown>;
-    return {
-      id: row.id as string,
-      title: row.title as string,
-      course_topic: row.course_topic as string,
-      difficulty: (row.difficulty as string | null) ?? null,
-      estimated_minutes: (row.estimated_minutes as number | null) ?? null,
-      favorite_count: (row.favorite_count as number) ?? 0,
-      professor_id: row.professor_id as string,
-      created_at: row.created_at as string,
-      is_pinned: Boolean(row.is_pinned),
-      pinned_order: (row.pinned_order as number | null) ?? null,
-      professors: row.professors as { name: string | null } | null,
-    };
-  });
-}
+  "id, title, course_topic, difficulty, estimated_minutes, favorite_count, professor_id, created_at, is_pinned, pinned_order" as const;
 
 export default async function LibraryPage({ searchParams }: LibraryPageProps) {
   const { q, subject, difficulty } = await searchParams;
@@ -52,7 +34,9 @@ export default async function LibraryPage({ searchParams }: LibraryPageProps) {
       .select(LIBRARY_SIM_COLUMNS)
       .eq("is_public", true);
 
-    const list = normalizeLibraryRows(rows);
+    const profIds = (rows ?? []).map((r) => r.professor_id);
+    const authors = await fetchLibraryAuthorMap(supabase, profIds);
+    const list = mergeLibraryRowsWithAuthors(rows, authors);
     simulations = sortLibrarySimulations(list);
     flagship = flagshipSimulations(simulations);
     topSimulations = simulations
@@ -87,10 +71,16 @@ export default async function LibraryPage({ searchParams }: LibraryPageProps) {
       supabase.from("simulations").select("course_topic").eq("is_public", true),
     ]);
 
-    const filteredList = normalizeLibraryRows(simsRes.data);
+    const mergedProfIds = [
+      ...(simsRes.data ?? []).map((r) => r.professor_id),
+      ...(topRes.data ?? []).map((r) => r.professor_id),
+    ];
+    const authors = await fetchLibraryAuthorMap(supabase, mergedProfIds);
+
+    const filteredList = mergeLibraryRowsWithAuthors(simsRes.data, authors);
     simulations = sortLibrarySimulations(filteredList);
     flagship = flagshipSimulations(simulations);
-    topSimulations = sortLibrarySimulations(normalizeLibraryRows(topRes.data))
+    topSimulations = sortLibrarySimulations(mergeLibraryRowsWithAuthors(topRes.data, authors))
       .filter((s) => s.favorite_count > 0 && !s.is_pinned)
       .slice(0, 10);
     subjects = Array.from(

@@ -1,9 +1,11 @@
 "use client";
 
-import { useState, useEffect, Suspense } from "react";
+import { useState, useEffect, Suspense, useCallback } from "react";
+import Image from "next/image";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { logger } from "@/lib/logger";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -20,14 +22,7 @@ function JoinForm() {
   const [checking, setChecking] = useState(false);
   const [session, setSession] = useState<{ id: string; simulation_id: string } | null>(null);
 
-  // Auto-lookup session when code is complete
-  useEffect(() => {
-    if (joinCode.length === 6) {
-      lookupSession();
-    }
-  }, [joinCode]);
-
-  const lookupSession = async () => {
+  const lookupSession = useCallback(async () => {
     setChecking(true);
     const supabase = createClient();
     const { data } = await supabase
@@ -65,7 +60,14 @@ function JoinForm() {
       setSession(null);
     }
     setChecking(false);
-  };
+  }, [joinCode, router]);
+
+  // Auto-lookup session when code is complete
+  useEffect(() => {
+    if (joinCode.length === 6) {
+      void lookupSession();
+    }
+  }, [joinCode, lookupSession]);
 
   const handleJoin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -98,7 +100,7 @@ function JoinForm() {
       // Navigate to play page
       router.push(`/play/${joinCode.toUpperCase()}`);
     } catch (error) {
-      console.error(error);
+      logger.error(error);
       toast.error("Failed to join session");
     } finally {
       setLoading(false);
@@ -123,8 +125,15 @@ function JoinForm() {
         <CardHeader className="text-center">
           <Link href="/" className="flex items-center justify-center gap-2 mb-4">
             <span className="inline-flex shrink-0 items-center justify-center rounded-sm bg-white p-0.5">
-            <img src="/logo.jpg" alt="Praxis" className="h-8 w-auto" />
-          </span>
+              <Image
+                src="/logo.jpg"
+                alt="Praxis"
+                width={96}
+                height={73}
+                className="h-8 w-auto"
+                priority
+              />
+            </span>
             <span className="text-2xl font-bold">Praxis</span>
           </Link>
           <CardTitle>Join Session</CardTitle>

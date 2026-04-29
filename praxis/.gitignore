@@ -24,6 +24,12 @@
 # misc
 .DS_Store
 *.pem
+
+# Local case-study bulk-import folder (may contain many large PDFs)
+Praxis_simulations/
+praxis_simulations/
+
+# legacy / broad ignore (keep below folder rules if you want repo-wide pdf ignore)
 *.pdf
 
 # debug
@@ -39,7 +45,8 @@ yarn-error.log*
 # vercel
 .vercel
 
-# typescript
-*.tsbuildinfo
+# Bulk import logs (local)
+scripts/bulk-run.log
+
 next-env.d.ts
 .cursor

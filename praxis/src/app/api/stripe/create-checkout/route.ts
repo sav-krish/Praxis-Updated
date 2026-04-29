@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getStripe, getAppUrl } from "@/lib/stripe/server";
 import { createClient } from "@/lib/supabase/server";
 import { isAdmin } from "@/lib/admin";
+import { logger } from "@/lib/logger";
 
 /**
  * Create Stripe Checkout session for subscription.
@@ -67,7 +68,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ url: session.url, sessionId: session.id });
   } catch (err) {
-    console.error("Stripe checkout error:", err);
+    logger.error("Stripe checkout error:", err);
     return NextResponse.json(
       { error: "Failed to create checkout session" },
       { status: 500 }

@@ -1,3 +1,4 @@
+import { logger } from "@/lib/logger";
 import * as mammoth from "mammoth";
 
 export async function extractTextFromFile(
@@ -24,7 +25,7 @@ async function extractFromPdf(buffer: Buffer): Promise<string> {
     const { text } = await extractText(pdf, { mergePages: true });
     return text ?? "";
   } catch (error) {
-    console.error("Error parsing PDF:", error);
+    logger.error("Error parsing PDF:", error);
     throw new Error("Failed to parse PDF file. Please try a different format.");
   }
 }
@@ -34,7 +35,7 @@ async function extractFromDocx(buffer: Buffer): Promise<string> {
     const result = await mammoth.extractRawText({ buffer });
     return result.value;
   } catch (error) {
-    console.error("Error parsing DOCX:", error);
+    logger.error("Error parsing DOCX:", error);
     throw new Error("Failed to parse DOCX file");
   }
 }
@@ -47,7 +48,7 @@ export async function extractTextFromFiles(files: File[]): Promise<string> {
       const text = await extractTextFromFile(file);
       texts.push(`--- Content from ${file.name} ---\n${text}\n`);
     } catch (error) {
-      console.error(`Error processing ${file.name}:`, error);
+      logger.error(`Error processing ${file.name}:`, error);
       // Continue with other files
     }
   }

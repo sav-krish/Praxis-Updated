@@ -2,8 +2,10 @@
 
 import { useEffect, useState, useRef, use } from "react";
 import dynamic from "next/dynamic";
+import Image from "next/image";
 import { useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { logger } from "@/lib/logger";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
@@ -150,7 +152,7 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
       )
       .subscribe();
     return () => { supabase.removeChannel(channel); };
-  }, [session?.id, currentStep]);
+  }, [session?.id, currentStep]); // eslint-disable-line react-hooks/exhaustive-deps -- keyed by stable session id + lobby step only
 
   // Subscribe to session updates via Supabase Realtime
   useEffect(() => {
@@ -178,7 +180,7 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [session?.id]); // Only re-subscribe when session id changes, not on every step
+  }, [session?.id]); // eslint-disable-line react-hooks/exhaustive-deps -- keyed by session id; avoid resubscribing on every step change
 
   // Fetch hidden profile when transitioning to background step
   useEffect(() => {
@@ -223,7 +225,7 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
     }, pollInterval);
 
     return () => clearInterval(interval);
-  }, [session?.id, currentStep]);
+  }, [session?.id, currentStep]); // eslint-disable-line react-hooks/exhaustive-deps -- avoid duplicate timers on session object churn
 
   async function loadSession() {
     const supabase = createClient();
@@ -342,7 +344,6 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
       .eq("simulation_id", simulationData.id)
       .order("order_num", { ascending: true });
 
-    // #region agent log
     if (decisionsData) {
       setDecisions(decisionsData.map((d: { id: string; order_num: number; prompt: string; options: Option[] }) => ({
         ...d,
@@ -432,9 +433,9 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
 
   // Load session data
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- initial session hydration from join code only
     void loadSession();
-  }, [code]);
+  }, [code]); // eslint-disable-line react-hooks/exhaustive-deps -- loadSession closure reads searchParams/url once per join code route
 
   const submitDecision = async () => {
     if (!selectedOption || !session || !participantId) return;
@@ -534,7 +535,7 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
     setLeavingPreview(true);
     const result = await endPreviewSession(session.id);
     if ("error" in result) {
-      console.warn(result.error);
+      logger.warn(result.error);
     }
     sessionStorage.removeItem(`participant_${session.id}`);
     sessionStorage.removeItem(`participant_name_${session.id}`);
@@ -662,9 +663,11 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
                     if (!src) return null;
                     return (
                       <figure key={im.id} className="overflow-hidden rounded-lg border border-border bg-muted/30">
-                        <img
+                        <Image
                           src={src}
                           alt={im.alt_text || "Scenario image"}
+                          width={1600}
+                          height={1200}
                           className="max-h-72 w-full object-cover"
                         />
                         {im.alt_text ? (

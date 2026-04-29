@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient, createServiceRoleClient } from "@/lib/supabase/server";
 import { isAdmin } from "@/lib/admin";
+import { logger } from "@/lib/logger";
 
 export async function GET() {
   const supabase = await createClient();
@@ -28,7 +29,7 @@ export async function GET() {
     .order("created_at", { ascending: false });
 
   if (error) {
-    console.error("Error fetching professors:", error);
+    logger.error("Error fetching professors:", error);
     return NextResponse.json(
       { error: "Failed to fetch recipients", detail: error.message },
       { status: 500 }

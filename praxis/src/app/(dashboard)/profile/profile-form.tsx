@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { logger } from "@/lib/logger";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -20,14 +21,24 @@ interface ProfileFormProps {
   email: string;
   name: string;
   activeRole: ActiveRole;
+  /** When true, public library cards may show Display Name for simulations you publish there. */
+  libraryShowDisplayName: boolean;
   isAdmin?: boolean;
 }
 
-export function ProfileForm({ userId, email, name: initialName, activeRole: initialRole, isAdmin }: ProfileFormProps) {
+export function ProfileForm({
+  userId,
+  email,
+  name: initialName,
+  activeRole: initialRole,
+  libraryShowDisplayName: initialLibraryShowName,
+  isAdmin,
+}: ProfileFormProps) {
   const router = useRouter();
   const [saving, setSaving] = useState(false);
   const [name, setName] = useState(initialName);
   const [activeRole, setActiveRole] = useState<ActiveRole>(initialRole);
+  const [libraryShowDisplayName, setLibraryShowDisplayName] = useState(initialLibraryShowName);
 
   const handleSave = async () => {
     setSaving(true);
@@ -35,12 +46,16 @@ export function ProfileForm({ userId, email, name: initialName, activeRole: init
 
     const { error } = await supabase
       .from("professors")
-      .update({ name, active_role: activeRole })
+      .update({
+        name,
+        active_role: activeRole,
+        library_show_display_name: libraryShowDisplayName,
+      })
       .eq("id", userId);
 
     if (error) {
       toast.error("Failed to update profile");
-      console.error(error);
+      logger.error(error);
     } else {
       toast.success("Profile updated");
       router.refresh();
@@ -70,6 +85,33 @@ export function ProfileForm({ userId, email, name: initialName, activeRole: init
               onChange={(e) => setName(e.target.value)}
               placeholder="Your name"
             />
+          </div>
+          <div className="flex items-center justify-between gap-3 rounded-lg border border-border/80 bg-muted/30 px-3 py-3">
+            <div className="space-y-1 min-w-0 pr-2">
+              <Label htmlFor="library-show-name" className="cursor-pointer">
+                Show display name on Simulation Library
+              </Label>
+              <p className="text-xs text-muted-foreground leading-snug">
+                When enabled, your Display Name can appear on cards for simulations you publish to the public library.
+                Turn this off to stay anonymous there while keeping a name on your account.
+              </p>
+            </div>
+            <button
+              id="library-show-name"
+              type="button"
+              role="switch"
+              aria-checked={libraryShowDisplayName}
+              onClick={() => setLibraryShowDisplayName(!libraryShowDisplayName)}
+              className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full border-2 border-transparent transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 cursor-pointer ${
+                libraryShowDisplayName ? "bg-primary" : "bg-input"
+              }`}
+            >
+              <span
+                className={`pointer-events-none block h-5 w-5 rounded-full bg-background shadow-lg ring-0 transition-transform ${
+                  libraryShowDisplayName ? "translate-x-5" : "translate-x-0"
+                }`}
+              />
+            </button>
           </div>
         </CardContent>
       </Card>

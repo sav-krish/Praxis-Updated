@@ -2,7 +2,7 @@ import { redirect } from "next/navigation";
 import { createClient, createServiceRoleClient } from "@/lib/supabase/server";
 import { isAdmin } from "@/lib/admin";
 import { buildAdminAnalyticsViewData } from "@/lib/admin-analytics";
-import { AdminAnalyticsView } from "./admin-analytics-view";
+import { AdminAnalyticsLazy } from "./admin-analytics-lazy";
 
 export default async function AdminAnalyticsPage() {
   const supabase = await createClient();
@@ -48,7 +48,7 @@ export default async function AdminAnalyticsPage() {
       <div>
         <h1 className="text-2xl font-bold">Analytics</h1>
       </div>
-      <AdminAnalyticsView data={data} />
+      <AdminAnalyticsLazy data={data} />
     </div>
   );
 }

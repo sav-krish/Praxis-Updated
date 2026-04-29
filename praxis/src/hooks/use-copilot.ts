@@ -29,6 +29,8 @@ export interface CopilotAction {
   value: string;
 }
 
+/** Parses assistant text for `[ACTION]` JSON blocks emitted by `/api/copilot`; returns conversational text minus those blocks plus structured actions to apply on the simulation form. */
+
 export function parseCopilotActions(text: string): { clean: string; actions: CopilotAction[] } {
   const actions: CopilotAction[] = [];
   const clean = text.replace(/\[ACTION\]([\s\S]*?)\[\/ACTION\]/g, (_match, json: string) => {
@@ -52,6 +54,8 @@ export function parseCopilotActions(text: string): { clean: string; actions: Cop
   });
   return { clean: clean.trim(), actions };
 }
+
+/** Holds copilot transcript state for `/api/copilot`, submits user turns, parses actions, exposes loading/error plus pending edits to apply elsewhere. Returns `{ messages, loading, error, send, reset, pendingActions, clearPendingActions }`. */
 
 export function useCopilot() {
   const [messages, setMessages] = useState<CopilotMessage[]>([]);

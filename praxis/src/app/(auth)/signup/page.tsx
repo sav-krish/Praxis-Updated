@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
@@ -50,8 +51,15 @@ export default function SignupPage() {
         <CardHeader className="text-center">
           <Link href="/" className="flex items-center justify-center gap-2 mb-4">
             <span className="inline-flex shrink-0 items-center justify-center rounded-sm bg-white p-0.5">
-            <img src="/logo.jpg" alt="Praxis" className="h-8 w-auto" />
-          </span>
+              <Image
+                src="/logo.jpg"
+                alt="Praxis"
+                width={96}
+                height={73}
+                className="h-8 w-auto"
+                priority
+              />
+            </span>
             <span className="text-2xl font-bold">Praxis</span>
           </Link>
           <CardTitle>Create an account</CardTitle>

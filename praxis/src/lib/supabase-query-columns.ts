@@ -4,7 +4,7 @@
  */
 
 export const SIMULATION_DASHBOARD_LIST =
-  "id, title, course_topic, mode, updated_at" as const;
+  "id, title, course_topic, mode, difficulty, updated_at" as const;
 
 /** Full simulation row for the editor (explicit list avoids accidental wide reads). */
 export const SIMULATION_EDITOR_ROW =
@@ -36,17 +36,17 @@ export const SESSION_LOBBY_SIMULATION =
 export const SESSION_REPORTS_LIST = "id, ended_at" as const;
 
 export const SESSION_REPORTS_SELECTED =
-  "id, simulation_id, debrief_guide" as const;
+  "id, simulation_id, debrief_guide, status" as const;
 
 export const PARTICIPANT_LOBBY_ROW =
   "id, session_id, team_id, profile_id, name, is_voter, joined_at" as const;
 
 export const TEAM_LOBBY_ROW = "id, session_id, name, created_at" as const;
 
-export const PROFILE_PAGE_ROW = "id, name, active_role" as const;
+export const PROFILE_PAGE_ROW = "id, name, active_role, library_show_display_name" as const;
 
 export const PARTICIPANT_REPORTS_ROW =
-  "id, session_id, team_id, name" as const;
+  "id, session_id, team_id, name, joined_at" as const;
 
 export const TEAM_REPORTS_ROW = "id, session_id, name" as const;
 

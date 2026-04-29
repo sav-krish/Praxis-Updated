@@ -6,85 +6,23 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Heart, Clock, Loader2, ExternalLink } from "lucide-react";
+import { Heart, Clock, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { copySimulationToAccount } from "@/app/(dashboard)/share/[id]/actions";
 import type { LibrarySimulationRow } from "@/types/library";
+import { appTileBackgroundForDifficulty } from "@/lib/app-tile-backgrounds";
+import {
+  SIMULATION_CARD_ACTION_MIN_HEIGHT_CLASS,
+  SIMULATION_CARD_HEADER_CLASS,
+  SIMULATION_CARD_TILE_SURFACE_CLASS,
+  SIMULATION_CARD_TITLE_CLASS,
+} from "@/lib/simulation-card-layout";
 
 function difficultyLabel(d: string | null) {
   if (d === "easy") return "Easy";
   if (d === "hard") return "Hard";
   if (d === "challenge") return "Challenge";
   return d;
-}
-
-/** Stable hash so the same simulation always gets the same fallback label. */
-function hashId(id: string): number {
-  let h = 0;
-  for (let i = 0; i < id.length; i++) {
-    h = (Math.imul(31, h) + id.charCodeAt(i)) | 0;
-  }
-  return h >>> 0;
-}
-
-/** When the professor has no name on file, show a plausible display name (not a handle). */
-const FALLBACK_FIRST = [
-  "James",
-  "Maria",
-  "David",
-  "Sarah",
-  "Michael",
-  "Emily",
-  "Daniel",
-  "Jessica",
-  "Chris",
-  "Ashley",
-  "Ryan",
-  "Nicole",
-  "Kevin",
-  "Amanda",
-  "Brian",
-  "Michelle",
-  "Jason",
-  "Laura",
-  "Eric",
-  "Rachel",
-] as const;
-
-const FALLBACK_LAST = [
-  "Martinez",
-  "Patel",
-  "O'Brien",
-  "Nakamura",
-  "Kowalski",
-  "Fernandez",
-  "Reed",
-  "Cho",
-  "Silva",
-  "Hughes",
-  "Park",
-  "Ibrahim",
-  "Lindberg",
-  "Okonkwo",
-  "Tanaka",
-  "Morrison",
-  "Singh",
-  "Costa",
-  "Yilmaz",
-  "Washington",
-] as const;
-
-function fallbackAuthorDisplayName(simId: string): string {
-  const h = hashId(simId);
-  const first = FALLBACK_FIRST[h % FALLBACK_FIRST.length];
-  const last = FALLBACK_LAST[(h >>> 11) % FALLBACK_LAST.length];
-  return `${first} ${last}`;
-}
-
-function displayAuthorName(sim: LibrarySimulationRow): string {
-  const disclosed = sim.professors?.name?.trim();
-  if (disclosed) return disclosed;
-  return fallbackAuthorDisplayName(sim.id);
 }
 
 type LibrarySimulationCardProps = {
@@ -94,10 +32,26 @@ type LibrarySimulationCardProps = {
   onToggleFavorite: () => void;
   /** Curated strip: gradient card, no extra badges */
   variant?: "default" | "spotlight";
+  /**
+   * When `true`, marks this card's favorite control with `data-tour="favorite-button"`
+   * so the onboarding tour can spotlight it. Caller (LibraryView) picks
+   * exactly one card per render to wear this anchor.
+   */
+  isTourFavoriteAnchor?: boolean;
 };
 
 const SPOTLIGHT_GRADIENT =
   "linear-gradient(120deg, #e0c3fc 0%, #8ec5fc 100%)";
+
+/**
+ * @description Public-library card surfacing bookmark (heart), duplicate-to-account controls, curated spotlight variant, tutorial anchor hook (`data-tour`).
+ * @param sim — Public library projection (`LibrarySimulationRow`) from Supabase.
+ * @param isFavorite — Persisted favorites state backing the heart glyph.
+ * @param favoritePending — Disables optimistic heart toggles mid-flight.
+ * @param onToggleFavorite — Persist favorite toggle with toast handling.
+ * @param variant — `spotlight` uses gradient strip; otherwise default tile visuals.
+ * @param isTourFavoriteAnchor — Applies `data-tour="favorite-button"` exactly once across `LibraryView` renders when tutorial needs a target.
+ */
 
 export function LibrarySimulationCard({
   sim,
@@ -105,10 +59,11 @@ export function LibrarySimulationCard({
   favoritePending,
   onToggleFavorite,
   variant = "default",
+  isTourFavoriteAnchor = false,
 }: LibrarySimulationCardProps) {
   const router = useRouter();
   const [usingSim, setUsingSim] = useState(false);
-  const authorName = displayAuthorName(sim);
+  const authorLine = sim.professors?.name?.trim() ?? null;
 
   const handleUseSimulation = async (e: React.MouseEvent) => {
     e.preventDefault();
@@ -125,30 +80,28 @@ export function LibrarySimulationCard({
   };
 
   const isSpotlight = variant === "spotlight";
+  const tile = appTileBackgroundForDifficulty(sim.difficulty);
 
   return (
     <Card
       className={
         isSpotlight
-          ? "group flex h-full w-full min-w-0 flex-col border-white/50 bg-transparent! text-ink shadow-md transition-shadow hover:shadow-lg"
-          : "group flex h-full w-full min-w-0 flex-col transition-shadow hover:shadow-md"
+          ? "group relative flex h-full min-h-0 w-full min-w-0 flex-col overflow-hidden border-white/50 bg-transparent! text-ink shadow-md transition-shadow hover:shadow-lg"
+          : `${SIMULATION_CARD_TILE_SURFACE_CLASS} ${tile}`
       }
       style={isSpotlight ? { backgroundImage: SPOTLIGHT_GRADIENT } : undefined}
     >
-      <CardHeader className="pb-2">
+      <CardHeader className={SIMULATION_CARD_HEADER_CLASS}>
         <div className="flex items-start justify-between gap-2">
           <CardTitle
-            className={
-              isSpotlight
-                ? "text-sm font-semibold line-clamp-2 flex-1 min-w-0 text-ink"
-                : "text-sm font-medium line-clamp-2 flex-1 min-w-0"
-            }
+            className={`${SIMULATION_CARD_TITLE_CLASS} flex-1 min-w-0`}
           >
             {sim.title}
           </CardTitle>
           <div className="flex shrink-0 items-center gap-1.5">
             <button
               type="button"
+              data-tour={isTourFavoriteAnchor ? "favorite-button" : undefined}
               onClick={(e) => {
                 e.preventDefault();
                 e.stopPropagation();
@@ -158,7 +111,7 @@ export function LibrarySimulationCard({
               className={
                 isSpotlight
                   ? "rounded-full p-1 transition-colors hover:bg-white/40"
-                  : "rounded-full p-1 transition-colors hover:bg-muted"
+                  : "rounded-full p-1 transition-colors hover:bg-white/60"
               }
               aria-label={
                 isFavorite
@@ -172,7 +125,7 @@ export function LibrarySimulationCard({
                     ? "fill-red-500 text-red-500"
                     : isSpotlight
                       ? "text-ink/70"
-                      : "text-muted-foreground"
+                      : "text-muted-text"
                 }`}
               />
             </button>
@@ -180,27 +133,29 @@ export function LibrarySimulationCard({
               className={
                 isSpotlight
                   ? "text-xs tabular-nums text-ink/70"
-                  : "text-xs tabular-nums text-muted-foreground"
+                  : "text-xs tabular-nums text-muted-text"
               }
             >
               {sim.favorite_count}
             </span>
           </div>
         </div>
-        <CardDescription
-          className={isSpotlight ? "text-xs text-ink/80" : "text-xs"}
-        >
-          by {authorName}
-        </CardDescription>
+        {authorLine ? (
+          <CardDescription
+            className={isSpotlight ? "text-xs text-ink/80" : "text-xs text-muted-text"}
+          >
+            by {authorLine}
+          </CardDescription>
+        ) : null}
       </CardHeader>
-      <CardContent className="flex flex-1 flex-col justify-between gap-3 pt-0">
+      <CardContent className="mt-auto flex flex-col gap-3 pt-0">
         <div className="flex flex-wrap items-center gap-1.5">
           <Badge
             variant="secondary"
             className={
               isSpotlight
                 ? "border-0 bg-white/75 text-xs text-ink backdrop-blur-sm"
-                : "text-xs"
+                : "border-0 bg-white/70 text-xs font-medium text-ink backdrop-blur-sm"
             }
           >
             {sim.course_topic}
@@ -211,7 +166,7 @@ export function LibrarySimulationCard({
               className={
                 isSpotlight
                   ? "border-ink/20 bg-white/60 text-xs text-ink backdrop-blur-sm"
-                  : "text-xs"
+                  : "border-ink/15 bg-white/55 text-xs font-medium text-ink backdrop-blur-sm"
               }
             >
               {difficultyLabel(sim.difficulty)}
@@ -222,7 +177,7 @@ export function LibrarySimulationCard({
               className={
                 isSpotlight
                   ? "inline-flex items-center gap-1 rounded-md border border-ink/15 bg-white/60 px-2 py-0.5 text-xs text-ink/90 backdrop-blur-sm"
-                  : "inline-flex items-center gap-1 rounded-md border border-transparent bg-muted/60 px-2 py-0.5 text-xs text-muted-foreground"
+                  : "inline-flex items-center gap-1 rounded-md border border-ink/15 bg-white/55 px-2 py-0.5 text-xs font-medium text-ink backdrop-blur-sm"
               }
             >
               <Clock className="h-3 w-3 shrink-0" aria-hidden />
@@ -230,13 +185,9 @@ export function LibrarySimulationCard({
             </span>
           )}
         </div>
-        <div className="mt-3 flex gap-2">
+        <div className="flex gap-2">
           <Button
-            className={
-              isSpotlight
-                ? "flex-1 min-h-[40px] bg-ink text-white shadow-sm hover:bg-ink/90"
-                : "flex-1 min-h-[40px]"
-            }
+            className={`flex-1 ${SIMULATION_CARD_ACTION_MIN_HEIGHT_CLASS} bg-ink text-white shadow-sm hover:bg-ink/90`}
             size="sm"
             onClick={handleUseSimulation}
             disabled={usingSim}
@@ -252,11 +203,10 @@ export function LibrarySimulationCard({
               size="sm"
               className={
                 isSpotlight
-                  ? "w-full min-h-[40px] border-ink/25 bg-white/80 text-ink hover:bg-white"
-                  : "w-full min-h-[40px]"
+                  ? `w-full ${SIMULATION_CARD_ACTION_MIN_HEIGHT_CLASS} border-ink/25 bg-white/80 text-ink hover:bg-white`
+                  : `w-full ${SIMULATION_CARD_ACTION_MIN_HEIGHT_CLASS} border-ink/15 bg-white/75 text-ink backdrop-blur-sm hover:bg-white`
               }
             >
-              <ExternalLink className="h-4 w-4 shrink-0 mr-1.5" />
               View details
             </Button>
           </Link>

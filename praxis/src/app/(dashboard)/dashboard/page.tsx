@@ -1,63 +1,131 @@
 import Link from "next/link";
+import { Suspense } from "react";
 import { createClient } from "@/lib/supabase/server";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
-import { Plus, BookOpen, FolderOpen } from "lucide-react";
+import { Plus, Sparkles, Library as LibraryIcon, ArrowRight } from "lucide-react";
 import { SIMULATION_DASHBOARD_LIST } from "@/lib/supabase-query-columns";
 import {
   DashboardSimulationCard,
   type DashboardSimulationRow,
 } from "@/components/simulation/dashboard-simulation-card";
+import { FadeIn } from "@/components/landing/fade-in";
+import { APP_TILE_BACKGROUNDS } from "@/lib/app-tile-backgrounds";
+import {
+  SIMULATION_CARD_GRID_CLASS,
+  SIMULATION_CARD_GRID_ITEM_CLASS,
+} from "@/lib/simulation-card-layout";
+import { DashboardSimulationFilters } from "./dashboard-simulation-filters";
+
+/**
+ * Friendly rotating greetings. We pick deterministically per-hour per-user so:
+ *   - The greeting changes throughout the day (feels alive).
+ *   - It stays stable across re-renders within the hour (no hydration churn).
+ */
+const GREETINGS = [
+  "Hello",
+  "Welcome back",
+  "Back at it again",
+  "Hey",
+  "Good to see you",
+  "Ready when you are",
+] as const;
+
+function pickGreeting(seed: string): string {
+  let h = 5381;
+  for (let i = 0; i < seed.length; i++) {
+    h = ((h << 5) + h + seed.charCodeAt(i)) | 0;
+  }
+  return GREETINGS[Math.abs(h) % GREETINGS.length];
+}
+
+type DashboardSimRow = {
+  id: string;
+  title: string;
+  course_topic: string | null;
+  mode: string;
+  difficulty: string | null;
+  updated_at: string;
+};
+
+function topicLabel(row: DashboardSimRow): string {
+  return row.course_topic?.trim() || "Uncategorized";
+}
+
+/** Mirrors library filtering (q + subject + difficulty). */
+function filterDashboardSimulations(
+  rows: DashboardSimRow[],
+  params: { q: string; subject: string; difficulty: string }
+): DashboardSimRow[] {
+  let list = [...rows];
+  const qTrim = params.q.trim().toLowerCase();
+  if (qTrim) {
+    list = list.filter((s) => {
+      const title = (s.title || "").toLowerCase();
+      const topic = topicLabel(s).toLowerCase();
+      return title.includes(qTrim) || topic.includes(qTrim);
+    });
+  }
+  if (params.subject && params.subject !== "all") {
+    list = list.filter((s) => topicLabel(s) === params.subject);
+  }
+  if (params.difficulty && params.difficulty !== "all") {
+    list = list.filter((s) => s.difficulty === params.difficulty);
+  }
+  return list;
+}
 
 interface DashboardPageProps {
-  searchParams: Promise<{ course?: string }>;
+  searchParams: Promise<{ q?: string; subject?: string; difficulty?: string }>;
 }
 
 export default async function DashboardPage({ searchParams }: DashboardPageProps) {
-  const { course: selectedCourse } = await searchParams;
+  const { q, subject, difficulty } = await searchParams;
+  const qTrim = (q ?? "").trim();
+  const subjectParam = subject ?? "all";
+  const difficultyParam = difficulty ?? "all";
+
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return null;
 
-  // Fetch simulations for this professor
   const { data: allSimulations } = await supabase
     .from("simulations")
     .select(SIMULATION_DASHBOARD_LIST)
     .eq("professor_id", user.id)
     .order("updated_at", { ascending: false });
 
-  // Unique courses (course_topic) for personalized dashboard
-  const courses = Array.from(
-    new Set((allSimulations || []).map((s) => s.course_topic || "Uncategorized"))
-  ).sort();
+  const rows = (allSimulations ?? []) as DashboardSimRow[];
 
-  // Filter by selected course when provided
-  const simulations = selectedCourse
-    ? (allSimulations || []).filter((s) => (s.course_topic || "Uncategorized") === selectedCourse)
-    : allSimulations;
+  const subjects = Array.from(new Set(rows.map(topicLabel))).sort();
 
-  // Check which simulations have completed sessions
-  const simulationIds = simulations?.map(s => s.id) || [];
-  const { data: completedSessions } = await supabase
-    .from("sessions")
-    .select("simulation_id")
-    .in("simulation_id", simulationIds)
-    .eq("status", "complete");
+  const simulations = filterDashboardSimulations(rows, {
+    q: qTrim,
+    subject: subjectParam,
+    difficulty: difficultyParam,
+  });
 
-  const simulationsWithReports = new Set(completedSessions?.map(s => s.simulation_id) || []);
+  const simulationIds = simulations.map((s) => s.id);
+  const { data: completedSessions } =
+    simulationIds.length > 0
+      ? await supabase
+          .from("sessions")
+          .select("simulation_id")
+          .in("simulation_id", simulationIds)
+          .eq("status", "complete")
+      : { data: [] as { simulation_id: string }[] };
 
-  // Running sessions – map simulation_id -> session for "Continue" on cards
-  const allSimIds = allSimulations?.map(s => s.id) || [];
+  const simulationsWithReports = new Set(completedSessions?.map((s) => s.simulation_id) || []);
+
+  const allSimIds = rows.map((s) => s.id);
   const { data: runningSessions } = allSimIds.length > 0
     ? await supabase
         .from("sessions")
         .select("id, simulation_id")
         .in("simulation_id", allSimIds)
         .eq("status", "running")
-        // Treat NULL as non-preview (older rows) so preview sessions never show Continue
         .neq("is_preview", true)
         .order("created_at", { ascending: false })
-    : { data: [] };
+    : { data: [] as { id: string; simulation_id: string }[] };
 
   const sessionBySimulation = (runningSessions || []).reduce<Record<string, { id: string }>>((acc, s) => {
     if (!acc[s.simulation_id]) acc[s.simulation_id] = { id: s.id };
@@ -65,85 +133,101 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
   }, {});
 
   const displayName = user?.user_metadata?.name || user?.email?.split("@")[0] || "there";
+  const greetingSeed = `${user.id}-${new Date().toISOString().slice(0, 13)}`;
+  const greeting = pickGreeting(greetingSeed);
+
+  const quickActions = [
+    {
+      href: "/create",
+      icon: Sparkles,
+      label: "Generate a simulation from your materials",
+    },
+    {
+      href: "/library",
+      icon: LibraryIcon,
+      label: "Browse our ready-made simulation library",
+    },
+    {
+      href: "/create",
+      icon: Plus,
+      label: "Create simulation",
+    },
+  ];
+
+  const hasActiveFilters =
+    qTrim.length > 0 || subjectParam !== "all" || difficultyParam !== "all";
 
   return (
     <div>
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between mb-4 sm:mb-6">
-        <div className="min-w-0">
-          <h1 className="text-2xl sm:text-3xl font-bold">
-            Hello, {displayName}
+      <FadeIn>
+        <section
+          className={`mb-6 sm:mb-8 rounded-3xl border border-border p-6 sm:p-10 ${APP_TILE_BACKGROUNDS[0]} shadow-[0_12px_30px_rgba(15,36,71,0.08)]`}
+        >
+          <h1 className="text-3xl sm:text-4xl font-bold tracking-tight text-ink">
+            {greeting}, {displayName}
           </h1>
-
-        </div>
-      </div>
-
-      {/* Course filter: select a course to see curated simulations */}
-      {courses.length > 1 && (
-        <div className="mb-6">
-          <p className="text-sm font-medium text-muted-foreground mb-2 flex items-center gap-2">
-            <FolderOpen className="h-4 w-4" />
-            By course
+          <p className="mt-2 max-w-2xl text-sm sm:text-base text-muted-text">
+            Pick how you&apos;d like to start.
           </p>
-          <div className="flex flex-wrap gap-2">
-            <Link href="/dashboard">
-              <Button variant={!selectedCourse ? "default" : "outline"} size="sm" className="min-h-[40px]">
-                All
-              </Button>
-            </Link>
-            {courses.map((course) => (
-              <Link key={course} href={`/dashboard?course=${encodeURIComponent(course)}`}>
-                <Button variant={selectedCourse === course ? "default" : "outline"} size="sm" className="min-h-[40px]">
-                  {course}
-                </Button>
+
+          <div className="mt-6 grid gap-3 grid-cols-1 sm:grid-cols-3">
+            {quickActions.map(({ href, icon: Icon, label }) => (
+              <Link key={label} href={href} className="group">
+                <div className="flex h-full items-center justify-between gap-4 rounded-2xl bg-white/85 p-4 sm:p-5 backdrop-blur-sm transition-all hover:-translate-y-0.5 hover:bg-white hover:shadow-soft">
+                  <div className="flex items-center gap-3 text-ink">
+                    <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-ink/5 text-ink">
+                      <Icon className="h-5 w-5" />
+                    </span>
+                    <span className="text-sm sm:text-base font-semibold leading-snug">{label}</span>
+                  </div>
+                  <ArrowRight className="h-5 w-5 shrink-0 text-muted-text transition-transform duration-200 group-hover:translate-x-1" />
+                </div>
               </Link>
             ))}
           </div>
+        </section>
+      </FadeIn>
+
+      {rows.length > 0 && (
+        <Suspense fallback={<div className="mb-6 h-10 animate-pulse rounded-md bg-muted/60" aria-hidden />}>
+          <DashboardSimulationFilters
+            subjects={subjects}
+            currentQuery={qTrim}
+            currentSubject={subjectParam}
+            currentDifficulty={difficultyParam}
+          />
+        </Suspense>
+      )}
+
+      {rows.length > 0 && simulations.length === 0 && (
+        <div className="text-center py-12">
+          <p className="text-muted-foreground">No simulations match your filters.</p>
+          {hasActiveFilters && (
+            <Button variant="outline" className="mt-4" asChild>
+              <Link href="/dashboard">Clear filters</Link>
+            </Button>
+          )}
         </div>
       )}
 
-      {simulations && simulations.length > 0 ? (
-        <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
+      {simulations.length > 0 && (
+        <div
+          id="your-simulations"
+          className={`${SIMULATION_CARD_GRID_CLASS} scroll-mt-24`}
+        >
           {simulations.map((simulation) => {
             const activeSession = sessionBySimulation[simulation.id];
             return (
-              <DashboardSimulationCard
-                key={simulation.id}
-                simulation={simulation as DashboardSimulationRow}
-                activeSession={activeSession}
-                hasReports={simulationsWithReports.has(simulation.id)}
-              />
+              <div key={simulation.id} className={SIMULATION_CARD_GRID_ITEM_CLASS}>
+                <DashboardSimulationCard
+                  simulation={simulation as DashboardSimulationRow}
+                  activeSession={activeSession}
+                  hasReports={simulationsWithReports.has(simulation.id)}
+                />
+              </div>
             );
           })}
         </div>
-      ) : (
-        <Card className="text-center py-12">
-          <CardContent>
-            <div className="mx-auto w-16 h-16 rounded-full bg-muted flex items-center justify-center mb-4">
-              <BookOpen className="h-8 w-8 text-muted-foreground" />
-            </div>
-            <h3 className="text-lg font-semibold mb-2">
-              {selectedCourse ? `No simulations for "${selectedCourse}" yet` : "No simulations yet"}
-            </h3>
-            <p className="text-muted-foreground mb-6">
-              {selectedCourse
-                ? "Create a simulation for this course or view all simulations."
-                : "Create your first simulation to get started with interactive classroom exercises."}
-            </p>
-            <div className="flex flex-wrap justify-center gap-2">
-              {selectedCourse && (
-                <Link href="/dashboard">
-                  <Button variant="outline">View all simulations</Button>
-                </Link>
-              )}
-              <Link href="/create">
-                <Button>
-                  <Plus className="mr-2 h-4 w-4" />
-                  {selectedCourse ? "Create simulation for this course" : "Create Your First Simulation"}
-                </Button>
-              </Link>
-            </div>
-          </CardContent>
-        </Card>
       )}
     </div>
   );

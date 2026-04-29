@@ -1,3 +1,4 @@
+import { logger } from "@/lib/logger";
 import { getOpenAIClient } from "@/lib/openai";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/types/database";
@@ -76,7 +77,7 @@ export async function retrieveRelevantChunks(
   });
 
   if (error) {
-    console.error("Knowledge base retrieval error:", error);
+    logger.error("Knowledge base retrieval error:", error);
     return [];
   }
 
@@ -94,4 +95,24 @@ export function formatChunksForPrompt(chunks: RetrievedChunk[]): string {
     .join("\n\n---\n\n");
 
   return `\n\n**PRAXIS KNOWLEDGE BASE — Reference Materials:**\n\n${formatted}\n\nUse these reference materials to ground the simulation in factual, well-established case content. Prefer information from these sources over creative invention.`;
+}
+
+/**
+ * Fetches RAG chunks for generation prompts (same use as `/api/generate-simulation`).
+ * Returns a formatted string to append to source materials, or "" if the query is empty.
+ */
+export async function buildKnowledgeContextForGeneration(
+  supabase: SupabaseClient<Database>,
+  ragQuery: string,
+  options: { subject?: string; limit?: number } = {}
+): Promise<string> {
+  const q = ragQuery.trim();
+  if (!q) return "";
+  try {
+    const chunks = await retrieveRelevantChunks(supabase, q, options);
+    return formatChunksForPrompt(chunks);
+  } catch (e) {
+    logger.warn("[knowledge-base] RAG retrieval failed:", e);
+    return "";
+  }
 }

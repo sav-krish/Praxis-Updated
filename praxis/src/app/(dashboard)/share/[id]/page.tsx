@@ -1,6 +1,5 @@
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import Link from "next/link";
 import { ShareView } from "./share-view";
 
 interface PageProps {
