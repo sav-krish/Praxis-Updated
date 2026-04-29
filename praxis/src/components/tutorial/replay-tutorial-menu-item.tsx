@@ -6,6 +6,7 @@ import { useNextStep } from "@/components/tutorial/nextstep-compat";
 import { DropdownMenuItem } from "@/components/ui/dropdown-menu";
 import { resetTutorial } from "@/components/tutorial/actions";
 import {
+  isDashboardRoute,
   requestTourReplay,
 } from "@/components/tutorial/tour-provider";
 import { PRAXIS_TOUR_ID } from "@/components/tutorial/tour-config";
@@ -19,8 +20,9 @@ import { PRAXIS_TOUR_ID } from "@/components/tutorial/tour-config";
  *   - Anywhere else: set a one-shot session-storage flag and `router.push`
  *     to `/dashboard`. `<TourAutoStart>` picks it up after the route lands.
  *
- * The DB reset is fire-and-forget — the in-memory tour state is what drives
- * the overlay, and we don't want a flaky network call to gate the UX.
+ * We await `resetTutorial()` so production reflects the cleared flag, then
+ * start the tour on a microtask so the overlay wins any React 19 / RSC batch
+ * from the server action.
  */
 export function ReplayTutorialMenuItem() {
   const router = useRouter();
@@ -31,17 +33,24 @@ export function ReplayTutorialMenuItem() {
     <DropdownMenuItem
       onSelect={(e) => {
         e.preventDefault();
-        void resetTutorial().catch(() => {
-          /* swallow — replay shouldn't depend on the network */
-        });
-
-        if (pathname === "/dashboard") {
-          startNextStep(PRAXIS_TOUR_ID);
-          return;
-        }
-
-        requestTourReplay();
-        router.push("/dashboard");
+        void (async () => {
+          try {
+            await resetTutorial();
+          } catch {
+            /* replay UX must not hinge on reset succeeding */
+          }
+          // Defer until after the server action / RSC pass settles — in production
+          // React 19 can batch updates such that starting the tour in the same
+          // tick as the action leaves the overlay in a bad state.
+          queueMicrotask(() => {
+            if (isDashboardRoute(pathname)) {
+              startNextStep(PRAXIS_TOUR_ID);
+              return;
+            }
+            requestTourReplay();
+            router.push("/dashboard");
+          });
+        })();
       }}
       className="cursor-pointer"
     >

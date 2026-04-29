@@ -15,6 +15,17 @@ import { markTutorialCompleted } from "@/components/tutorial/actions";
 const REPLAY_FLAG = "praxis-tour-replay";
 
 /**
+ * Hosts may serve `/dashboard/` while local dev uses `/dashboard`. The tour
+ * only auto-starts (and replay handoff only runs) on the dashboard route, so
+ * compare a normalized path to avoid prod-only silent misses.
+ */
+export function isDashboardRoute(pathname: string | null): boolean {
+  if (!pathname) return false;
+  const p = pathname.replace(/\/+$/, "") || "/";
+  return p === "/dashboard";
+}
+
+/**
  * Upper bound on how long we wait for a step's anchor to appear in the DOM
  * before treating it as missing and auto-skipping. 1800ms covers worst-case
  * cross-page navigations + dynamic imports (e.g. the lazy-loaded Copilot
@@ -126,13 +137,31 @@ function TourAutoStart({ tutorialCompleted }: { tutorialCompleted: boolean }) {
   const pathname = usePathname();
   const autoStarted = useRef(false);
   const replayHandled = useRef(false);
+  const prevTutorialCompleted = useRef(tutorialCompleted);
+
+  // Allow another auto-start after "Replay tutorial" clears `tutorial_completed_at`
+  // server-side (same session used to have autoStarted.current === true).
+  useEffect(() => {
+    if (prevTutorialCompleted.current && !tutorialCompleted) {
+      autoStarted.current = false;
+    }
+    prevTutorialCompleted.current = tutorialCompleted;
+  }, [tutorialCompleted]);
+
+  // Second "replay from /library" in the same session used to stay stuck because
+  // replayHandled never reset once the first handoff consumed the session flag.
+  useEffect(() => {
+    if (!isDashboardRoute(pathname)) {
+      replayHandled.current = false;
+    }
+  }, [pathname]);
 
   // First-time auto-start.
   useEffect(() => {
     if (tutorialCompleted) return;
     if (autoStarted.current) return;
     if (isNextStepVisible) return;
-    if (pathname !== "/dashboard") return;
+    if (!isDashboardRoute(pathname)) return;
     autoStarted.current = true;
     startNextStep(PRAXIS_TOUR_ID);
   }, [tutorialCompleted, pathname, isNextStepVisible, startNextStep]);
@@ -142,7 +171,7 @@ function TourAutoStart({ tutorialCompleted }: { tutorialCompleted: boolean }) {
     if (replayHandled.current) return;
     if (typeof window === "undefined") return;
     if (window.sessionStorage.getItem(REPLAY_FLAG) !== "1") return;
-    if (pathname !== "/dashboard") return;
+    if (!isDashboardRoute(pathname)) return;
     replayHandled.current = true;
     window.sessionStorage.removeItem(REPLAY_FLAG);
     startNextStep(PRAXIS_TOUR_ID);
