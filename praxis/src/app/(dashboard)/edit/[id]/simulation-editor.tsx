@@ -15,8 +15,6 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { FieldInfoHint } from "@/components/ui/field-info-hint";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { MarkdownBody } from "@/components/ui/markdown-body";
 import { BackgroundRichTextEditor } from "@/components/ui/background-rich-text-editor";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -892,33 +890,14 @@ export function SimulationEditor({
                     </div>
                   </CardHeader>
                   <CardContent>
-                    <Tabs defaultValue="edit">
-                      <TabsList variant="line" className="mb-3 w-full max-w-full justify-start">
-                        <TabsTrigger value="edit">Write</TabsTrigger>
-                        <TabsTrigger value="preview">Preview</TabsTrigger>
-                      </TabsList>
-                      <TabsContent value="edit" className="mt-0" forceMount>
-                        <BackgroundRichTextEditor
-                          key={simulation.id}
-                          value={simulation.background_content || ""}
-                          onChange={(md) =>
-                            setSimulation({ ...simulation, background_content: md })
-                          }
-                          placeholder="Write the background scenario here. This is what students will read before making decisions…"
-                        />
-                      </TabsContent>
-                      <TabsContent value="preview" className="mt-0">
-                        <div className="max-h-[min(28rem,60vh)] min-h-80 overflow-y-auto rounded-md border border-border bg-muted/20 px-4 py-3">
-                          {simulation.background_content?.trim() ? (
-                            <MarkdownBody className="prose prose-sm dark:prose-invert max-w-none text-sm [&>*:first-child]:mt-0 [&>*:last-child]:mb-0 prose-headings:text-foreground prose-p:text-foreground prose-strong:text-foreground prose-li:text-foreground prose-ul:list-disc">
-                              {simulation.background_content}
-                            </MarkdownBody>
-                          ) : (
-                            <p className="text-sm text-muted-foreground">Nothing to preview yet.</p>
-                          )}
-                        </div>
-                      </TabsContent>
-                    </Tabs>
+                    <BackgroundRichTextEditor
+                      key={simulation.id}
+                      value={simulation.background_content || ""}
+                      onChange={(md) =>
+                        setSimulation({ ...simulation, background_content: md })
+                      }
+                      placeholder="Write the background scenario here. This is what students will read before making decisions…"
+                    />
                   </CardContent>
                 </Card>
               )}
@@ -934,32 +913,13 @@ export function SimulationEditor({
                 </div>
               </CardHeader>
               <CardContent>
-                <Tabs defaultValue="edit">
-                  <TabsList variant="line" className="mb-3 w-full max-w-full justify-start">
-                    <TabsTrigger value="edit">Write</TabsTrigger>
-                    <TabsTrigger value="preview">Preview</TabsTrigger>
-                  </TabsList>
-                  <TabsContent value="edit" className="mt-0" forceMount>
-                    <BackgroundRichTextEditor
-                      key={simulation.id}
-                      value={simulation.background_content || ""}
-                      onChange={() => {}}
-                      disabled
-                      placeholder="Background text (read-only)"
-                    />
-                  </TabsContent>
-                  <TabsContent value="preview" className="mt-0">
-                    <div className="max-h-[min(28rem,60vh)] min-h-80 overflow-y-auto rounded-md border border-border bg-muted/20 px-4 py-3">
-                      {simulation.background_content?.trim() ? (
-                        <MarkdownBody className="prose prose-sm dark:prose-invert max-w-none text-sm [&>*:first-child]:mt-0 [&>*:last-child]:mb-0 prose-headings:text-foreground prose-p:text-foreground prose-strong:text-foreground prose-li:text-foreground prose-ul:list-disc">
-                          {simulation.background_content}
-                        </MarkdownBody>
-                      ) : (
-                        <p className="text-sm text-muted-foreground">Nothing to preview yet.</p>
-                      )}
-                    </div>
-                  </TabsContent>
-                </Tabs>
+                <BackgroundRichTextEditor
+                  key={simulation.id}
+                  value={simulation.background_content || ""}
+                  onChange={() => {}}
+                  disabled
+                  placeholder="Background text (read-only)"
+                />
               </CardContent>
             </Card>
           )}
