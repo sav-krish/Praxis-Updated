@@ -26,6 +26,7 @@ interface LibraryViewProps {
   userFavoriteIds: string[];
   subjects: string[];
   userId?: string;
+  isAdmin?: boolean;
   currentQuery: string;
   currentSubject: string;
   currentDifficulty: string;
@@ -38,6 +39,7 @@ export function LibraryView({
   userFavoriteIds: initialFavorites,
   subjects,
   userId,
+  isAdmin = false,
   currentQuery,
   currentSubject,
   currentDifficulty,
@@ -135,6 +137,7 @@ export function LibraryView({
                 <LibrarySimulationCard
                   variant="spotlight"
                   sim={sim}
+                  isAdmin={isAdmin}
                   isFavorite={favorites.has(sim.id)}
                   favoritePending={togglingFavorite === sim.id}
                   onToggleFavorite={() => toggleFavorite(sim.id)}
@@ -160,6 +163,7 @@ export function LibraryView({
               <div key={sim.id} className={SIMULATION_CARD_GRID_ITEM_CLASS}>
                 <LibrarySimulationCard
                   sim={sim}
+                  isAdmin={isAdmin}
                   isFavorite={favorites.has(sim.id)}
                   favoritePending={togglingFavorite === sim.id}
                   onToggleFavorite={() => toggleFavorite(sim.id)}
@@ -245,6 +249,7 @@ export function LibraryView({
             <div key={sim.id} className={SIMULATION_CARD_GRID_ITEM_CLASS}>
               <LibrarySimulationCard
                 sim={sim}
+                isAdmin={isAdmin}
                 isFavorite={favorites.has(sim.id)}
                 favoritePending={togglingFavorite === sim.id}
                 onToggleFavorite={() => toggleFavorite(sim.id)}

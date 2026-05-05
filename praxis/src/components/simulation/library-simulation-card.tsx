@@ -10,6 +10,7 @@ import { Heart, Clock, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { copySimulationToAccount } from "@/app/(dashboard)/share/[id]/actions";
 import type { LibrarySimulationRow } from "@/types/library";
+import { DeleteLibrarySimulationButton } from "@/components/simulation/delete-library-simulation-button";
 import { appTileBackgroundForDifficulty } from "@/lib/app-tile-backgrounds";
 import {
   SIMULATION_CARD_ACTION_MIN_HEIGHT_CLASS,
@@ -32,6 +33,7 @@ type LibrarySimulationCardProps = {
   onToggleFavorite: () => void;
   /** Curated strip: gradient card, no extra badges */
   variant?: "default" | "spotlight";
+  isAdmin?: boolean;
   /**
    * When `true`, marks this card's favorite control with `data-tour="favorite-button"`
    * so the onboarding tour can spotlight it. Caller (LibraryView) picks
@@ -59,6 +61,7 @@ export function LibrarySimulationCard({
   favoritePending,
   onToggleFavorite,
   variant = "default",
+  isAdmin = false,
   isTourFavoriteAnchor = false,
 }: LibrarySimulationCardProps) {
   const router = useRouter();
@@ -99,6 +102,12 @@ export function LibrarySimulationCard({
             {sim.title}
           </CardTitle>
           <div className="flex shrink-0 items-center gap-1.5">
+            {isAdmin ? (
+              <DeleteLibrarySimulationButton
+                simulationId={sim.id}
+                simulationTitle={sim.title}
+              />
+            ) : null}
             <button
               type="button"
               data-tour={isTourFavoriteAnchor ? "favorite-button" : undefined}

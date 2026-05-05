@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { isAdmin } from "@/lib/admin";
 import { LibraryView } from "./library-view";
 import type { LibrarySimulationRow } from "@/types/library";
 import { escapeIlikePattern } from "@/lib/utils";
@@ -16,6 +17,7 @@ export default async function LibraryPage({ searchParams }: LibraryPageProps) {
   const { q, subject, difficulty } = await searchParams;
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
+  const admin = await isAdmin(user ?? null);
 
   const qTrim = (q ?? "").trim();
   const hasFilters =
@@ -105,6 +107,7 @@ export default async function LibraryPage({ searchParams }: LibraryPageProps) {
       userFavoriteIds={userFavoriteIds}
       subjects={subjects}
       userId={user?.id}
+      isAdmin={admin}
       currentQuery={q || ""}
       currentSubject={subject || "all"}
       currentDifficulty={difficulty || "all"}
