@@ -2,7 +2,7 @@
 
 import { useRouter, usePathname } from "next/navigation";
 import { Sparkles } from "lucide-react";
-import { useNextStep } from "@/components/tutorial/nextstep-compat";
+import { useNextStep } from "nextstepjs";
 import { DropdownMenuItem } from "@/components/ui/dropdown-menu";
 import { resetTutorial } from "@/components/tutorial/actions";
 import {

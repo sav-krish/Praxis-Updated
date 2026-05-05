@@ -113,7 +113,7 @@ export function LibraryView({
     <div className="space-y-8">
       <FadeIn>
         <div
-          className={`rounded-3xl p-6 sm:p-8 shadow-[var(--shadow-soft)] ring-1 ring-border/60 ${APP_TILE_BACKGROUNDS[1]}`}
+          className={`rounded-3xl p-6 sm:p-8 shadow-[var(--shadow-soft)] ring-1 ring-border/60 ${APP_TILE_BACKGROUNDS[2]}`}
         >
           <h1 className="text-2xl sm:text-3xl font-bold">Simulation Library</h1>
           <p className="mt-2 max-w-2xl text-sm text-muted-foreground">

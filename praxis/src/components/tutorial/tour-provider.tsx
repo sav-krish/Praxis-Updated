@@ -2,12 +2,8 @@
 
 import { useEffect, useMemo, useRef } from "react";
 import { usePathname } from "next/navigation";
-import {
-  NextStep,
-  NextStepProvider,
-  useNextStep,
-} from "@/components/tutorial/nextstep-compat";
-import type { Tour } from "@/components/tutorial/nextstep-compat";
+import { NextStep, NextStepProvider, useNextStep } from "nextstepjs";
+import type { Tour } from "nextstepjs";
 import { buildPraxisTour, PRAXIS_TOUR_ID } from "@/components/tutorial/tour-config";
 import { TourCard } from "@/components/tutorial/tour-card";
 import { markTutorialCompleted } from "@/components/tutorial/actions";
