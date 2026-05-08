@@ -439,6 +439,11 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
 
   const submitDecision = async () => {
     if (!selectedOption || !session || !participantId) return;
+    const trimmedJustification = justification.trim();
+    if (!trimmedJustification) {
+      toast.error("Please add a justification before continuing.");
+      return;
+    }
     setSubmitting(true);
 
     const decisionIndex = currentStep - 2;
@@ -455,7 +460,7 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
           participant_id: participantId,
           decision_id: decision.id,
           option_id: selectedOption,
-          justification: justification,
+          justification: trimmedJustification,
         });
 
       if (error) {
@@ -906,7 +911,7 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
                   type="button"
                   className="w-full text-left px-4 sm:px-6 py-4 min-h-[48px] flex items-center justify-between gap-3 bg-transparent hover:bg-muted/50 transition-colors duration-150 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
                 >
-                  <span className="text-sm font-medium text-muted-foreground">Add justification (optional)</span>
+                  <span className="text-sm font-medium text-muted-foreground">Add justification</span>
                   <ChevronDown className="h-5 w-5 shrink-0 text-muted-foreground transition-transform group-data-[state=open]:rotate-180" />
                 </button>
               </CollapsibleTrigger>
@@ -915,7 +920,7 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
                   <Label htmlFor="justification" className="sr-only">Justification</Label>
                   <Textarea
                     id="justification"
-                    placeholder="Explain your reasoning..."
+                    placeholder="Explain your reasoning before submitting..."
                     value={justification}
                     onChange={(e) => setJustification(e.target.value)}
                     rows={3}
@@ -930,7 +935,7 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
             <Button
               size="lg"
               onClick={submitDecision}
-              disabled={!selectedOption || submitting}
+              disabled={!selectedOption || !justification.trim() || submitting}
               className="shadow-sm min-h-[48px] w-full sm:w-auto"
             >
               {submitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}

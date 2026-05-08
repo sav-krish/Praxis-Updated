@@ -82,13 +82,26 @@ export function DataBlockChartRenderer({ block }: { block: SimulationDataBlock }
               <Tooltip />
               <Legend />
               {series.map((s, i) => (
+                // Keep point markers visible at rest; the default theme-driven
+                // dots are too faint and effectively only readable on hover.
                 <Line
                   key={s.label}
                   type="monotone"
                   dataKey={s.label}
-                  stroke={colors[i % colors.length]}
+                  stroke="#111111"
                   strokeWidth={2}
-                  dot={{ r: 4 }}
+                  dot={{
+                    r: 4,
+                    strokeWidth: 2,
+                    stroke: "#111111",
+                    fill: "#111111",
+                  }}
+                  activeDot={{
+                    r: 5,
+                    strokeWidth: 2,
+                    stroke: "#111111",
+                    fill: "#111111",
+                  }}
                 />
               ))}
             </LineChart>
