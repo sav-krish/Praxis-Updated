@@ -34,7 +34,7 @@ export default function AuthError({
           <Button onClick={reset} variant="outline" className="min-h-[44px]">
             Try again
           </Button>
-          <Link href="/login">
+          <Link href="/auth/login">
             <Button variant="ghost" className="w-full min-h-[44px]">
               Back to login
             </Button>

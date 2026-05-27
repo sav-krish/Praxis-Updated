@@ -22,7 +22,7 @@ export default async function NewSessionPage({ params }: PageProps) {
 
   // Verify the simulation exists and belongs to the user
   const { data: { user } } = await supabase.auth.getUser();
-  if (!user) { redirect("/login"); }
+  if (!user) { redirect("/auth/login"); }
   const { data: simulation } = await supabase
     .from("simulations")
     .select("id")

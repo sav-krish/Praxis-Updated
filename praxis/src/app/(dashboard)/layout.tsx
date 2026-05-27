@@ -24,7 +24,7 @@ async function signOut() {
   "use server";
   const supabase = await createClient();
   await supabase.auth.signOut();
-  redirect("/login");
+  redirect("/auth/login");
 }
 
 export default async function DashboardLayout({
@@ -36,7 +36,7 @@ export default async function DashboardLayout({
   const { data: { user } } = await supabase.auth.getUser();
 
   if (!user) {
-    redirect("/login");
+    redirect("/auth/login");
   }
 
   let professor: {

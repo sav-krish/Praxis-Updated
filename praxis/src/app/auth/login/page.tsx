@@ -12,26 +12,20 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
 
-export default function SignupPage() {
+export default function LoginPage() {
   const router = useRouter();
-  const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
 
-  const handleSignup = async (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
 
     const supabase = createClient();
-    const { error } = await supabase.auth.signUp({
+    const { error } = await supabase.auth.signInWithPassword({
       email,
       password,
-      options: {
-        data: {
-          name,
-        },
-      },
     });
 
     if (error) {
@@ -40,7 +34,7 @@ export default function SignupPage() {
       return;
     }
 
-    toast.success("Account created! Please check your email to verify.");
+    toast.success("Welcome back!");
     router.push("/dashboard");
     router.refresh();
   };
@@ -62,24 +56,13 @@ export default function SignupPage() {
             </span>
             <span className="text-2xl font-bold">Praxis</span>
           </Link>
-          <CardTitle>Create an account</CardTitle>
+          <CardTitle>Welcome back</CardTitle>
           <CardDescription>
-            Start creating engaging classroom simulations
+            Sign in to your account to manage your simulations
           </CardDescription>
         </CardHeader>
-        <form onSubmit={handleSignup}>
-          <CardContent className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="name">Name</Label>
-              <Input
-                id="name"
-                type="text"
-                placeholder="Dr. Jane Smith"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                required
-              />
-            </div>
+        <form onSubmit={handleLogin}>
+          <CardContent className="space-y-4 pb-3">
             <div className="space-y-2">
               <Label htmlFor="email">Email</Label>
               <Input
@@ -92,30 +75,31 @@ export default function SignupPage() {
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="password">Password</Label>
+              <div className="flex items-center justify-between">
+                <Label htmlFor="password">Password</Label>
+                <Link href="/auth/forgot-password" className="text-xs font-medium text-primary hover:underline">
+                  Forgot password?
+                </Link>
+              </div>
               <Input
                 id="password"
                 type="password"
                 placeholder="••••••••"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                minLength={6}
                 required
               />
-              <p className="text-xs text-muted-foreground">
-                Must be at least 6 characters
-              </p>
             </div>
           </CardContent>
-          <CardFooter className="flex flex-col gap-4">
+          <CardFooter className="flex flex-col gap-3 pt-0">
             <Button type="submit" className="w-full min-h-[48px]" disabled={loading}>
               {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              Create Account
+              Sign In
             </Button>
             <p className="text-sm text-muted-foreground text-center">
-              Already have an account?{" "}
-              <Link href="/login" className="text-primary hover:underline">
-                Sign in
+              Don&apos;t have an account?{" "}
+              <Link href="/auth/signup" className="text-primary hover:underline">
+                Sign up
               </Link>
             </p>
           </CardFooter>

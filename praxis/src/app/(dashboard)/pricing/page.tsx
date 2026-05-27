@@ -13,7 +13,7 @@ export default async function PricingPage() {
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  if (!user) redirect("/login");
+  if (!user) redirect("/auth/login");
 
   const admin = await isAdmin(user);
   if (!admin) redirect("/dashboard");

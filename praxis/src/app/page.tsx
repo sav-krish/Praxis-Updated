@@ -210,7 +210,7 @@ export default function HomePage() {
               </Button>
             </Link>
             <Link
-              href="/signup"
+              href="/auth/signup"
               className="hidden md:inline-flex items-center"
             >
               <Button className="h-9 max-h-9 px-3 text-base font-semibold leading-none md:h-9 md:px-3.5 md:text-lg">
@@ -225,7 +225,7 @@ export default function HomePage() {
                 Join
               </Button>
             </Link>
-            <Link href="/signup" className="inline-flex items-center md:hidden">
+            <Link href="/auth/signup" className="inline-flex items-center md:hidden">
               <Button className="h-9 max-h-9 px-3 text-base font-semibold leading-none">
                 Start
               </Button>
@@ -250,7 +250,7 @@ export default function HomePage() {
             </h1>
             <div className="mx-auto mt-6 flex w-fit max-w-full flex-col items-center gap-7 pb-4 sm:mt-8 sm:flex-row sm:flex-nowrap sm:items-center sm:justify-center sm:gap-4 sm:pb-5 md:gap-6">
               <Link
-                href="/signup"
+                href="/auth/signup"
                 className="flex min-h-[48px] w-fit justify-center"
               >
                 <Button
@@ -362,7 +362,7 @@ export default function HomePage() {
           <div className="container">
             <FadeIn className="mt-10 flex justify-center">
               <Link
-                href="/signup"
+                href="/auth/signup"
                 className="inline-flex min-h-[48px] items-center justify-center"
               >
                 <Button className="min-h-[48px] text-base px-10 shadow-soft">

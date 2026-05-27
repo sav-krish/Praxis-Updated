@@ -16,7 +16,7 @@ export default async function SubscriptionSuccessPage({
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  if (!user) redirect("/login");
+  if (!user) redirect("/auth/login");
 
   return (
     <div className="min-h-[60vh] flex flex-col items-center justify-center px-4">

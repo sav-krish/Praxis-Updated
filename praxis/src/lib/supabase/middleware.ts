@@ -46,12 +46,12 @@ export async function updateSession(request: NextRequest) {
 
   if (isProtectedPath && !user) {
     const url = request.nextUrl.clone()
-    url.pathname = '/login'
+    url.pathname = '/auth/login'
     return NextResponse.redirect(url)
   }
 
   // Redirect logged-in users away from auth pages
-  const authPaths = ['/login', '/signup']
+  const authPaths = ['/auth/login', '/auth/signup']
   const isAuthPath = authPaths.some(path => 
     request.nextUrl.pathname === path
   )
@@ -60,6 +60,16 @@ export async function updateSession(request: NextRequest) {
     const url = request.nextUrl.clone()
     url.pathname = '/dashboard'
     return NextResponse.redirect(url)
+  }
+
+  // Allow password reset routes even without authentication
+  const passwordResetPaths = ['/auth/forgot-password', '/auth/reset-password']
+  const isPasswordResetPath = passwordResetPaths.some(path =>
+    request.nextUrl.pathname === path
+  )
+
+  if (isPasswordResetPath) {
+    return supabaseResponse
   }
 
   return supabaseResponse
