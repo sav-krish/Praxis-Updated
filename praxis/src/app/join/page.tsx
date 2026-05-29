@@ -128,9 +128,9 @@ function JoinForm() {
               <Image
                 src="/new_logo.png"
                 alt="Praxis"
-                width={180}
+                width={280}
                 height={73}
-                className="h-8 w-auto"
+                className="h-14 w-auto sm:h-16"
                 priority
               />
             </span>
@@ -173,18 +173,18 @@ function JoinForm() {
               />
             </div>
           </CardContent>
-          <CardContent className="pt-0">
+          <CardContent className="pt-4">
             <Button 
               type="submit" 
               className="w-full min-h-[48px]" 
               disabled={loading || !session || !name.trim()}
             >
-              {loading ? (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              ) : (
-                <ArrowRight className="mr-2 h-4 w-4" />
-              )}
               Join Session
+              {loading ? (
+                <Loader2 className="ml-2 h-4 w-4 animate-spin" />
+              ) : (
+                <ArrowRight className="ml-2 h-4 w-4" />
+              )}
             </Button>
           </CardContent>
         </form>
