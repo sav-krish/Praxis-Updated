@@ -43,7 +43,7 @@ type LibrarySimulationCardProps = {
 };
 
 const SPOTLIGHT_GRADIENT =
-  "linear-gradient(120deg, #e0c3fc 0%, #8ec5fc 100%)";
+  "linear-gradient(120deg, #fff0e1 0%, #ffe0c4 52%, #ffc795 100%)";
 
 /**
  * @description Public-library card surfacing bookmark (heart), duplicate-to-account controls, curated spotlight variant, tutorial anchor hook (`data-tour`).

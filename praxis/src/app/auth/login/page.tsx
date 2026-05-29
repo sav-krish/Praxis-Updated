@@ -46,15 +46,14 @@ export default function LoginPage() {
           <Link href="/" className="flex items-center justify-center gap-2 mb-4">
             <span className="inline-flex shrink-0 items-center justify-center rounded-sm bg-white p-0.5">
               <Image
-                src="/logo.jpg"
+                src="/new_logo.png"
                 alt="Praxis"
-                width={96}
-                height={73}
-                className="h-8 w-auto"
+                width={420}
+                height={109}
+                className="h-14 w-auto sm:h-16"
                 priority
               />
             </span>
-            <span className="text-2xl font-bold">Praxis</span>
           </Link>
           <CardTitle>Welcome back</CardTitle>
           <CardDescription>

@@ -45,15 +45,15 @@
   --radius-2xl: calc(var(--radius) + 8px);
   --radius-3xl: calc(var(--radius) + 12px);
   --radius-4xl: calc(var(--radius) + 16px);
-  /* Landing / website palette (blue scheme) */
-  --color-canvas: #F3F7FF;
-  --color-ink: #0F2447;
-  --color-line: #D6E1F2;
-  --color-accentSoft: #E5EEFF;
-  --color-sun: #60A5FA;
-  --shadow-soft: 0 12px 30px rgba(15, 36, 71, 0.12);
-  --shadow-subtle: 0 6px 16px rgba(15, 36, 71, 0.1);
-  --color-muted-text: #516481;
+  /* Landing / website palette (orange scheme) */
+  --color-canvas: #fff7ee;
+  --color-ink: #4a1f10;
+  --color-line: #f5d3bd;
+  --color-accentSoft: #ffe6d3;
+  --color-sun: #fd8c2e;
+  --shadow-soft: 0 12px 30px rgba(128, 52, 20, 0.16);
+  --shadow-subtle: 0 6px 16px rgba(128, 52, 20, 0.12);
+  --color-muted-text: #91593a;
 }
 
 :root {
@@ -64,66 +64,66 @@
   --card-foreground: oklch(0.22 0.02 250);
   --popover: oklch(1 0 0);
   --popover-foreground: oklch(0.22 0.02 250);
-  /* Praxis blue (logo-derived): primary #5BA2D8 */
-  --primary: oklch(0.62 0.14 235);
+  /* Praxis orange palette */
+  --primary: #f9792a;
   --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.96 0.02 235);
-  --secondary-foreground: oklch(0.28 0.04 250);
-  --muted: oklch(0.96 0.01 250);
-  --muted-foreground: oklch(0.5 0.02 250);
-  --accent: oklch(0.92 0.04 235);
-  --accent-foreground: oklch(0.28 0.04 250);
+  --secondary: #fff0e4;
+  --secondary-foreground: #4a1f10;
+  --muted: #fff5ec;
+  --muted-foreground: #91593a;
+  --accent: #fd8c2e;
+  --accent-foreground: #4a1f10;
   --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.9 0.02 250);
-  --input: oklch(0.92 0.01 250);
-  --ring: oklch(0.62 0.14 235);
-  --chart-1: oklch(0.62 0.14 235);
-  --chart-2: oklch(0.55 0.12 235);
-  --chart-3: oklch(0.45 0.1 235);
-  --chart-4: oklch(0.75 0.1 235);
-  --chart-5: oklch(0.85 0.06 235);
+  --border: #f5d3bd;
+  --input: #fce7d6;
+  --ring: #f9792a;
+  --chart-1: #fd8c2e;
+  --chart-2: #f9792a;
+  --chart-3: #f76224;
+  --chart-4: #f9a25e;
+  --chart-5: #ffd0a8;
   --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.22 0.02 250);
-  --sidebar-primary: oklch(0.62 0.14 235);
+  --sidebar-foreground: #4a1f10;
+  --sidebar-primary: #f9792a;
   --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.94 0.03 235);
-  --sidebar-accent-foreground: oklch(0.28 0.04 250);
-  --sidebar-border: oklch(0.9 0.02 250);
-  --sidebar-ring: oklch(0.62 0.14 235);
+  --sidebar-accent: #fff0e4;
+  --sidebar-accent-foreground: #4a1f10;
+  --sidebar-border: #f5d3bd;
+  --sidebar-ring: #f9792a;
 }
 
 .dark {
-  --background: oklch(0.18 0.02 250);
-  --foreground: oklch(0.95 0.01 250);
-  --card: oklch(0.22 0.02 250);
-  --card-foreground: oklch(0.95 0.01 250);
-  --popover: oklch(0.22 0.02 250);
-  --popover-foreground: oklch(0.95 0.01 250);
-  --primary: oklch(0.65 0.14 235);
+  --background: #2c140d;
+  --foreground: #fff4ea;
+  --card: #3a1a10;
+  --card-foreground: #fff4ea;
+  --popover: #3a1a10;
+  --popover-foreground: #fff4ea;
+  --primary: #fd8c2e;
   --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.28 0.03 250);
-  --secondary-foreground: oklch(0.95 0 0);
-  --muted: oklch(0.28 0.02 250);
-  --muted-foreground: oklch(0.7 0.02 250);
-  --accent: oklch(0.32 0.05 235);
-  --accent-foreground: oklch(0.95 0 0);
+  --secondary: #4a2417;
+  --secondary-foreground: #fff4ea;
+  --muted: #432015;
+  --muted-foreground: #e6b89a;
+  --accent: #5a2817;
+  --accent-foreground: #fff4ea;
   --destructive: oklch(0.704 0.191 22.216);
-  --border: oklch(0.35 0.03 250);
-  --input: oklch(0.3 0.02 250);
-  --ring: oklch(0.65 0.14 235);
-  --chart-1: oklch(0.65 0.14 235);
-  --chart-2: oklch(0.6 0.12 235);
-  --chart-3: oklch(0.55 0.1 235);
-  --chart-4: oklch(0.75 0.1 235);
-  --chart-5: oklch(0.85 0.06 235);
-  --sidebar: oklch(0.2 0.02 250);
-  --sidebar-foreground: oklch(0.95 0 0);
-  --sidebar-primary: oklch(0.65 0.14 235);
+  --border: #6f3520;
+  --input: #5a2817;
+  --ring: #fd8c2e;
+  --chart-1: #fd8c2e;
+  --chart-2: #f9792a;
+  --chart-3: #f76224;
+  --chart-4: #f9a25e;
+  --chart-5: #ffd0a8;
+  --sidebar: #35170f;
+  --sidebar-foreground: #fff4ea;
+  --sidebar-primary: #fd8c2e;
   --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.3 0.04 235);
-  --sidebar-accent-foreground: oklch(0.95 0 0);
-  --sidebar-border: oklch(0.35 0.03 250);
-  --sidebar-ring: oklch(0.65 0.14 235);
+  --sidebar-accent: #4a2417;
+  --sidebar-accent-foreground: #fff4ea;
+  --sidebar-border: #6f3520;
+  --sidebar-ring: #fd8c2e;
 }
 
 @layer base {
@@ -150,17 +150,17 @@
   }
 }
 
-/* Landing page blue theme (accent matches dashboard --primary / logo #5BA2D8) */
+/* Landing page orange theme */
 [data-landing="true"] {
-  --accent: #5ba2d8;
+  --accent: #fd8c2e;
   --accent-foreground: #ffffff;
-  --muted: #516481;
-  --muted-foreground: #516481;
-  --background: #F3F7FF;
-  --foreground: #0F2447;
-  --primary: #0F2447;
-  --secondary: #E5EEFF;
-  --border: #D6E1F2;
+  --muted: #91593a;
+  --muted-foreground: #91593a;
+  --background: #fff7ee;
+  --foreground: #4a1f10;
+  --primary: #f76224;
+  --secondary: #ffe6d3;
+  --border: #f5d3bd;
 }
 
 /* Dashboard / app palette — mirrors landing tokens but tuned for app density.
@@ -168,33 +168,33 @@
    wrapper, so the entire app subtree inherits without touching the landing
    page or marketing routes. */
 [data-app="true"] {
-  --background: #F3F7FF;
-  --foreground: #0F2447;
-  --primary: #5BA2D8;
+  --background: #fff7ee;
+  --foreground: #4a1f10;
+  --primary: #f9792a;
   --primary-foreground: #ffffff;
-  --secondary: #E5EEFF;
-  --secondary-foreground: #0F2447;
+  --secondary: #ffe6d3;
+  --secondary-foreground: #4a1f10;
   /* Accent is the universal hover/focus tint used by ghost & outline Buttons,
      DropdownMenuItem, Select/Command items, Accordion triggers, and Badge
      links. Keep it a soft ink wash so the hover state is always visible on
      light, white, and pastel surfaces alike — without competing with the
      bright sky-blue --primary used for real CTAs. */
-  --accent: rgba(15, 36, 71, 0.06);
-  --accent-foreground: #0F2447;
-  --border: #D6E1F2;
-  --muted: #EAF1FF;
-  --muted-foreground: #516481;
+  --accent: rgba(249, 121, 42, 0.12);
+  --accent-foreground: #4a1f10;
+  --border: #f5d3bd;
+  --muted: #fff1e5;
+  --muted-foreground: #91593a;
   --card: #ffffff;
-  --card-foreground: #0F2447;
+  --card-foreground: #4a1f10;
   --popover: #ffffff;
-  --popover-foreground: #0F2447;
-  --input: #D6E1F2;
-  --ring: #5BA2D8;
-  --chart-1: #5BA2D8;
-  --chart-2: #0F2447;
-  --chart-3: #60A5FA;
-  --chart-4: #93C5FD;
-  --chart-5: #BFDBFE;
+  --popover-foreground: #4a1f10;
+  --input: #fce7d6;
+  --ring: #f9792a;
+  --chart-1: #fd8c2e;
+  --chart-2: #f9792a;
+  --chart-3: #f76224;
+  --chart-4: #f9a25e;
+  --chart-5: #ffd0a8;
 }
 
 /* Landing: no horizontal page scroll / scrollbar (wide How it works strip, etc.) */
@@ -235,16 +235,16 @@ html:has([data-landing="true"]) {
 /* ── Praxis Copilot Animations ───────────────────────────────────────── */
 
 @keyframes aurora-border {
-  0%   { border-color: #a855f7; box-shadow: 0 0 12px 2px #a855f740; }
-  25%  { border-color: #6366f1; box-shadow: 0 0 16px 3px #6366f140; }
-  50%  { border-color: #06b6d4; box-shadow: 0 0 12px 2px #06b6d440; }
-  75%  { border-color: #6366f1; box-shadow: 0 0 16px 3px #6366f140; }
-  100% { border-color: #a855f7; box-shadow: 0 0 12px 2px #a855f740; }
+  0%   { border-color: #fd8c2e; box-shadow: 0 0 12px 2px #fd8c2e40; }
+  25%  { border-color: #f9792a; box-shadow: 0 0 16px 3px #f9792a40; }
+  50%  { border-color: #f76224; box-shadow: 0 0 12px 2px #f7622440; }
+  75%  { border-color: #f9792a; box-shadow: 0 0 16px 3px #f9792a40; }
+  100% { border-color: #fd8c2e; box-shadow: 0 0 12px 2px #fd8c2e40; }
 }
 
 @keyframes copilot-glow-pulse {
-  0%,100% { box-shadow: 0 0 0 0 #a855f760; }
-  50%      { box-shadow: 0 0 0 8px #a855f720; }
+  0%,100% { box-shadow: 0 0 0 0 #fd8c2e60; }
+  50%      { box-shadow: 0 0 0 8px #fd8c2e20; }
 }
 
 @keyframes ai-panel-in {
@@ -274,10 +274,10 @@ html:has([data-landing="true"]) {
 .shimmer-label {
   background: linear-gradient(
     90deg,
-    #a855f7 0%,
-    #06b6d4 40%,
-    #a855f7 80%,
-    #06b6d4 100%
+    #fd8c2e 0%,
+    #f9792a 40%,
+    #f76224 80%,
+    #fd8c2e 100%
   );
   background-size: 200% auto;
   -webkit-background-clip: text;

@@ -67,7 +67,7 @@ export function DataBlockChartRenderer({ block }: { block: SimulationDataBlock }
       }
       return point;
     });
-    const colors = ["hsl(var(--primary))", "#5BA2D8", "#516481"];
+    const colors = ["hsl(var(--primary))", "#fd8c2e", "#f76224"];
     return (
       <div className="my-4 overflow-x-auto rounded-lg border bg-card p-4">
         {block.title && (
@@ -117,7 +117,7 @@ export function DataBlockChartRenderer({ block }: { block: SimulationDataBlock }
       name: label,
       value: (data.values || [])[i] ?? 0,
     }));
-    const colors = ["hsl(var(--primary))", "#5BA2D8", "#516481", "#7dd3fc", "#94a3b8"];
+    const colors = ["hsl(var(--primary))", "#fd8c2e", "#f76224", "#f9a25e", "#ffd0a8"];
     return (
       <div className="my-4 overflow-x-auto rounded-lg border bg-card p-4">
         {block.title && (

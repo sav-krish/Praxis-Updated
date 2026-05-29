@@ -1300,7 +1300,10 @@ export function SimulationEditor({
                         <div className="space-y-4">
                           <Label>Options</Label>
                           {decision.options.map((option, oIndex) => (
-                            <div key={option.id} className="border rounded-lg p-3 sm:p-4 space-y-4">
+                            <div
+                              key={option.id}
+                              className={`border rounded-lg p-3 sm:p-4 space-y-4 ${oIndex === 2 ? "mb-4 sm:mb-6" : ""}`}
+                            >
                               <div className="flex flex-wrap items-center gap-2">
                                 <Badge className="shrink-0">{option.label}</Badge>
                                 <Input

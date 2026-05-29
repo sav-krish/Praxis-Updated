@@ -18,8 +18,8 @@ export const metadata: Metadata = {
   title: "Praxis - Classroom Simulations",
   description: "Create interactive decision-based classroom simulations",
   icons: {
-    icon: "/logo.jpg",
-    apple: "/logo.jpg",
+    icon: "/new_logo.png",
+    apple: "/new_logo.png",
   },
 };
 

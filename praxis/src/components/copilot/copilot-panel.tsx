@@ -135,7 +135,7 @@ export function CopilotPanel({ context, onAction, onUndo, open, onToggle, focuse
         className={cn(
           "fixed bottom-4 right-4 sm:bottom-6 sm:right-6 z-50 flex h-11 w-11 sm:h-12 sm:w-12 items-center justify-center rounded-full shadow-lg transition-all duration-300 ring-2 ring-white",
           open
-            ? "bg-linear-to-br from-purple-500 to-cyan-500 text-white hover:from-purple-600 hover:to-cyan-600 rotate-12 animate-copilot-glow"
+            ? "bg-linear-to-br from-[#fd8c2e] via-[#f9792a] to-[#f76224] text-white hover:from-[#f9792a] hover:via-[#f76224] hover:to-[#e85a1f] rotate-12 animate-copilot-glow"
             : "bg-white hover:scale-105"
         )}
         aria-label={open ? "Close Praxis Copilot" : "Open Praxis Copilot"}
@@ -144,8 +144,8 @@ export function CopilotPanel({ context, onAction, onUndo, open, onToggle, focuse
           <X className="h-5 w-5" />
         ) : (
           <Image
-            src="/logo.jpg"
-            alt="Praxis"
+            src="/copilot.png"
+            alt="Praxis Copilot"
             width={32}
             height={32}
             className="h-7 w-7 sm:h-8 sm:w-8 rounded-full object-cover"
@@ -177,8 +177,8 @@ export function CopilotPanel({ context, onAction, onUndo, open, onToggle, focuse
             <div className="flex items-center justify-between border-b px-3 sm:px-4 py-2.5 shrink-0">
               <div className="flex items-center gap-2 min-w-0">
                 <Image
-                  src="/logo.jpg"
-                  alt="Praxis"
+                  src="/copilot.png"
+                  alt="Praxis Copilot"
                   width={20}
                   height={20}
                   className="h-5 w-5 rounded-full object-cover shrink-0"
@@ -197,16 +197,16 @@ export function CopilotPanel({ context, onAction, onUndo, open, onToggle, focuse
 
             {/* Focused section badge */}
             {focusedSection && (
-              <div className="flex items-center gap-2 px-3 sm:px-4 py-1.5 border-b bg-purple-50/50 dark:bg-purple-950/20 shrink-0">
-                <Sparkles className="h-3 w-3 text-purple-500 shrink-0" />
-                <span className="text-xs font-medium text-purple-700 dark:text-purple-300 truncate">
+              <div className="flex items-center gap-2 px-3 sm:px-4 py-1.5 border-b bg-[#fff1e5] dark:bg-[#5a2817]/30 shrink-0">
+                <Sparkles className="h-3 w-3 text-[#f9792a] shrink-0" />
+                <span className="text-xs font-medium text-[#a84e1f] dark:text-[#ffd0a8] truncate">
                   Editing: {focusedSection.label}
                 </span>
                 {onClearFocus && (
                   <button
                     type="button"
                     onClick={onClearFocus}
-                    className="ml-auto text-purple-400 hover:text-purple-600 dark:hover:text-purple-200 shrink-0"
+                    className="ml-auto text-[#f09a65] hover:text-[#f76224] dark:hover:text-[#ffe6d3] shrink-0"
                     title="Clear focus"
                   >
                     <X className="h-3 w-3" />

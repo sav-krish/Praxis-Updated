@@ -30,9 +30,9 @@ export function TourCard({
   const showSkip = step.showSkip !== false && skipTour && !isLast;
 
   return (
-    <div className="w-[340px] max-w-[calc(100vw-32px)] rounded-2xl border border-border bg-white p-5 shadow-[0_18px_50px_rgba(15,36,71,0.25)]">
+    <div className="w-[340px] max-w-[calc(100vw-32px)] rounded-2xl border border-border bg-white p-5 shadow-[0_18px_50px_rgba(128,52,20,0.22)]">
       <div className="mb-2 flex items-start justify-between gap-2">
-        <span className="inline-flex items-center gap-1.5 text-xs font-medium text-[#5BA2D8]">
+        <span className="inline-flex items-center gap-1.5 text-xs font-medium text-[#f9792a]">
           {step.icon != null && step.icon !== "" && (
             <span aria-hidden className="text-base leading-none">
               {step.icon}
@@ -45,7 +45,7 @@ export function TourCard({
             type="button"
             onClick={skipTour}
             aria-label="Skip tour"
-            className="rounded-full p-1 text-muted-text transition-colors hover:bg-[#EAF1FF] hover:text-ink"
+            className="rounded-full p-1 text-muted-text transition-colors hover:bg-[#fff1e5] hover:text-ink"
           >
             <X className="h-4 w-4" />
           </button>
@@ -76,7 +76,7 @@ export function TourCard({
               <button
                 type="button"
                 onClick={prevStep}
-                className="inline-flex items-center gap-1 rounded-md border border-border bg-white px-2.5 py-2 text-xs font-medium text-ink transition-colors hover:bg-[#F4F8FE]"
+                className="inline-flex items-center gap-1 rounded-md border border-border bg-white px-2.5 py-2 text-xs font-medium text-ink transition-colors hover:bg-[#fff6ee]"
                 aria-label="Previous step"
               >
                 <ArrowLeft className="h-3.5 w-3.5" />
@@ -86,7 +86,7 @@ export function TourCard({
             <button
               type="button"
               onClick={nextStep}
-              className="inline-flex items-center gap-1.5 rounded-md bg-[#5BA2D8] px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-[#4f93c8]"
+              className="inline-flex items-center gap-1.5 rounded-md bg-[#f9792a] px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-[#f76224]"
             >
               {isLast ? "Finish" : "Next"}
               {!isLast && <ArrowRight className="h-3.5 w-3.5" />}

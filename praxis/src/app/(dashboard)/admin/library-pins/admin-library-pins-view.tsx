@@ -82,7 +82,7 @@ export function AdminLibraryPinsView({ simulations }: { simulations: AdminPinRow
                       {s.favorite_count} favorites
                     </Badge>
                     {s.is_pinned && (
-                      <Badge className="text-[10px] border-[#8ec5fc]/60 bg-[#e0c3fc]/25 text-[#0F2447] dark:border-[#8ec5fc]/40 dark:bg-[#8ec5fc]/15 dark:text-foreground">
+                      <Badge className="text-[10px] border-[#fd8c2e]/60 bg-[#fff1e5] text-[#4a1f10] dark:border-[#fd8c2e]/40 dark:bg-[#fd8c2e]/15 dark:text-foreground">
                         Top Pick
                       </Badge>
                     )}

@@ -2,14 +2,14 @@
  * Soft pastel gradient classes used on dashboard/library tiles (mirroring the
  * landing palette). Indexes map to simulation difficulty via
  * {@link appTileBackgroundForDifficulty}:
- *   [0] hard (lavender; default when difficulty is unset)
- *   [1] easy (mint)
- *   [2] challenge (sky blue)
+ *   [0] hard (warm apricot; default when difficulty is unset)
+ *   [1] easy (peach cream)
+ *   [2] challenge (tangerine glow)
  */
 export const APP_TILE_BACKGROUNDS = [
-  "bg-[linear-gradient(160deg,#ecefff_0%,#f5f6fc_50%,#e2e8fa_100%)]",
-  "bg-[linear-gradient(160deg,#e8f2eb_0%,#f4f8f5_50%,#ddebe2_100%)]",
-  "bg-[linear-gradient(160deg,#e3f1fb_0%,#f2f9fd_50%,#d7e8f5_100%)]",
+  "bg-[linear-gradient(160deg,#fff0e1_0%,#fff7ef_50%,#ffdabb_100%)]",
+  "bg-[linear-gradient(160deg,#fff4e8_0%,#fffaf4_50%,#ffe6d3_100%)]",
+  "bg-[linear-gradient(160deg,#ffe4ce_0%,#fff1e5_50%,#ffc795_100%)]",
 ] as const;
 
 export type AppTileBackground = (typeof APP_TILE_BACKGROUNDS)[number];

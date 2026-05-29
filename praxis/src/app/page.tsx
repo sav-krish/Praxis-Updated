@@ -20,9 +20,9 @@ const navLinks = [
 
 /** Lavender / mint / sky pastel tiles: flat, no border (reference: analyst-style recognition cards). */
 const LANDING_TILE_BACKGROUNDS = [
-  "bg-[linear-gradient(160deg,#ecefff_0%,#f5f6fc_50%,#e2e8fa_100%)]",
-  "bg-[linear-gradient(160deg,#e8f2eb_0%,#f4f8f5_50%,#ddebe2_100%)]",
-  "bg-[linear-gradient(160deg,#e3f1fb_0%,#f2f9fd_50%,#d7e8f5_100%)]",
+  "bg-[linear-gradient(160deg,#fff0e1_0%,#fff7ef_50%,#ffdabb_100%)]",
+  "bg-[linear-gradient(160deg,#fff4e8_0%,#fffaf4_50%,#ffe6d3_100%)]",
+  "bg-[linear-gradient(160deg,#ffe4ce_0%,#fff1e5_50%,#ffc795_100%)]",
 ] as const;
 
 const impactMetrics = [
@@ -169,21 +169,18 @@ export default function HomePage() {
       <LandingBackground />
 
       {/* ── Nav ── */}
-      <header className="sticky top-0 z-40 border-b border-line/60 bg-white/65 backdrop-blur-md safe-area-inset-top supports-backdrop-filter:bg-white/55">
-        <nav className="container flex items-center justify-between gap-2 px-4 py-2 sm:gap-3 sm:px-6 sm:py-2.5">
+      <header className="sticky top-0 z-40 border-b border-line/60 bg-white safe-area-inset-top">
+        <nav className="container flex min-h-16 items-center justify-between gap-2 px-4 py-2 sm:min-h-18 sm:gap-3 sm:px-6 sm:py-2.5">
           <Link href="/" className="flex min-w-0 shrink items-center gap-1.5 sm:gap-2">
-            <span className="inline-flex shrink-0 items-center justify-center rounded-sm bg-white p-0.5">
+            <span className="inline-flex h-12 shrink-0 items-center justify-center rounded-sm bg-white p-0.5 sm:h-14">
               <Image
-                src="/logo.jpg"
+                src="/new_logo.png"
                 alt="Praxis"
-                width={96}
+                width={300}
                 height={73}
-                className="h-6 w-auto sm:h-7"
+                className="h-full w-auto"
                 priority
               />
-            </span>
-            <span className="truncate text-sm font-semibold text-ink sm:text-base">
-              Praxis
             </span>
           </Link>
           <div className="hidden items-center gap-8 md:flex">
@@ -243,7 +240,7 @@ export default function HomePage() {
           <FadeIn className="mx-auto max-w-3xl text-center">
             <h1 className="mt-4 text-4xl font-bold leading-[1.12] text-ink md:text-[3.25rem]">
               Prepare students for the{" "}
-              <span className="bg-gradient-to-r from-accent to-[#8ec5eb] bg-clip-text text-transparent">
+              <span className="bg-gradient-to-r from-accent via-[#f9792a] to-[#f76224] bg-clip-text text-transparent">
                 real decisions
               </span>{" "}
               AI can&apos;t make.
@@ -529,18 +526,17 @@ export default function HomePage() {
           <div>
             <Link
               href="/"
-              className="flex items-center gap-2 text-lg font-semibold text-ink"
+              className="flex items-center text-lg font-semibold text-ink"
             >
               <span className="inline-flex shrink-0 items-center justify-center rounded-sm bg-white p-0.5">
                 <Image
-                  src="/logo.jpg"
+                  src="/new_logo.png"
                   alt="Praxis"
-                  width={72}
+                  width={148}
                   height={55}
                   className="h-6 w-auto"
                 />
               </span>
-              Praxis
             </Link>
             <p className="mt-2 text-sm text-muted">
               Classroom Decision Simulations

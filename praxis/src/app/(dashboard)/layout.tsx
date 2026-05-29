@@ -112,20 +112,19 @@ export default async function DashboardLayout({
       <LandingBackground />
 
       {/* Header */}
-      <header className="bg-white/65 backdrop-blur-md border-b border-line/60 sticky top-0 z-50 safe-area-inset-top supports-backdrop-filter:bg-white/55">
-        <div className="container mx-auto px-3 sm:px-4 min-h-14 sm:h-16 flex items-center justify-between gap-2">
-          <Link href="/dashboard" className="flex items-center gap-2 min-w-0">
-            <span className="inline-flex shrink-0 items-center justify-center rounded-sm bg-white p-0.5">
+      <header className="bg-white border-b border-line/60 sticky top-0 z-50 safe-area-inset-top">
+        <div className="container mx-auto px-3 sm:px-4 min-h-16 sm:min-h-18 flex items-center justify-between gap-2 py-2">
+          <Link href="/dashboard" className="flex items-center min-w-0">
+            <span className="inline-flex h-12 shrink-0 items-center justify-center rounded-sm bg-white p-0.5 sm:h-14">
               <Image
-                src="/logo.jpg"
+                src="/new_logo.png"
                 alt="Praxis"
-                width={96}
+                width={300}
                 height={73}
-                className="h-8 w-auto sm:h-9"
+                className="h-full w-auto"
                 priority
               />
             </span>
-            <span className="text-lg sm:text-xl font-bold truncate">Praxis</span>
           </Link>
           
           <div className="flex items-center gap-2 sm:gap-4 shrink-0">

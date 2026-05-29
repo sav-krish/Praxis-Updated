@@ -349,8 +349,7 @@ export default function CreateSimulationPage() {
         >
           <h1 className="text-2xl sm:text-3xl font-bold text-foreground">Create New Simulation</h1>
           <p className="mt-2 text-sm text-muted-foreground max-w-prose">
-            Set intent, add materials, then generate. Streaming generation shows a title quickly, then fills the
-            scenario and decisions in parallel.
+            Set intent, add materials, then generate. 
           </p>
         </div>
       </FadeIn>

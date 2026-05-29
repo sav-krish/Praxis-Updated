@@ -30,7 +30,7 @@ export function AiSectionTrigger({
         "flex h-7 w-7 sm:h-6 sm:w-6 items-center justify-center rounded-md transition-all duration-200 shrink-0",
         active
           ? "bg-primary text-primary-foreground animate-copilot-glow"
-          : "text-muted-foreground hover:text-purple-500 hover:bg-purple-500/10"
+          : "text-muted-foreground hover:text-[#f9792a] hover:bg-[#fd8c2e]/10"
       )}
       title={`Use AI to edit ${sectionLabel}`}
     >

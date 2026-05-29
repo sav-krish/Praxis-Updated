@@ -2,7 +2,7 @@
  * Fixed-position decorative background used by the marketing landing page.
  *
  * Three layers stacked at `-z-10`:
- *   1. A diagonal pastel gradient (lavender → ice → sky → light violet).
+ *   1. A diagonal pastel gradient in warm orange tones.
  *   2. A trio of soft radial accents at varying offsets/opacity.
  *   3. Two blurred color orbs in opposite corners for depth.
  *
@@ -21,18 +21,18 @@ export function LandingBackground() {
         className="absolute inset-0 opacity-80"
         style={{
           background:
-            "linear-gradient(155deg, #e4e9ff 0%, #f3f7ff 32%, #e3f2ff 62%, #efe8ff 100%)",
+            "linear-gradient(155deg, #fff3e4 0%, #fff7ee 32%, #ffe6d3 62%, #ffd7b6 100%)",
         }}
       />
       <div
         className="absolute inset-0 opacity-50"
         style={{
           background:
-            "radial-gradient(ellipse 85% 55% at 15% 12%, rgba(168, 85, 247, 0.1), transparent 52%), radial-gradient(ellipse 75% 50% at 88% 78%, rgba(6, 182, 212, 0.08), transparent 48%), radial-gradient(ellipse 60% 40% at 50% 100%, rgba(99, 102, 241, 0.05), transparent 55%)",
+            "radial-gradient(ellipse 85% 55% at 15% 12%, rgba(253, 140, 46, 0.14), transparent 52%), radial-gradient(ellipse 75% 50% at 88% 78%, rgba(247, 98, 36, 0.1), transparent 48%), radial-gradient(ellipse 60% 40% at 50% 100%, rgba(249, 121, 42, 0.08), transparent 55%)",
         }}
       />
-      <div className="absolute -top-32 right-10 h-64 w-64 rounded-full bg-[#c7d7ff]/40 blur-3xl" />
-      <div className="absolute bottom-0 left-0 h-72 w-72 rounded-full bg-[#b8e4ff]/30 blur-3xl" />
+      <div className="absolute -top-32 right-10 h-64 w-64 rounded-full bg-[#ffd0a8]/45 blur-3xl" />
+      <div className="absolute bottom-0 left-0 h-72 w-72 rounded-full bg-[#fdb77f]/30 blur-3xl" />
     </div>
   );
 }

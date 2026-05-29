@@ -52,15 +52,14 @@ export default function SignupPage() {
           <Link href="/" className="flex items-center justify-center gap-2 mb-4">
             <span className="inline-flex shrink-0 items-center justify-center rounded-sm bg-white p-0.5">
               <Image
-                src="/logo.jpg"
+                src="/new_logo.png"
                 alt="Praxis"
-                width={96}
+                width={280}
                 height={73}
-                className="h-8 w-auto"
+                className="h-14 w-auto sm:h-16"
                 priority
               />
             </span>
-            <span className="text-2xl font-bold">Praxis</span>
           </Link>
           <CardTitle>Create an account</CardTitle>
           <CardDescription>
@@ -91,7 +90,7 @@ export default function SignupPage() {
                 required
               />
             </div>
-            <div className="space-y-2">
+            <div className="space-y-2 pb-2">
               <Label htmlFor="password">Password</Label>
               <Input
                 id="password"
@@ -107,8 +106,8 @@ export default function SignupPage() {
               </p>
             </div>
           </CardContent>
-          <CardFooter className="flex flex-col gap-4">
-            <Button type="submit" className="w-full min-h-[48px]" disabled={loading}>
+          <CardFooter className="flex flex-col gap-4 pt-2">
+            <Button type="submit" className="w-full min-h-[48px] mb-2" disabled={loading}>
               {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               Create Account
             </Button>

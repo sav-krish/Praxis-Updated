@@ -41,11 +41,11 @@ export default function ForgotPasswordPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-b from-blue-50 to-white p-4">
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-b from-[#fff3e4] to-white p-4">
       <Card className="w-full max-w-md">
         <CardHeader>
           <div className="flex items-center justify-center mb-4">
-            <Image src="/logo.jpg" alt="Praxis" width={40} height={40} className="rounded" />
+            <Image src="/new_logo.png" alt="Praxis" width={40} height={40} className="rounded" />
           </div>
           <CardTitle>Reset Password</CardTitle>
           <CardDescription>Enter your email to receive a password reset code</CardDescription>

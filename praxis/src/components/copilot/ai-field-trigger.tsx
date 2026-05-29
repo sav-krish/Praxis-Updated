@@ -104,7 +104,7 @@ export function AiFieldTrigger({
           "absolute right-2 top-2 z-10 flex h-6 w-6 items-center justify-center rounded-md transition-all duration-200",
           active
             ? "bg-primary text-primary-foreground animate-copilot-glow"
-            : "text-muted-foreground hover:text-purple-500 hover:bg-purple-500/10"
+            : "text-muted-foreground hover:text-[#f9792a] hover:bg-[#fd8c2e]/10"
         )}
         title={`Use AI to write ${fieldLabel}`}
       >
@@ -116,7 +116,7 @@ export function AiFieldTrigger({
         <button
           type="button"
           onClick={handleUndo}
-          className="absolute right-10 top-2 z-10 flex items-center gap-1 rounded-md bg-purple-500/10 px-2 py-0.5 text-xs text-purple-600 hover:bg-purple-500/20 transition-colors"
+          className="absolute right-10 top-2 z-10 flex items-center gap-1 rounded-md bg-[#fd8c2e]/10 px-2 py-0.5 text-xs text-[#a84e1f] hover:bg-[#fd8c2e]/20 transition-colors"
         >
           ↩ Undo AI
         </button>
@@ -140,7 +140,7 @@ export function AiFieldTrigger({
                 handleGenerate();
               }
             }}
-            className="text-sm min-h-[60px] border-purple-200 focus-visible:ring-purple-400"
+            className="text-sm min-h-[60px] border-[#f5d3bd] focus-visible:ring-[#fd8c2e]"
             rows={2}
           />
 
@@ -149,7 +149,7 @@ export function AiFieldTrigger({
               size="sm"
               onClick={handleGenerate}
               disabled={loading || !prompt.trim()}
-              className="bg-linear-to-r from-purple-500 to-cyan-500 hover:from-purple-600 hover:to-cyan-600 text-white border-0"
+              className="bg-linear-to-r from-[#fd8c2e] via-[#f9792a] to-[#f76224] hover:from-[#f9792a] hover:via-[#f76224] hover:to-[#e85a1f] text-white border-0"
             >
               <Sparkles className="h-3.5 w-3.5 mr-1" />
               {loading ? "Generating…" : "Generate"}
@@ -169,20 +169,20 @@ export function AiFieldTrigger({
           {/* Loading shimmer skeleton */}
           {loading && (
             <div className="space-y-2 pt-1">
-              <div className="h-3 w-full rounded bg-linear-to-r from-purple-100 via-cyan-100 to-purple-100 animate-pulse" />
-              <div className="h-3 w-5/6 rounded bg-linear-to-r from-purple-100 via-cyan-100 to-purple-100 animate-pulse" />
-              <div className="h-3 w-4/6 rounded bg-linear-to-r from-purple-100 via-cyan-100 to-purple-100 animate-pulse" />
+              <div className="h-3 w-full rounded bg-linear-to-r from-[#fff1e5] via-[#ffe0c4] to-[#fff1e5] animate-pulse" />
+              <div className="h-3 w-5/6 rounded bg-linear-to-r from-[#fff1e5] via-[#ffe0c4] to-[#fff1e5] animate-pulse" />
+              <div className="h-3 w-4/6 rounded bg-linear-to-r from-[#fff1e5] via-[#ffe0c4] to-[#fff1e5] animate-pulse" />
             </div>
           )}
 
           {/* Result */}
           {result && !loading && (
-            <div className="rounded-md border border-purple-200 bg-purple-50/50 dark:bg-purple-950/20 p-2 space-y-2">
+            <div className="rounded-md border border-[#f5d3bd] bg-[#fff3e8] dark:bg-[#5a2817]/20 p-2 space-y-2">
               <p className="text-xs whitespace-pre-wrap text-foreground">{result}</p>
               <Button
                 size="sm"
                 onClick={handleApply}
-                className="bg-linear-to-r from-purple-500 to-cyan-500 hover:from-purple-600 hover:to-cyan-600 text-white border-0"
+                className="bg-linear-to-r from-[#fd8c2e] via-[#f9792a] to-[#f76224] hover:from-[#f9792a] hover:via-[#f76224] hover:to-[#e85a1f] text-white border-0"
               >
                 ✓ Apply to field
               </Button>
