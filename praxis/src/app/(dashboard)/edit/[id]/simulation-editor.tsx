@@ -310,6 +310,14 @@ export function SimulationEditor({
     toast.success("Sources saved");
   }, [simulation.id]);
 
+  const isMissingJustificationTypeColumn = useCallback((error: unknown) => {
+    if (!error || typeof error !== "object") return false;
+    const maybeMessage = "message" in error && typeof error.message === "string" ? error.message : "";
+    const maybeDetails = "details" in error && typeof error.details === "string" ? error.details : "";
+    const combined = `${maybeMessage} ${maybeDetails}`.toLowerCase();
+    return combined.includes("justification_type") && combined.includes("column");
+  }, []);
+
   // Core save logic — returns true on success, false on failure
   const performSave = useCallback(async (opts?: { silent?: boolean; autosave?: boolean }): Promise<boolean> => {
     const silent = opts?.silent ?? false;
@@ -319,24 +327,37 @@ export function SimulationEditor({
     const supabase = createClient();
 
     try {
-      const { error: simError } = await supabase
+      const simulationUpdate = {
+        title: simulation.title,
+        course_topic: simulation.course_topic,
+        goal: simulation.goal,
+        target_decisions: simulation.target_decisions,
+        background_content: simulation.background_content,
+        mode: simulation.mode,
+        team_size: simulation.team_size,
+        team_assignment: simulation.team_assignment,
+        difficulty: simulation.difficulty ?? null,
+        estimated_minutes: simulation.estimated_minutes ?? null,
+        is_public: simulation.is_public,
+        hidden_profiles_enabled: simulation.hidden_profiles_enabled,
+        updated_at: new Date().toISOString(),
+      };
+
+      let { error: simError } = await supabase
         .from("simulations")
         .update({
-          title: simulation.title,
-          course_topic: simulation.course_topic,
-          goal: simulation.goal,
-          target_decisions: simulation.target_decisions,
-          background_content: simulation.background_content,
-          mode: simulation.mode,
-          team_size: simulation.team_size,
-          team_assignment: simulation.team_assignment,
-          difficulty: simulation.difficulty ?? null,
-          estimated_minutes: simulation.estimated_minutes ?? null,
-          is_public: simulation.is_public,
-          hidden_profiles_enabled: simulation.hidden_profiles_enabled,
-          updated_at: new Date().toISOString(),
+          ...simulationUpdate,
+          justification_type: simulation.justification_type || "written",
         })
         .eq("id", simulation.id);
+
+      if (simError && isMissingJustificationTypeColumn(simError)) {
+        const legacyResult = await supabase
+          .from("simulations")
+          .update(simulationUpdate)
+          .eq("id", simulation.id);
+        simError = legacyResult.error;
+      }
 
       if (simError) throw simError;
 
@@ -516,6 +537,7 @@ export function SimulationEditor({
     scenarioImages,
     initialDataBlocks,
     initialProfiles,
+    isMissingJustificationTypeColumn,
     isOwner,
     markClean,
   ]);
@@ -1478,7 +1500,11 @@ export function SimulationEditor({
                 <Select
                   value={simulation.mode}
                   onValueChange={(value: "individual" | "teams") => 
-                    setSimulation({ ...simulation, mode: value })
+                    setSimulation({
+                      ...simulation,
+                      mode: value,
+                      justification_type: value === "teams" ? "written" : simulation.justification_type,
+                    })
                   }
                   disabled={!isOwner}
                 >
@@ -1491,6 +1517,32 @@ export function SimulationEditor({
                   </SelectContent>
                 </Select>
               </div>
+
+              {simulation.mode === "individual" && (
+                <div className="space-y-2">
+                  <div className="flex items-center gap-1.5">
+                    <Label>Decision Justification Format</Label>
+                    <FieldInfoHint>
+                      Written is the default. Video requires each student to record or upload a response before moving to the next decision.
+                    </FieldInfoHint>
+                  </div>
+                  <Select
+                    value={simulation.justification_type || "written"}
+                    onValueChange={(value: "written" | "video") =>
+                      setSimulation({ ...simulation, justification_type: value })
+                    }
+                    disabled={!isOwner}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="written">Written justification</SelectItem>
+                      <SelectItem value="video">Video response</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
 
               {simulation.mode === "teams" && (
                 <>

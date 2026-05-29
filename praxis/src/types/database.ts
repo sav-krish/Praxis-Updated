@@ -55,6 +55,7 @@ export interface Database {
           mode: 'individual' | 'teams'
           team_size: number | null
           team_assignment: 'auto' | 'self' | null
+          justification_type: 'written' | 'video'
           difficulty: 'easy' | 'hard' | 'challenge' | null
           estimated_minutes: number | null
           status: 'draft' | 'published'
@@ -79,6 +80,7 @@ export interface Database {
           mode?: 'individual' | 'teams'
           team_size?: number | null
           team_assignment?: 'auto' | 'self' | null
+          justification_type?: 'written' | 'video'
           difficulty?: 'easy' | 'hard' | 'challenge' | null
           estimated_minutes?: number | null
           status?: 'draft' | 'published'
@@ -103,6 +105,7 @@ export interface Database {
           mode?: 'individual' | 'teams'
           team_size?: number | null
           team_assignment?: 'auto' | 'self' | null
+          justification_type?: 'written' | 'video'
           difficulty?: 'easy' | 'hard' | 'challenge' | null
           estimated_minutes?: number | null
           status?: 'draft' | 'published'
@@ -232,6 +235,7 @@ export interface Database {
           started_at: string | null
           ended_at: string | null
           debrief_guide: Json | null
+          video_gallery_share_id: string
           is_preview: boolean
           created_at: string
         }
@@ -244,6 +248,7 @@ export interface Database {
           started_at?: string | null
           ended_at?: string | null
           debrief_guide?: Json | null
+          video_gallery_share_id?: string
           is_preview?: boolean
           created_at?: string
         }
@@ -256,6 +261,7 @@ export interface Database {
           started_at?: string | null
           ended_at?: string | null
           debrief_guide?: Json | null
+          video_gallery_share_id?: string
           is_preview?: boolean
           created_at?: string
         }
@@ -377,6 +383,51 @@ export interface Database {
           option_id?: string
           justification?: string | null
           submitted_at?: string
+        }
+        Relationships: []
+      }
+      response_videos: {
+        Row: {
+          id: string
+          response_id: string
+          session_id: string
+          simulation_id: string
+          decision_id: string
+          option_id: string
+          participant_id: string
+          storage_path: string
+          mime_type: string
+          file_size_bytes: number
+          duration_seconds: number | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          response_id: string
+          session_id: string
+          simulation_id: string
+          decision_id: string
+          option_id: string
+          participant_id: string
+          storage_path: string
+          mime_type: string
+          file_size_bytes: number
+          duration_seconds?: number | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          response_id?: string
+          session_id?: string
+          simulation_id?: string
+          decision_id?: string
+          option_id?: string
+          participant_id?: string
+          storage_path?: string
+          mime_type?: string
+          file_size_bytes?: number
+          duration_seconds?: number | null
+          created_at?: string
         }
         Relationships: []
       }

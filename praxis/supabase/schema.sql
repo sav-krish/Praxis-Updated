@@ -31,6 +31,7 @@ CREATE TABLE IF NOT EXISTS simulations (
   mode TEXT DEFAULT 'individual' CHECK (mode IN ('individual', 'teams')),
   team_size INTEGER,
   team_assignment TEXT CHECK (team_assignment IN ('auto', 'self')),
+  justification_type TEXT NOT NULL DEFAULT 'written' CHECK (justification_type IN ('written', 'video')),
   difficulty TEXT CHECK (difficulty IN ('easy', 'hard', 'challenge')),
   estimated_minutes INTEGER CHECK (estimated_minutes IS NULL OR (estimated_minutes >= 5 AND estimated_minutes <= 120)),
   status TEXT DEFAULT 'draft' CHECK (status IN ('draft', 'published')),
@@ -141,6 +142,7 @@ CREATE TABLE IF NOT EXISTS sessions (
   started_at TIMESTAMPTZ,
   ended_at TIMESTAMPTZ,
   debrief_guide JSONB,
+  video_gallery_share_id UUID NOT NULL DEFAULT uuid_generate_v4(),
   is_preview BOOLEAN DEFAULT false,
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
@@ -177,6 +179,21 @@ CREATE TABLE IF NOT EXISTS responses (
   justification TEXT,
   submitted_at TIMESTAMPTZ DEFAULT NOW(),
   CHECK (participant_id IS NOT NULL OR team_id IS NOT NULL)
+);
+
+CREATE TABLE IF NOT EXISTS response_videos (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  response_id UUID NOT NULL UNIQUE REFERENCES responses(id) ON DELETE CASCADE,
+  session_id UUID NOT NULL REFERENCES sessions(id) ON DELETE CASCADE,
+  simulation_id UUID NOT NULL REFERENCES simulations(id) ON DELETE CASCADE,
+  decision_id UUID NOT NULL REFERENCES decisions(id) ON DELETE CASCADE,
+  option_id UUID NOT NULL REFERENCES options(id) ON DELETE CASCADE,
+  participant_id UUID NOT NULL REFERENCES participants(id) ON DELETE CASCADE,
+  storage_path TEXT NOT NULL,
+  mime_type TEXT NOT NULL,
+  file_size_bytes BIGINT NOT NULL,
+  duration_seconds INTEGER,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
 -- Reflection responses table
@@ -241,6 +258,12 @@ CREATE INDEX IF NOT EXISTS idx_responses_session_submitted ON responses (session
 CREATE INDEX IF NOT EXISTS idx_responses_session_participant_decision
   ON responses (session_id, participant_id, decision_id)
   WHERE participant_id IS NOT NULL;
+CREATE UNIQUE INDEX IF NOT EXISTS idx_sessions_video_gallery_share_id
+  ON sessions(video_gallery_share_id);
+CREATE INDEX IF NOT EXISTS idx_response_videos_session_decision_option
+  ON response_videos(session_id, decision_id, option_id);
+CREATE INDEX IF NOT EXISTS idx_response_videos_participant
+  ON response_videos(participant_id);
 CREATE INDEX IF NOT EXISTS idx_reflection_responses_session ON reflection_responses (session_id);
 CREATE INDEX IF NOT EXISTS idx_simulation_data_blocks_simulation ON simulation_data_blocks(simulation_id);
 CREATE INDEX IF NOT EXISTS idx_feedback_simulation ON feedback(simulation_id);
@@ -305,7 +328,7 @@ DO $$
 DECLARE
   tbl TEXT;
 BEGIN
-  FOREACH tbl IN ARRAY '{professors,simulations,decisions,options,reflection_questions,sessions,teams,participants,responses,reflection_responses,simulation_data_blocks,simulation_scenario_images,simulation_uploaded_files,feedback,simulation_favorites,knowledge_chunks,simulation_profiles}'::TEXT[]
+  FOREACH tbl IN ARRAY '{professors,simulations,decisions,options,reflection_questions,sessions,teams,participants,responses,response_videos,reflection_responses,simulation_data_blocks,simulation_scenario_images,simulation_uploaded_files,feedback,simulation_favorites,knowledge_chunks,simulation_profiles}'::TEXT[]
   LOOP
     IF EXISTS (
       SELECT 1 FROM pg_class c
@@ -477,6 +500,22 @@ CREATE POLICY "Anyone can submit responses" ON responses
 DROP POLICY IF EXISTS "Anyone can view responses" ON responses;
 CREATE POLICY "Anyone can view responses" ON responses
   FOR SELECT USING (true);
+
+DROP POLICY IF EXISTS "Anyone can insert response videos" ON response_videos;
+CREATE POLICY "Anyone can insert response videos" ON response_videos
+  FOR INSERT WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Professors can view response videos for own simulations" ON response_videos;
+CREATE POLICY "Professors can view response videos for own simulations" ON response_videos
+  FOR SELECT USING (
+    simulation_id IN (SELECT id FROM simulations WHERE professor_id = auth.uid())
+  );
+
+DROP POLICY IF EXISTS "Admins can view all response videos" ON response_videos;
+CREATE POLICY "Admins can view all response videos" ON response_videos
+  FOR SELECT USING (
+    EXISTS (SELECT 1 FROM professors p WHERE p.id = auth.uid() AND p.is_admin = true)
+  );
 
 -- Reflection responses: anyone can submit and view
 DROP POLICY IF EXISTS "Anyone can submit reflection responses" ON reflection_responses;

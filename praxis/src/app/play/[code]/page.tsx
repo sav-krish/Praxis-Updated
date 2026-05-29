@@ -30,6 +30,11 @@ import {
   ChevronRight,
   RefreshCw,
   LogOut,
+  Video,
+  Upload,
+  Circle,
+  Square,
+  Trash2,
 } from "lucide-react";
 import { toast } from "sonner";
 import { endPreviewSession } from "@/app/(dashboard)/session/[id]/actions";
@@ -75,6 +80,7 @@ interface Session {
     title: string;
     background_content: string | null;
     mode: string;
+    justification_type: "written" | "video";
     estimated_minutes?: number | null;
     hidden_profiles_enabled?: boolean;
   };
@@ -90,6 +96,24 @@ interface ReflectionQuestion {
   order_num: number;
   question: string;
 }
+
+const SESSION_SIMULATION_SELECT =
+  `
+        id,
+        status,
+        current_step,
+        is_preview,
+        simulation:simulations(id, title, background_content, mode, justification_type, estimated_minutes, hidden_profiles_enabled)
+      ` as const;
+
+const SESSION_SIMULATION_SELECT_LEGACY =
+  `
+        id,
+        status,
+        current_step,
+        is_preview,
+        simulation:simulations(id, title, background_content, mode, estimated_minutes, hidden_profiles_enabled)
+      ` as const;
 
 export default function PlayPage({ params }: { params: Promise<{ code: string }> }) {
   const { code } = use(params);
@@ -122,6 +146,17 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
   const [returnToConsequence, setReturnToConsequence] = useState(false);
   const [manualRefreshing, setManualRefreshing] = useState(false);
   const [leavingPreview, setLeavingPreview] = useState(false);
+  const [videoFile, setVideoFile] = useState<File | null>(null);
+  const [videoPreviewUrl, setVideoPreviewUrl] = useState<string | null>(null);
+  const [videoDurationSeconds, setVideoDurationSeconds] = useState<number | null>(null);
+  const [recording, setRecording] = useState(false);
+  const [preparingRecorder, setPreparingRecorder] = useState(false);
+  const [videoError, setVideoError] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const mediaStreamRef = useRef<MediaStream | null>(null);
+  const mediaChunksRef = useRef<Blob[]>([]);
+  const recordingStartedAtRef = useRef<number | null>(null);
 
   // Ref to always have latest currentStep in callbacks without re-subscribing
   const currentStepRef = useRef(currentStep);
@@ -132,6 +167,15 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
   useEffect(() => {
     currentStepRef.current = currentStep;
   }, [currentStep]);
+
+  useEffect(() => {
+    return () => {
+      mediaStreamRef.current?.getTracks().forEach((track) => track.stop());
+      if (videoPreviewUrl) {
+        URL.revokeObjectURL(videoPreviewUrl);
+      }
+    };
+  }, [videoPreviewUrl]);
 
   // Subscribe to participant count while waiting (for "N students joined" message)
   useEffect(() => {
@@ -231,17 +275,31 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
     const supabase = createClient();
 
     // Get session
-    const { data: sessionData, error } = await supabase
+    let { data: sessionData, error } = await supabase
       .from("sessions")
-      .select(`
-        id,
-        status,
-        current_step,
-        is_preview,
-        simulation:simulations(id, title, background_content, mode, estimated_minutes, hidden_profiles_enabled)
-      `)
+      .select(SESSION_SIMULATION_SELECT)
       .eq("join_code", code.toUpperCase())
       .single();
+
+    if (error?.message?.includes("justification_type")) {
+      const legacyResult = await supabase
+        .from("sessions")
+        .select(SESSION_SIMULATION_SELECT_LEGACY)
+        .eq("join_code", code.toUpperCase())
+        .single();
+      sessionData = (legacyResult.data
+        ? {
+            ...legacyResult.data,
+            simulation: legacyResult.data.simulation
+              ? {
+                  ...(legacyResult.data.simulation as Record<string, unknown>),
+                  justification_type: "written",
+                }
+              : null,
+          }
+        : null) as typeof sessionData;
+      error = legacyResult.error;
+    }
 
     if (error || !sessionData) {
       toast.error("Session not found");
@@ -255,6 +313,7 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
       title: string;
       background_content: string | null;
       mode: string;
+      justification_type: "written" | "video";
       estimated_minutes?: number | null;
       hidden_profiles_enabled?: boolean;
     } | null;
@@ -437,11 +496,120 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
     void loadSession();
   }, [code]); // eslint-disable-line react-hooks/exhaustive-deps -- loadSession closure reads searchParams/url once per join code route
 
+  const setVideoSelection = async (file: File) => {
+    if (videoPreviewUrl) {
+      URL.revokeObjectURL(videoPreviewUrl);
+    }
+    const previewUrl = URL.createObjectURL(file);
+    setVideoFile(file);
+    setVideoPreviewUrl(previewUrl);
+    setVideoError(null);
+
+    const duration = await new Promise<number | null>((resolve) => {
+      const element = document.createElement("video");
+      element.preload = "metadata";
+      element.onloadedmetadata = () => resolve(Math.round(element.duration) || null);
+      element.onerror = () => resolve(null);
+      element.src = previewUrl;
+    });
+    setVideoDurationSeconds(duration);
+  };
+
+  const handleVideoUploadChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    await setVideoSelection(file);
+  };
+
+  const clearVideoSelection = () => {
+    mediaStreamRef.current?.getTracks().forEach((track) => track.stop());
+    mediaStreamRef.current = null;
+    mediaRecorderRef.current = null;
+    setRecording(false);
+    if (videoPreviewUrl) {
+      URL.revokeObjectURL(videoPreviewUrl);
+    }
+    setVideoFile(null);
+    setVideoPreviewUrl(null);
+    setVideoDurationSeconds(null);
+    setVideoError(null);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
+  };
+
+  const startRecording = async () => {
+    if (!navigator.mediaDevices?.getUserMedia || typeof MediaRecorder === "undefined") {
+      setVideoError("Recording is not supported on this device. Upload a video instead.");
+      return;
+    }
+
+    try {
+      setPreparingRecorder(true);
+      setVideoError(null);
+      mediaStreamRef.current?.getTracks().forEach((track) => track.stop());
+      const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+      mediaStreamRef.current = stream;
+      mediaChunksRef.current = [];
+
+      const mimeType =
+        MediaRecorder.isTypeSupported("video/webm;codecs=vp9")
+          ? "video/webm;codecs=vp9"
+          : MediaRecorder.isTypeSupported("video/webm")
+            ? "video/webm"
+            : "";
+
+      const recorder = mimeType ? new MediaRecorder(stream, { mimeType }) : new MediaRecorder(stream);
+      mediaRecorderRef.current = recorder;
+      recorder.ondataavailable = (event) => {
+        if (event.data.size > 0) {
+          mediaChunksRef.current.push(event.data);
+        }
+      };
+      recorder.onstop = async () => {
+        const blob = new Blob(mediaChunksRef.current, { type: recorder.mimeType || "video/webm" });
+        const extension = (blob.type.split("/")[1] || "webm").split(";")[0];
+        const file = new File([blob], `video-justification-${Date.now()}.${extension}`, {
+          type: blob.type || "video/webm",
+        });
+        mediaStreamRef.current?.getTracks().forEach((track) => track.stop());
+        mediaStreamRef.current = null;
+        mediaRecorderRef.current = null;
+        await setVideoSelection(file);
+      };
+      recorder.start();
+      recordingStartedAtRef.current = Date.now();
+      setRecording(true);
+    } catch (error) {
+      logger.error("Video recording error:", error);
+      setVideoError("Could not access camera/microphone. Upload a video instead.");
+    } finally {
+      setPreparingRecorder(false);
+    }
+  };
+
+  const stopRecording = () => {
+    if (!mediaRecorderRef.current || mediaRecorderRef.current.state === "inactive") return;
+    const elapsed = recordingStartedAtRef.current
+      ? Math.max(1, Math.round((Date.now() - recordingStartedAtRef.current) / 1000))
+      : null;
+    setVideoDurationSeconds(elapsed);
+    mediaRecorderRef.current.stop();
+    setRecording(false);
+  };
+
   const submitDecision = async () => {
     if (!selectedOption || !session || !participantId) return;
     const trimmedJustification = justification.trim();
-    if (!trimmedJustification) {
+    const isVideoJustification =
+      session.simulation.mode === "individual" && session.simulation.justification_type === "video";
+
+    if (!isVideoJustification && !trimmedJustification) {
       toast.error("Please add a justification before continuing.");
+      return;
+    }
+    if (isVideoJustification && !videoFile) {
+      toast.error("Please record or upload a video before continuing.");
       return;
     }
     setSubmitting(true);
@@ -453,20 +621,77 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
     // Skip DB insert for professor preview sessions
     if (!session.is_preview) {
       const supabase = createClient();
-      const { error } = await supabase
-        .from("responses")
-        .insert({
+      if (isVideoJustification && videoFile) {
+        const { data: responseRow, error: responseError } = await supabase
+          .from("responses")
+          .insert({
+            session_id: session.id,
+            participant_id: participantId,
+            decision_id: decision.id,
+            option_id: selectedOption,
+            justification: null,
+          })
+          .select("id")
+          .single();
+
+        if (responseError || !responseRow) {
+          toast.error("Failed to submit response");
+          setSubmitting(false);
+          return;
+        }
+
+        const extension = videoFile.name.split(".").pop() || "webm";
+        const storagePath = `${session.simulation.id}/${session.id}/${decision.id}/${participantId}/${responseRow.id}.${extension}`;
+        const { error: uploadError } = await supabase.storage
+          .from("response-videos")
+          .upload(storagePath, videoFile, {
+            contentType: videoFile.type || "video/webm",
+            upsert: false,
+          });
+
+        if (uploadError) {
+          await supabase.from("responses").delete().eq("id", responseRow.id);
+          toast.error("Failed to upload video response");
+          setSubmitting(false);
+          return;
+        }
+
+        const { error: responseVideoError } = await supabase.from("response_videos").insert({
+          response_id: responseRow.id,
           session_id: session.id,
-          participant_id: participantId,
+          simulation_id: session.simulation.id,
           decision_id: decision.id,
           option_id: selectedOption,
-          justification: trimmedJustification,
+          participant_id: participantId,
+          storage_path: storagePath,
+          mime_type: videoFile.type || "video/webm",
+          file_size_bytes: videoFile.size,
+          duration_seconds: videoDurationSeconds,
         });
 
-      if (error) {
-        toast.error("Failed to submit response");
-        setSubmitting(false);
-        return;
+        if (responseVideoError) {
+          await supabase.storage.from("response-videos").remove([storagePath]);
+          await supabase.from("responses").delete().eq("id", responseRow.id);
+          toast.error("Failed to save video response");
+          setSubmitting(false);
+          return;
+        }
+      } else {
+        const { error } = await supabase
+          .from("responses")
+          .insert({
+            session_id: session.id,
+            participant_id: participantId,
+            decision_id: decision.id,
+            option_id: selectedOption,
+            justification: trimmedJustification,
+          });
+
+        if (error) {
+          toast.error("Failed to submit response");
+          setSubmitting(false);
+          return;
+        }
       }
     }
 
@@ -487,6 +712,7 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
     setShowConsequence(false);
     setSelectedOption(null);
     setJustification("");
+    clearVideoSelection();
     setCurrentConsequence("");
     setCurrentStep(prev => prev + 1);
   };
@@ -784,6 +1010,8 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
   if (currentStep >= 2 && currentStep <= 4) {
     const decisionIndex = currentStep - 2;
     const decision = decisions[decisionIndex];
+    const isVideoJustification =
+      session?.simulation.mode === "individual" && session?.simulation.justification_type === "video";
 
     if (!decision) {
       setCurrentStep(5);
@@ -903,29 +1131,98 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
             </CardContent>
           </Card>
 
-          {/* Justification – collapsible, collapsed by default */}
-          <Collapsible defaultOpen={false} className="group">
+          {/* Justification / video response */}
+          <Collapsible defaultOpen={isVideoJustification} className="group">
             <Card className="border-muted/80 bg-card/95 shadow-sm overflow-hidden p-0 gap-0">
               <CollapsibleTrigger asChild>
                 <button
                   type="button"
                   className="w-full text-left px-4 sm:px-6 py-4 min-h-[48px] flex items-center justify-between gap-3 bg-transparent hover:bg-muted/50 transition-colors duration-150 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
                 >
-                  <span className="text-sm font-medium text-muted-foreground">Add justification</span>
+                  <span className="text-sm font-medium text-muted-foreground">
+                    {isVideoJustification ? "Add video response" : "Add justification"}
+                  </span>
                   <ChevronDown className="h-5 w-5 shrink-0 text-muted-foreground transition-transform group-data-[state=open]:rotate-180" />
                 </button>
               </CollapsibleTrigger>
               <CollapsibleContent>
                 <div className="px-6 pb-5 pt-0 border-t border-border/50">
-                  <Label htmlFor="justification" className="sr-only">Justification</Label>
-                  <Textarea
-                    id="justification"
-                    placeholder="Explain your reasoning before submitting..."
-                    value={justification}
-                    onChange={(e) => setJustification(e.target.value)}
-                    rows={3}
-                    className="resize-none bg-muted/30 border-border/60"
-                  />
+                  {isVideoJustification ? (
+                    <div className="space-y-4">
+                      <p className="text-sm text-muted-foreground">
+                        Record or upload a short video explaining your reasoning before continuing.
+                      </p>
+                      <div className="flex flex-wrap gap-2">
+                        {recording ? (
+                          <Button type="button" variant="destructive" onClick={stopRecording}>
+                            <Square className="mr-2 h-4 w-4" />
+                            Stop Recording
+                          </Button>
+                        ) : (
+                          <Button type="button" onClick={startRecording} disabled={preparingRecorder}>
+                            {preparingRecorder ? (
+                              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            ) : (
+                              <Circle className="mr-2 h-4 w-4" />
+                            )}
+                            Record Video
+                          </Button>
+                        )}
+                        <Button
+                          type="button"
+                          variant="outline"
+                          onClick={() => fileInputRef.current?.click()}
+                          disabled={recording}
+                        >
+                          <Upload className="mr-2 h-4 w-4" />
+                          Upload Video
+                        </Button>
+                        {(videoFile || videoPreviewUrl) ? (
+                          <Button type="button" variant="ghost" onClick={clearVideoSelection}>
+                            <Trash2 className="mr-2 h-4 w-4" />
+                            Clear
+                          </Button>
+                        ) : null}
+                      </div>
+                      <input
+                        ref={fileInputRef}
+                        type="file"
+                        accept="video/*"
+                        className="hidden"
+                        onChange={handleVideoUploadChange}
+                      />
+                      {videoError ? <p className="text-sm text-destructive">{videoError}</p> : null}
+                      {recording ? (
+                        <div className="rounded-lg border border-primary/30 bg-primary/5 px-4 py-3 text-sm text-foreground">
+                          Recording in progress. Press stop when you finish your explanation.
+                        </div>
+                      ) : null}
+                      {videoPreviewUrl ? (
+                        <div className="space-y-2">
+                          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                            <Video className="h-4 w-4" />
+                            <span className="truncate">{videoFile?.name}</span>
+                            {videoDurationSeconds ? <span>• {videoDurationSeconds}s</span> : null}
+                          </div>
+                          <video controls preload="metadata" className="w-full rounded-lg bg-black">
+                            <source src={videoPreviewUrl} type={videoFile?.type || "video/webm"} />
+                          </video>
+                        </div>
+                      ) : null}
+                    </div>
+                  ) : (
+                    <>
+                      <Label htmlFor="justification" className="sr-only">Justification</Label>
+                      <Textarea
+                        id="justification"
+                        placeholder="Explain your reasoning before submitting..."
+                        value={justification}
+                        onChange={(e) => setJustification(e.target.value)}
+                        rows={3}
+                        className="resize-none bg-muted/30 border-border/60"
+                      />
+                    </>
+                  )}
                 </div>
               </CollapsibleContent>
             </Card>
@@ -935,7 +1232,7 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
             <Button
               size="lg"
               onClick={submitDecision}
-              disabled={!selectedOption || !justification.trim() || submitting}
+              disabled={!selectedOption || (isVideoJustification ? !videoFile : !justification.trim()) || submitting}
               className="shadow-sm min-h-[48px] w-full sm:w-auto"
             >
               {submitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}

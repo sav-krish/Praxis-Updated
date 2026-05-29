@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation";
-import { createClient } from "@/lib/supabase/server";
+import { createClient, createServiceRoleClient } from "@/lib/supabase/server";
 import { ReportsView } from "./reports-view";
 import {
   SIMULATION_REPORTS_HEADER,
@@ -9,6 +9,10 @@ import {
   TEAM_REPORTS_ROW,
   RESPONSE_REPORTS_ROW,
 } from "@/lib/supabase-query-columns";
+import type { VideoGalleryItem } from "@/components/reports/video-justification-gallery";
+
+const SIMULATION_REPORTS_HEADER_LEGACY = "id, title, mode" as const;
+const SESSION_REPORTS_SELECTED_LEGACY = "id, simulation_id, debrief_guide, status" as const;
 
 interface PageProps {
   params: Promise<{ id: string }>;
@@ -21,11 +25,23 @@ export default async function ReportsPage({ params, searchParams }: PageProps) {
   const supabase = await createClient();
 
   // Fetch simulation
-  const { data: simulation, error } = await supabase
+  let { data: simulation, error } = await supabase
     .from("simulations")
     .select(SIMULATION_REPORTS_HEADER)
     .eq("id", id)
     .single();
+
+  if (error?.message?.includes("justification_type")) {
+    const legacyResult = await supabase
+      .from("simulations")
+      .select(SIMULATION_REPORTS_HEADER_LEGACY)
+      .eq("id", id)
+      .single();
+    simulation = legacyResult.data
+      ? { ...legacyResult.data, justification_type: "written" as const }
+      : null;
+    error = legacyResult.error;
+  }
 
   if (error || !simulation) {
     notFound();
@@ -54,11 +70,22 @@ export default async function ReportsPage({ params, searchParams }: PageProps) {
   }
 
   // Fetch session data
-  const { data: selectedSession } = await supabase
+  let { data: selectedSession } = await supabase
     .from("sessions")
     .select(SESSION_REPORTS_SELECTED)
     .eq("id", selectedSessionId)
     .single();
+
+  if (!selectedSession) {
+    const legacySessionResult = await supabase
+      .from("sessions")
+      .select(SESSION_REPORTS_SELECTED_LEGACY)
+      .eq("id", selectedSessionId)
+      .single();
+    selectedSession = legacySessionResult.data
+      ? { ...legacySessionResult.data, video_gallery_share_id: selectedSessionId }
+      : null;
+  }
 
   if (!selectedSession) {
     return (
@@ -108,6 +135,45 @@ export default async function ReportsPage({ params, searchParams }: PageProps) {
     `)
     .eq("session_id", selectedSessionId);
 
+  let responseVideos: VideoGalleryItem[] = [];
+  if (simulation.justification_type === "video") {
+    try {
+      const svc = createServiceRoleClient();
+      const { data: responseVideoRows } = await svc
+        .from("response_videos")
+        .select("id, decision_id, option_id, participant_id, storage_path, mime_type, duration_seconds, created_at")
+        .eq("session_id", selectedSessionId);
+
+      if (responseVideoRows?.length) {
+        const signedUrls = await Promise.all(
+          responseVideoRows.map(async (row) => {
+            const { data } = await svc.storage
+              .from("response-videos")
+              .createSignedUrl(row.storage_path, 60 * 60);
+            return { id: row.id, url: data?.signedUrl ?? null };
+          })
+        );
+        const signedUrlMap = new Map(signedUrls.map((row) => [row.id, row.url]));
+        responseVideos = responseVideoRows
+          .map((row) => ({
+            id: row.id,
+            decision_id: row.decision_id,
+            option_id: row.option_id,
+            participant_id: row.participant_id,
+            participant_name:
+              participants?.find((p) => p.id === row.participant_id)?.name ?? "Student",
+            video_url: signedUrlMap.get(row.id) ?? "",
+            mime_type: row.mime_type,
+            duration_seconds: row.duration_seconds,
+            created_at: row.created_at,
+          }))
+          .filter((row) => row.video_url);
+      }
+    } catch {
+      responseVideos = [];
+    }
+  }
+
   return (
     <ReportsView
       simulation={simulation}
@@ -120,6 +186,7 @@ export default async function ReportsPage({ params, searchParams }: PageProps) {
       participants={participants || []}
       teams={teams || []}
       responses={responses || []}
+      responseVideos={responseVideos}
       reflectionResponses={reflectionResponses || []}
       initialDebrief={selectedSession?.debrief_guide as Record<string, unknown> | null}
     />

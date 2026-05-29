@@ -18,7 +18,7 @@ export default async function SessionPage({ params }: PageProps) {
   const supabase = await createClient();
 
   // Fetch session with simulation
-  const { data: session, error } = await supabase
+  const result = await supabase
     .from("sessions")
     .select(`
       ${SESSION_LOBBY_ROW},
@@ -26,6 +26,25 @@ export default async function SessionPage({ params }: PageProps) {
     `)
     .eq("id", sessionId)
     .single();
+
+  let session = result.data;
+  let error = result.error;
+
+  if (error?.message?.includes("video_gallery_share_id")) {
+    const legacyResult = await supabase
+      .from("sessions")
+      .select(`
+        id, simulation_id, join_code, status, current_step, started_at, ended_at, debrief_guide, is_preview, created_at,
+        simulation:simulations(${SESSION_LOBBY_SIMULATION})
+      `)
+      .eq("id", sessionId)
+      .single();
+
+    session = legacyResult.data
+      ? { ...legacyResult.data, video_gallery_share_id: sessionId }
+      : null;
+    error = legacyResult.error;
+  }
 
   if (error || !session) {
     notFound();

@@ -11,6 +11,9 @@ import {
   SIMULATION_SCENARIO_IMAGE_ROW,
 } from "@/lib/supabase-query-columns";
 
+const SIMULATION_EDITOR_ROW_LEGACY =
+  "id, professor_id, title, course_topic, goal, target_decisions, background_content, ai_notes, mode, team_size, team_assignment, difficulty, estimated_minutes, status, preferences, is_public, favorite_count, hidden_profiles_enabled, is_pinned, pinned_order, created_at, updated_at" as const;
+
 interface PageProps {
   params: Promise<{ id: string }>;
   searchParams: Promise<{ [key: string]: string | undefined }>;
@@ -23,11 +26,24 @@ export default async function EditSimulationPage({ params, searchParams }: PageP
   const { data: { user } } = await supabase.auth.getUser();
 
   // Fetch simulation with all related data
-  const { data: simulation, error } = await supabase
+  let { data: simulation, error } = await supabase
     .from("simulations")
     .select(SIMULATION_EDITOR_ROW)
     .eq("id", id)
     .single();
+
+  if (error?.message?.includes("justification_type")) {
+    const legacyResult = await supabase
+      .from("simulations")
+      .select(SIMULATION_EDITOR_ROW_LEGACY)
+      .eq("id", id)
+      .single();
+
+    simulation = legacyResult.data
+      ? { ...legacyResult.data, justification_type: "written" as const }
+      : null;
+    error = legacyResult.error;
+  }
 
   if (error || !simulation) {
     notFound();

@@ -8,9 +8,9 @@ export const SIMULATION_DASHBOARD_LIST =
 
 /** Full simulation row for the editor (explicit list avoids accidental wide reads). */
 export const SIMULATION_EDITOR_ROW =
-  "id, professor_id, title, course_topic, goal, target_decisions, background_content, ai_notes, mode, team_size, team_assignment, difficulty, estimated_minutes, status, preferences, is_public, favorite_count, hidden_profiles_enabled, is_pinned, pinned_order, created_at, updated_at" as const;
+  "id, professor_id, title, course_topic, goal, target_decisions, background_content, ai_notes, mode, team_size, team_assignment, justification_type, difficulty, estimated_minutes, status, preferences, is_public, favorite_count, hidden_profiles_enabled, is_pinned, pinned_order, created_at, updated_at" as const;
 
-export const SIMULATION_REPORTS_HEADER = "id, title, mode" as const;
+export const SIMULATION_REPORTS_HEADER = "id, title, mode, justification_type" as const;
 
 export const REFLECTION_QUESTION_EDITOR_ROW =
   "id, simulation_id, order_num, question, created_at" as const;
@@ -28,7 +28,7 @@ export const SIMULATION_SCENARIO_IMAGE_ROW =
   "id, simulation_id, storage_path, alt_text, order_num, created_at" as const;
 
 export const SESSION_LOBBY_ROW =
-  "id, simulation_id, join_code, status, current_step, started_at, ended_at, debrief_guide, is_preview, created_at" as const;
+  "id, simulation_id, join_code, status, current_step, started_at, ended_at, debrief_guide, video_gallery_share_id, is_preview, created_at" as const;
 
 export const SESSION_LOBBY_SIMULATION =
   "id, title, mode, hidden_profiles_enabled" as const;
@@ -36,7 +36,7 @@ export const SESSION_LOBBY_SIMULATION =
 export const SESSION_REPORTS_LIST = "id, ended_at" as const;
 
 export const SESSION_REPORTS_SELECTED =
-  "id, simulation_id, debrief_guide, status" as const;
+  "id, simulation_id, debrief_guide, status, video_gallery_share_id" as const;
 
 export const PARTICIPANT_LOBBY_ROW =
   "id, session_id, team_id, profile_id, name, is_voter, joined_at" as const;
