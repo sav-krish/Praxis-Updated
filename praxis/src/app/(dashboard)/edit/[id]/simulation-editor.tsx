@@ -1620,7 +1620,7 @@ export function SimulationEditor({
                 <div className="flex items-center gap-1.5">
                   <Label>Optional Session Schedule</Label>
                   <FieldInfoHint>
-                    If set, sessions created from this simulation will auto-start at the scheduled start and auto-end at the scheduled end. Professors can still end a session manually at any time.
+                    If set, sessions created from this simulation will auto-start at the scheduled start and auto-end at the scheduled end. Educators can still end a session manually at any time.
                   </FieldInfoHint>
                 </div>
                 <div className="grid gap-4 sm:grid-cols-2">
