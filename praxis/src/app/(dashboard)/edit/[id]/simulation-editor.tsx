@@ -869,23 +869,23 @@ export function SimulationEditor({
             transition={{ type: "tween", duration: 0.2 }}
             className="space-y-6"
           >
-          <Card>
-            <CardHeader>
+          <Card className="gap-2">
+            <CardHeader className="pb-2">
               <div className="flex items-start justify-between gap-2">
-                <CardTitle className="flex-1">Simulation Intent</CardTitle>
+                <CardTitle className="flex-1">Simulation Name</CardTitle>
+                <FieldInfoHint className="shrink-0">
+                  Update the title students and teachers will see for this simulation.
+                </FieldInfoHint>
               </div>
             </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="p-4 bg-muted rounded-lg space-y-2">
-                <div>
-                  <span className="text-sm font-medium">Goal:</span>
-                  <p className="text-sm text-muted-foreground">{simulation.goal || "Not specified"}</p>
-                </div>
-                <div>
-                  <span className="text-sm font-medium">Target Decisions:</span>
-                  <p className="text-sm text-muted-foreground">{simulation.target_decisions || "Not specified"}</p>
-                </div>
-              </div>
+            <CardContent className="pt-0">
+              <Input
+                value={simulation.title}
+                onChange={(e) => setSimulation((prev) => ({ ...prev, title: e.target.value }))}
+                placeholder="Enter simulation name"
+                disabled={!isOwner}
+                maxLength={160}
+              />
             </CardContent>
           </Card>
 
