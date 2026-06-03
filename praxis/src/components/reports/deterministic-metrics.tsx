@@ -102,7 +102,8 @@ export function DeterministicMetrics({
       let sum = 0;
       decisions.forEach((d) => {
         const r = responses.find((r) =>
-          mode === "teams" ? r.team_id === id : r.participant_id === id,
+          r.decision_id === d.id &&
+          (mode === "teams" ? r.team_id === id : r.participant_id === id),
         );
         if (!r) return;
         const opt = d.options.find((o) => o.id === r.option_id);
