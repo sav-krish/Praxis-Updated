@@ -55,7 +55,7 @@ export interface Database {
           mode: 'individual' | 'teams'
           team_size: number | null
           team_assignment: 'auto' | 'self' | null
-          justification_type: 'written' | 'video'
+          justification_type: 'written' | 'video' | 'video_or_text'
           difficulty: 'easy' | 'hard' | 'challenge' | null
           estimated_minutes: number | null
           status: 'draft' | 'published'
@@ -80,7 +80,7 @@ export interface Database {
           mode?: 'individual' | 'teams'
           team_size?: number | null
           team_assignment?: 'auto' | 'self' | null
-          justification_type?: 'written' | 'video'
+          justification_type?: 'written' | 'video' | 'video_or_text'
           difficulty?: 'easy' | 'hard' | 'challenge' | null
           estimated_minutes?: number | null
           status?: 'draft' | 'published'
@@ -105,7 +105,7 @@ export interface Database {
           mode?: 'individual' | 'teams'
           team_size?: number | null
           team_assignment?: 'auto' | 'self' | null
-          justification_type?: 'written' | 'video'
+          justification_type?: 'written' | 'video' | 'video_or_text'
           difficulty?: 'easy' | 'hard' | 'challenge' | null
           estimated_minutes?: number | null
           status?: 'draft' | 'published'

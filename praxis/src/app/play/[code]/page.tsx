@@ -82,7 +82,7 @@ interface Session {
     title: string;
     background_content: string | null;
     mode: string;
-    justification_type: "written" | "video";
+    justification_type: "written" | "video" | "video_or_text";
     estimated_minutes?: number | null;
     hidden_profiles_enabled?: boolean;
     preferences?: Json;
@@ -155,6 +155,7 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
   const [recording, setRecording] = useState(false);
   const [preparingRecorder, setPreparingRecorder] = useState(false);
   const [videoError, setVideoError] = useState<string | null>(null);
+  const [responseInputMode, setResponseInputMode] = useState<"text" | "video">("text");
   const fileInputRef = useRef<HTMLInputElement>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const mediaStreamRef = useRef<MediaStream | null>(null);
@@ -383,7 +384,7 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
       title: string;
       background_content: string | null;
       mode: string;
-      justification_type: "written" | "video";
+      justification_type: "written" | "video" | "video_or_text";
       estimated_minutes?: number | null;
       hidden_profiles_enabled?: boolean;
       preferences?: Json;
@@ -669,13 +670,23 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
     setRecording(false);
   };
 
+  const justificationType = session?.simulation.justification_type ?? "written";
+  const canChooseResponseInput =
+    session?.simulation.mode === "individual" && justificationType === "video_or_text";
+  const isVideoJustification =
+    session?.simulation.mode === "individual" &&
+    (justificationType === "video" ||
+      (justificationType === "video_or_text" && responseInputMode === "video"));
+  const requiresTextJustification =
+    session?.simulation.mode !== "individual" ||
+    justificationType === "written" ||
+    (justificationType === "video_or_text" && responseInputMode === "text");
+
   const submitDecision = async () => {
     if (!selectedOption || !session || !participantId) return;
     const trimmedJustification = justification.trim();
-    const isVideoJustification =
-      session.simulation.mode === "individual" && session.simulation.justification_type === "video";
 
-    if (!isVideoJustification && !trimmedJustification) {
+    if (requiresTextJustification && !trimmedJustification) {
       toast.error("Please add a justification before continuing.");
       return;
     }
@@ -700,7 +711,7 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
             participant_id: participantId,
             decision_id: decision.id,
             option_id: selectedOption,
-            justification: null,
+            justification: canChooseResponseInput && responseInputMode === "video" ? null : trimmedJustification || null,
           })
           .select("id")
           .single();
@@ -783,6 +794,7 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
     setShowConsequence(false);
     setSelectedOption(null);
     setJustification("");
+    setResponseInputMode("text");
     clearVideoSelection();
     setCurrentConsequence("");
     setCurrentStep(prev => prev + 1);
@@ -1087,8 +1099,6 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
   if (currentStep >= 2 && currentStep <= 4) {
     const decisionIndex = currentStep - 2;
     const decision = decisions[decisionIndex];
-    const isVideoJustification =
-      session?.simulation.mode === "individual" && session?.simulation.justification_type === "video";
 
     if (!decision) {
       setCurrentStep(5);
@@ -1217,13 +1227,41 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
                   className="w-full text-left px-4 sm:px-6 py-4 min-h-[48px] flex items-center justify-between gap-3 bg-transparent hover:bg-muted/50 transition-colors duration-150 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
                 >
                   <span className="text-sm font-medium text-muted-foreground">
-                    {isVideoJustification ? "Add video response" : "Add justification"}
+                    {canChooseResponseInput
+                      ? "Add response"
+                      : isVideoJustification
+                        ? "Add video response"
+                        : "Add justification"}
                   </span>
                   <ChevronDown className="h-5 w-5 shrink-0 text-muted-foreground transition-transform group-data-[state=open]:rotate-180" />
                 </button>
               </CollapsibleTrigger>
               <CollapsibleContent>
                 <div className="px-6 pb-5 pt-0 border-t border-border/50">
+                  {canChooseResponseInput ? (
+                    <div className="mb-4 flex flex-wrap gap-2 pt-4">
+                      <Button
+                        type="button"
+                        variant={responseInputMode === "text" ? "default" : "outline"}
+                        onClick={() => {
+                          setResponseInputMode("text");
+                          clearVideoSelection();
+                        }}
+                      >
+                        Text response
+                      </Button>
+                      <Button
+                        type="button"
+                        variant={responseInputMode === "video" ? "default" : "outline"}
+                        onClick={() => {
+                          setResponseInputMode("video");
+                          setJustification("");
+                        }}
+                      >
+                        Video response
+                      </Button>
+                    </div>
+                  ) : null}
                   {isVideoJustification ? (
                     <div className="space-y-4">
                       <p className="text-sm text-muted-foreground">

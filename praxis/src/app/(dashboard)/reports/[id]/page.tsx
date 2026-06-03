@@ -9,7 +9,7 @@ import {
   TEAM_REPORTS_ROW,
   RESPONSE_REPORTS_ROW,
 } from "@/lib/supabase-query-columns";
-import type { VideoGalleryItem } from "@/components/reports/video-justification-gallery";
+import type { ResponseGalleryItem } from "@/components/reports/response-gallery";
 
 const SIMULATION_REPORTS_HEADER_LEGACY = "id, title, mode" as const;
 const SESSION_REPORTS_SELECTED_LEGACY = "id, simulation_id, debrief_guide, status" as const;
@@ -135,15 +135,16 @@ export default async function ReportsPage({ params, searchParams }: PageProps) {
     `)
     .eq("session_id", selectedSessionId);
 
-  let responseVideos: VideoGalleryItem[] = [];
-  if (simulation.justification_type === "video") {
+  let responseGalleryItems: ResponseGalleryItem[] = [];
+  if (simulation.justification_type === "video" || simulation.justification_type === "video_or_text" || simulation.justification_type === "written") {
     try {
       const svc = createServiceRoleClient();
       const { data: responseVideoRows } = await svc
         .from("response_videos")
-        .select("id, decision_id, option_id, participant_id, storage_path, mime_type, duration_seconds, created_at")
+        .select("id, response_id, decision_id, option_id, participant_id, storage_path, mime_type, duration_seconds, created_at")
         .eq("session_id", selectedSessionId);
 
+      let videoRows: ResponseGalleryItem[] = [];
       if (responseVideoRows?.length) {
         const signedUrls = await Promise.all(
           responseVideoRows.map(async (row) => {
@@ -154,23 +155,60 @@ export default async function ReportsPage({ params, searchParams }: PageProps) {
           })
         );
         const signedUrlMap = new Map(signedUrls.map((row) => [row.id, row.url]));
-        responseVideos = responseVideoRows
+        videoRows = responseVideoRows
           .map((row) => ({
-            id: row.id,
+            id: row.response_id,
             decision_id: row.decision_id,
             option_id: row.option_id,
             participant_id: row.participant_id,
             participant_name:
               participants?.find((p) => p.id === row.participant_id)?.name ?? "Student",
+            response_type: "video" as const,
+            justification: null,
             video_url: signedUrlMap.get(row.id) ?? "",
-            mime_type: row.mime_type,
+            mime_type: row.mime_type ?? null,
             duration_seconds: row.duration_seconds,
             created_at: row.created_at,
           }))
           .filter((row) => row.video_url);
       }
+
+      const videoResponseIds = new Set(videoRows.map((row) => row.id));
+      const textRows: ResponseGalleryItem[] = (responses ?? [])
+        .filter((row) => !videoResponseIds.has(row.id) && row.justification)
+        .map((row) => ({
+          id: row.id,
+          decision_id: row.decision_id,
+          option_id: row.option_id,
+          participant_id: row.participant_id,
+          participant_name:
+            participants?.find((p) => p.id === row.participant_id)?.name ?? "Student",
+          response_type: "text",
+          justification: row.justification,
+          video_url: null,
+          mime_type: null,
+          duration_seconds: null,
+          created_at: row.submitted_at,
+        }));
+
+      responseGalleryItems = [...videoRows, ...textRows];
     } catch {
-      responseVideos = [];
+      responseGalleryItems = (responses ?? [])
+        .filter((row) => row.justification)
+        .map((row) => ({
+          id: row.id,
+          decision_id: row.decision_id,
+          option_id: row.option_id,
+          participant_id: row.participant_id,
+          participant_name:
+            participants?.find((p) => p.id === row.participant_id)?.name ?? "Student",
+          response_type: "text",
+          justification: row.justification,
+          video_url: null,
+          mime_type: null,
+          duration_seconds: null,
+          created_at: row.submitted_at,
+        }));
     }
   }
 
@@ -186,7 +224,7 @@ export default async function ReportsPage({ params, searchParams }: PageProps) {
       participants={participants || []}
       teams={teams || []}
       responses={responses || []}
-      responseVideos={responseVideos}
+      responseGalleryItems={responseGalleryItems}
       reflectionResponses={reflectionResponses || []}
       initialDebrief={selectedSession?.debrief_guide as Record<string, unknown> | null}
     />

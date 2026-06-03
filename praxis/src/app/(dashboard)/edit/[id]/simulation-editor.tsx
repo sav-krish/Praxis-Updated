@@ -1544,12 +1544,12 @@ export function SimulationEditor({
                   <div className="flex items-center gap-1.5">
                     <Label>Decision Justification Format</Label>
                     <FieldInfoHint>
-                      Written is the default. Video requires each student to record or upload a response before moving to the next decision.
+                      Written is the default. Video requires a recording or upload. Video or text lets the student choose either format before moving to the next decision.
                     </FieldInfoHint>
                   </div>
                   <Select
                     value={simulation.justification_type || "written"}
-                    onValueChange={(value: "written" | "video") =>
+                    onValueChange={(value: "written" | "video" | "video_or_text") =>
                       setSimulation({ ...simulation, justification_type: value })
                     }
                     disabled={!isOwner}
@@ -1560,6 +1560,7 @@ export function SimulationEditor({
                     <SelectContent>
                       <SelectItem value="written">Written justification</SelectItem>
                       <SelectItem value="video">Video response</SelectItem>
+                      <SelectItem value="video_or_text">Video or text response</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>

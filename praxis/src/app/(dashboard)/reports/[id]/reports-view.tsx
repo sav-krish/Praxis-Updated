@@ -25,7 +25,7 @@ import {
 import { toast } from "sonner";
 import { FeedbackCard } from "@/components/simulation/FeedbackCard";
 import type { Simulation, Session, Decision, Option, Participant, Team, Response } from "@/types/database";
-import { VideoJustificationGallery, type VideoGalleryItem } from "@/components/reports/video-justification-gallery";
+import { ResponseGallery, type ResponseGalleryItem } from "@/components/reports/response-gallery";
 
 // Lazy-load the recharts-heavy metrics panel so the initial /reports route
 // bundle stays small. In dev mode, this keeps the route compile fast and lets
@@ -87,7 +87,7 @@ interface ReportsViewProps {
   participants: ReportsParticipant[];
   teams: ReportsTeam[];
   responses: ReportsResponse[];
-  responseVideos: VideoGalleryItem[];
+  responseGalleryItems: ResponseGalleryItem[];
   reflectionResponses: ReflectionResponseWithQuestion[];
   initialDebrief?: Record<string, unknown> | null;
 }
@@ -100,12 +100,12 @@ export function ReportsView({
   participants,
   teams,
   responses,
-  responseVideos,
+  responseGalleryItems,
   reflectionResponses,
   initialDebrief,
 }: ReportsViewProps) {
   const router = useRouter();
-  const galleryUrl = `/video-gallery/${selectedSession.video_gallery_share_id}`;
+  const galleryUrl = `/response-gallery/${selectedSession.video_gallery_share_id}`;
   const [debrief, setDebrief] = useState<DebriefGuide | null>(initialDebrief as DebriefGuide | null);
   const [generatingDebrief, setGeneratingDebrief] = useState(false);
   const [streamingField, setStreamingField] = useState<string | null>(null);
@@ -445,13 +445,11 @@ export function ReportsView({
       <div className="h-4 sm:h-6" />
 
       <Tabs defaultValue="distribution" className="space-y-4 sm:space-y-6">
-        <TabsList className={`grid w-full ${simulation.justification_type === "video" ? "grid-cols-5" : "grid-cols-4"} h-auto min-h-[44px] p-1`}>
+        <TabsList className="grid h-auto min-h-[44px] w-full grid-cols-5 p-1">
           <TabsTrigger value="distribution" className="text-xs sm:text-sm py-2">Distribution</TabsTrigger>
           <TabsTrigger value="scores" className="text-xs sm:text-sm py-2">Scores</TabsTrigger>
           <TabsTrigger value="reflections" className="text-xs sm:text-sm py-2">Reflections</TabsTrigger>
-          {simulation.justification_type === "video" && (
-            <TabsTrigger value="videos" className="text-xs sm:text-sm py-2">Videos</TabsTrigger>
-          )}
+          <TabsTrigger value="response-gallery" className="text-xs sm:text-sm py-2">Response Gallery</TabsTrigger>
           <TabsTrigger value="debrief" className="text-xs sm:text-sm py-2">Debrief</TabsTrigger>
         </TabsList>
 
@@ -494,29 +492,27 @@ export function ReportsView({
           })}
         </TabsContent>
 
-        {simulation.justification_type === "video" && (
-          <TabsContent value="videos" className="space-y-4 sm:space-y-6">
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <div>
-                <h3 className="text-lg font-semibold">Video Justifications</h3>
-                <p className="text-sm text-muted-foreground">
-                  Organized by decision and selected option. Share the gallery after class to compare reasoning.
-                </p>
-              </div>
-              <Button
-                variant="outline"
-                onClick={async () => {
-                  const fullUrl = `${window.location.origin}${galleryUrl}`;
-                  await navigator.clipboard.writeText(fullUrl);
-                  toast.success("Gallery link copied");
-                }}
-              >
-                Copy Gallery Link
-              </Button>
+        <TabsContent value="response-gallery" className="space-y-4 sm:space-y-6">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <h3 className="text-lg font-semibold">Response Gallery</h3>
+              <p className="text-sm text-muted-foreground">
+                Organized by decision and selected option. Share the gallery after class to compare reasoning.
+              </p>
             </div>
-            <VideoJustificationGallery decisions={decisions} videos={responseVideos} />
-          </TabsContent>
-        )}
+            <Button
+              variant="outline"
+              onClick={async () => {
+                const fullUrl = `${window.location.origin}${galleryUrl}`;
+                await navigator.clipboard.writeText(fullUrl);
+                toast.success("Gallery link copied");
+              }}
+            >
+              Copy Gallery Link
+            </Button>
+          </div>
+          <ResponseGallery decisions={decisions} items={responseGalleryItems} />
+        </TabsContent>
 
         {/* Scores Tab */}
         <TabsContent value="scores">
