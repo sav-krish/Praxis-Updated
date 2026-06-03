@@ -11,7 +11,7 @@ type MarkdownBodyProps = {
 
 export function MarkdownBody({ className, children }: MarkdownBodyProps) {
   return (
-    <div className={className}>
+    <div className={`markdown-body ${className ?? ""}`.trim()}>
       <ReactMarkdown remarkPlugins={[remarkGfm, remarkBreaks]}>{children}</ReactMarkdown>
     </div>
   );
