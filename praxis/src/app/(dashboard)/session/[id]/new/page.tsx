@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { logger } from "@/lib/logger";
+import { getSimulationSessionSchedule, setSimulationSessionSchedule } from "@/lib/session-schedule";
 
 interface PageProps {
   params: Promise<{ id: string }>;
@@ -25,7 +26,7 @@ export default async function NewSessionPage({ params }: PageProps) {
   if (!user) { redirect("/auth/login"); }
   const { data: simulation } = await supabase
     .from("simulations")
-    .select("id")
+    .select("id, preferences")
     .eq("id", id)
     .eq("professor_id", user.id)
     .single();
@@ -34,9 +35,9 @@ export default async function NewSessionPage({ params }: PageProps) {
     redirect("/dashboard");
   }
 
-  const { data: existingSession } = await supabase
+  let { data: existingSession } = await supabase
     .from("sessions")
-    .select("id")
+    .select("id, status")
     .eq("simulation_id", id)
     .neq("status", "complete")
     .neq("is_preview", true)
@@ -44,7 +45,42 @@ export default async function NewSessionPage({ params }: PageProps) {
     .limit(1)
     .maybeSingle();
 
+  const schedule = getSimulationSessionSchedule(simulation.preferences);
+  const now = Date.now();
+  const scheduledStart = schedule.start_at ? new Date(schedule.start_at).getTime() : null;
+  const scheduledEnd = schedule.end_at ? new Date(schedule.end_at).getTime() : null;
+
+  if (existingSession && scheduledEnd && now >= scheduledEnd) {
+    await supabase
+      .from("sessions")
+      .update({ status: "complete", ended_at: new Date().toISOString() })
+      .eq("id", existingSession.id);
+
+    await supabase
+      .from("simulations")
+      .update({
+        preferences: setSimulationSessionSchedule(simulation.preferences, {
+          start_at: null,
+          end_at: null,
+        }),
+      })
+      .eq("id", id);
+
+    existingSession = null;
+  }
+
   if (existingSession) {
+    if (existingSession.status === "lobby" && scheduledStart && now >= scheduledStart) {
+      await supabase
+        .from("sessions")
+        .update({
+          status: "running",
+          current_step: 1,
+          started_at: new Date().toISOString(),
+        })
+        .eq("id", existingSession.id)
+        .eq("status", "lobby");
+    }
     redirect(`/session/${id}/${existingSession.id}`);
   }
 

@@ -207,11 +207,11 @@ export default function HomePage() {
               </Button>
             </Link>
             <Link
-              href="/auth/signup"
+              href="/auth/login"
               className="hidden md:inline-flex items-center"
             >
               <Button className="h-9 max-h-9 px-3 text-base font-semibold leading-none md:h-9 md:px-3.5 md:text-lg">
-                Get Started
+                Sign In
               </Button>
             </Link>
             <Link href="/join" className="inline-flex items-center md:hidden">
@@ -222,9 +222,9 @@ export default function HomePage() {
                 Join
               </Button>
             </Link>
-            <Link href="/auth/signup" className="inline-flex items-center md:hidden">
+            <Link href="/auth/login" className="inline-flex items-center md:hidden">
               <Button className="h-9 max-h-9 px-3 text-base font-semibold leading-none">
-                Start
+                Sign In
               </Button>
             </Link>
           </div>

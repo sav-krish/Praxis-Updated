@@ -1,6 +1,7 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
+import { setSimulationSessionSchedule } from "@/lib/session-schedule";
 
 function generateJoinCode(): string {
   const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
@@ -180,4 +181,52 @@ export async function createProfessorPreviewParticipant(
     participantId: participant.id,
     participantName,
   };
+}
+
+export async function clearSimulationScheduleForSession(
+  sessionId: string
+): Promise<{ ok: true } | { error: string }> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) {
+    return { error: "You must be logged in." };
+  }
+
+  const { data: session } = await supabase
+    .from("sessions")
+    .select("id, simulation_id")
+    .eq("id", sessionId)
+    .single();
+
+  if (!session) {
+    return { error: "Session not found." };
+  }
+
+  const { data: simulation } = await supabase
+    .from("simulations")
+    .select("id, professor_id, preferences")
+    .eq("id", session.simulation_id)
+    .single();
+
+  if (!simulation || simulation.professor_id !== user.id) {
+    return { error: "You do not own this simulation." };
+  }
+
+  const clearedPreferences = setSimulationSessionSchedule(simulation.preferences, {
+    start_at: null,
+    end_at: null,
+  });
+
+  const { error } = await supabase
+    .from("simulations")
+    .update({ preferences: clearedPreferences })
+    .eq("id", simulation.id);
+
+  if (error) {
+    return { error: error.message };
+  }
+
+  return { ok: true };
 }

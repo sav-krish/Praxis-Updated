@@ -28,6 +28,7 @@ import {
 } from "@/components/ui/select";
 import type { Session, Simulation, Participant, Team, SimulationProfile } from "@/types/database";
 import { formatScheduleDateTime, getSimulationSessionSchedule } from "@/lib/session-schedule";
+import { clearSimulationScheduleForSession } from "@/app/(dashboard)/session/[id]/actions";
 
 type LobbySimulation = Pick<
   Simulation,
@@ -61,6 +62,7 @@ export function SessionLobby({
   const [copied, setCopied] = useState(false);
   const [loading, setLoading] = useState(false);
   const transitionRef = useRef(false);
+  const scheduleClearedRef = useRef(false);
   const sessionSchedule = useMemo(
     () => getSimulationSessionSchedule(simulation.preferences),
     [simulation.preferences]
@@ -73,6 +75,7 @@ export function SessionLobby({
     () => formatScheduleDateTime(sessionSchedule.end_at),
     [sessionSchedule.end_at]
   );
+  const hasSavedSchedule = Boolean(sessionSchedule.start_at || sessionSchedule.end_at);
 
   const joinUrl = typeof window !== "undefined" 
     ? `${window.location.origin}/join?code=${session.join_code}`
@@ -261,6 +264,13 @@ export function SessionLobby({
     } else {
       // Optimistic local update
       setSession(prev => ({ ...prev, status: "complete", ended_at: now }));
+      if (hasSavedSchedule) {
+        scheduleClearedRef.current = true;
+        const result = await clearSimulationScheduleForSession(session.id);
+        if ("error" in result) {
+          scheduleClearedRef.current = false;
+        }
+      }
       if (!opts?.automatic) {
         toast.success("Simulation ended!");
         router.push(`/reports/${simulation.id}?session=${session.id}`);
@@ -268,7 +278,7 @@ export function SessionLobby({
     }
     setLoading(false);
     transitionRef.current = false;
-  }, [router, session.id, simulation.id]);
+  }, [hasSavedSchedule, router, session.id, simulation.id]);
 
   useEffect(() => {
     if (session.status === "complete") return;
@@ -301,6 +311,16 @@ export function SessionLobby({
 
     return () => window.clearTimeout(timeout);
   }, [endSimulation, session.status, sessionSchedule.end_at, sessionSchedule.start_at, startSimulation]);
+
+  useEffect(() => {
+    if (!hasSavedSchedule || scheduleClearedRef.current || session.status !== "complete") return;
+    scheduleClearedRef.current = true;
+    void clearSimulationScheduleForSession(session.id).then((result) => {
+      if ("error" in result) {
+        scheduleClearedRef.current = false;
+      }
+    });
+  }, [hasSavedSchedule, session.id, session.status]);
 
   // Calculate progress
   const getSubmissionCount = (decisionId: string) => {
