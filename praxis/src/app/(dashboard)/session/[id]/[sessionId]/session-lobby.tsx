@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { QRCodeSVG } from "qrcode.react";
@@ -27,10 +27,11 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import type { Session, Simulation, Participant, Team, SimulationProfile } from "@/types/database";
+import { formatScheduleDateTime, getSimulationSessionSchedule } from "@/lib/session-schedule";
 
 type LobbySimulation = Pick<
   Simulation,
-  "id" | "title" | "mode" | "hidden_profiles_enabled"
+  "id" | "title" | "mode" | "hidden_profiles_enabled" | "preferences"
 >;
 
 interface SessionLobbyProps {
@@ -59,6 +60,19 @@ export function SessionLobby({
   const [responses, setResponses] = useState(initialResponses);
   const [copied, setCopied] = useState(false);
   const [loading, setLoading] = useState(false);
+  const transitionRef = useRef(false);
+  const sessionSchedule = useMemo(
+    () => getSimulationSessionSchedule(simulation.preferences),
+    [simulation.preferences]
+  );
+  const scheduledStartLabel = useMemo(
+    () => formatScheduleDateTime(sessionSchedule.start_at),
+    [sessionSchedule.start_at]
+  );
+  const scheduledEndLabel = useMemo(
+    () => formatScheduleDateTime(sessionSchedule.end_at),
+    [sessionSchedule.end_at]
+  );
 
   const joinUrl = typeof window !== "undefined" 
     ? `${window.location.origin}/join?code=${session.join_code}`
@@ -196,7 +210,9 @@ export function SessionLobby({
     );
   };
 
-  const startSimulation = async () => {
+  const startSimulation = useCallback(async (opts?: { automatic?: boolean }) => {
+    if (transitionRef.current) return;
+    transitionRef.current = true;
     setLoading(true);
     const supabase = createClient();
     const now = new Date().toISOString();
@@ -211,18 +227,22 @@ export function SessionLobby({
         current_step: 1,
         started_at: now 
       })
+      .eq("status", "lobby")
       .eq("id", session.id);
 
     if (error) {
-      toast.error("Failed to start simulation");
+      if (!opts?.automatic) toast.error("Failed to start simulation");
     } else {
       setSession(prev => ({ ...prev, status: "running", current_step: 1, started_at: now }));
-      toast.success("Simulation started!");
+      if (!opts?.automatic) toast.success("Simulation started!");
     }
     setLoading(false);
-  };
+    transitionRef.current = false;
+  }, [assignProfilesToParticipants, session.id]);
 
-  const endSimulation = async () => {
+  const endSimulation = useCallback(async (opts?: { automatic?: boolean }) => {
+    if (transitionRef.current) return;
+    transitionRef.current = true;
     setLoading(true);
     const supabase = createClient();
     const now = new Date().toISOString();
@@ -233,18 +253,54 @@ export function SessionLobby({
         status: "complete",
         ended_at: now 
       })
+      .neq("status", "complete")
       .eq("id", session.id);
 
     if (error) {
-      toast.error("Failed to end simulation");
+      if (!opts?.automatic) toast.error("Failed to end simulation");
     } else {
       // Optimistic local update
       setSession(prev => ({ ...prev, status: "complete", ended_at: now }));
-      toast.success("Simulation ended!");
-      router.push(`/reports/${simulation.id}?session=${session.id}`);
+      if (!opts?.automatic) {
+        toast.success("Simulation ended!");
+        router.push(`/reports/${simulation.id}?session=${session.id}`);
+      }
     }
     setLoading(false);
-  };
+    transitionRef.current = false;
+  }, [router, session.id, simulation.id]);
+
+  useEffect(() => {
+    if (session.status === "complete") return;
+
+    const syncScheduledStatus = async () => {
+      const now = Date.now();
+      const endAt = sessionSchedule.end_at ? new Date(sessionSchedule.end_at).getTime() : null;
+      const startAt = sessionSchedule.start_at ? new Date(sessionSchedule.start_at).getTime() : null;
+
+      if (endAt && now >= endAt && session.status !== "complete") {
+        await endSimulation({ automatic: true });
+        return;
+      }
+      if (startAt && now >= startAt && session.status === "lobby") {
+        await startSimulation({ automatic: true });
+      }
+    };
+
+    void syncScheduledStatus();
+
+    const futureEvents = [sessionSchedule.start_at, sessionSchedule.end_at]
+      .map((value) => (value ? new Date(value).getTime() : null))
+      .filter((value): value is number => value !== null && value > Date.now());
+
+    if (futureEvents.length === 0) return;
+
+    const timeout = window.setTimeout(() => {
+      void syncScheduledStatus();
+    }, Math.max(250, Math.min(...futureEvents) - Date.now() + 250));
+
+    return () => window.clearTimeout(timeout);
+  }, [endSimulation, session.status, sessionSchedule.end_at, sessionSchedule.start_at, startSimulation]);
 
   // Calculate progress
   const getSubmissionCount = (decisionId: string) => {
@@ -255,6 +311,10 @@ export function SessionLobby({
   };
 
   const totalGroups = simulation.mode === "teams" ? teams.length : participants.length;
+  const hasFutureScheduledStart =
+    session.status === "lobby" &&
+    !!sessionSchedule.start_at &&
+    new Date(sessionSchedule.start_at).getTime() > Date.now();
 
   const profileMap = new Map(profiles.map(p => [p.id, p]));
   const getProfileName = (profileId: string | null) =>
@@ -306,6 +366,12 @@ export function SessionLobby({
               </Badge>
             </div>
             <p className="text-muted-foreground text-xs sm:text-sm">Session Controls</p>
+            {(scheduledStartLabel || scheduledEndLabel) && (
+              <div className="mt-1 space-y-0.5 text-xs text-muted-foreground">
+                {scheduledStartLabel ? <p>Starts automatically: {scheduledStartLabel}</p> : null}
+                {scheduledEndLabel ? <p>Ends automatically: {scheduledEndLabel}</p> : null}
+              </div>
+            )}
           </div>
         </div>
         <div className="flex gap-2 shrink-0">
@@ -313,17 +379,17 @@ export function SessionLobby({
             <div className="flex flex-col items-stretch sm:items-end gap-1 flex-1 sm:flex-none min-w-0">
               {participants.length > 0 && (
                 <p className="text-sm text-muted-foreground text-center sm:text-right">
-                  {participants.length} student{participants.length !== 1 ? "s" : ""} waiting. Start when ready.
+                  {participants.length} student{participants.length !== 1 ? "s" : ""} waiting. {hasFutureScheduledStart ? "Session will start automatically." : "Start when ready."}
                 </p>
               )}
-              <Button onClick={startSimulation} disabled={loading || participants.length === 0} className="min-h-[44px] w-full sm:w-auto">
+              <Button onClick={() => void startSimulation()} disabled={loading || participants.length === 0 || hasFutureScheduledStart} className="min-h-[44px] w-full sm:w-auto">
                 {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Play className="mr-2 h-4 w-4" />}
-                Start Simulation
+                {hasFutureScheduledStart ? "Scheduled Start" : "Start Simulation"}
               </Button>
             </div>
           )}
           {session.status === "running" && (
-            <Button variant="destructive" onClick={endSimulation} disabled={loading} className="min-h-[44px] flex-1 sm:flex-none">
+            <Button variant="destructive" onClick={() => void endSimulation()} disabled={loading} className="min-h-[44px] flex-1 sm:flex-none">
               {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <StopCircle className="mr-2 h-4 w-4" />}
               End Session
             </Button>

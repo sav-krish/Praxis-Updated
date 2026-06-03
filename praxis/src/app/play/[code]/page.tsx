@@ -42,6 +42,8 @@ import { DataBlockRenderer } from "@/components/simulation/DataBlockRenderer";
 import { FeedbackCard } from "@/components/simulation/FeedbackCard";
 import { sourceTypeDisplayLabel } from "@/lib/source-display";
 import { publicScenarioImageUrl } from "@/lib/scenario-image-url";
+import { formatScheduleDateTime, getSimulationSessionSchedule } from "@/lib/session-schedule";
+import type { Json } from "@/types/database";
 
 const MarkdownBody = dynamic(
   () =>
@@ -83,6 +85,7 @@ interface Session {
     justification_type: "written" | "video";
     estimated_minutes?: number | null;
     hidden_profiles_enabled?: boolean;
+    preferences?: Json;
   };
 }
 
@@ -103,7 +106,7 @@ const SESSION_SIMULATION_SELECT =
         status,
         current_step,
         is_preview,
-        simulation:simulations(id, title, background_content, mode, justification_type, estimated_minutes, hidden_profiles_enabled)
+        simulation:simulations(id, title, background_content, mode, justification_type, estimated_minutes, hidden_profiles_enabled, preferences)
       ` as const;
 
 const SESSION_SIMULATION_SELECT_LEGACY =
@@ -112,7 +115,7 @@ const SESSION_SIMULATION_SELECT_LEGACY =
         status,
         current_step,
         is_preview,
-        simulation:simulations(id, title, background_content, mode, estimated_minutes, hidden_profiles_enabled)
+        simulation:simulations(id, title, background_content, mode, estimated_minutes, hidden_profiles_enabled, preferences)
       ` as const;
 
 export default function PlayPage({ params }: { params: Promise<{ code: string }> }) {
@@ -163,6 +166,7 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
 
   // Ref to hold session id for polling without re-subscribing
   const sessionIdRef = useRef<string | null>(null);
+  const transitionRef = useRef(false);
 
   useEffect(() => {
     currentStepRef.current = currentStep;
@@ -176,6 +180,13 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
       }
     };
   }, [videoPreviewUrl]);
+
+  const scheduledStartLabel = formatScheduleDateTime(
+    session ? getSimulationSessionSchedule(session.simulation.preferences).start_at : null
+  );
+  const scheduledEndLabel = formatScheduleDateTime(
+    session ? getSimulationSessionSchedule(session.simulation.preferences).end_at : null
+  );
 
   // Subscribe to participant count while waiting (for "N students joined" message)
   useEffect(() => {
@@ -225,6 +236,65 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
       supabase.removeChannel(channel);
     };
   }, [session?.id]); // eslint-disable-line react-hooks/exhaustive-deps -- keyed by session id; avoid resubscribing on every step change
+
+  useEffect(() => {
+    if (!session || session.is_preview || session.status === "complete") return;
+
+    const syncScheduledStatus = async () => {
+      if (transitionRef.current) return;
+      const supabase = createClient();
+      const schedule = getSimulationSessionSchedule(session.simulation.preferences);
+      const now = Date.now();
+      const endAt = schedule.end_at ? new Date(schedule.end_at).getTime() : null;
+      const startAt = schedule.start_at ? new Date(schedule.start_at).getTime() : null;
+
+      if (endAt && now >= endAt && session.status !== "complete") {
+        transitionRef.current = true;
+        const endedAt = new Date().toISOString();
+        const { error } = await supabase
+          .from("sessions")
+          .update({ status: "complete", ended_at: endedAt })
+          .neq("status", "complete")
+          .eq("id", session.id);
+        transitionRef.current = false;
+        if (!error) {
+          setSession((prev) => (prev ? { ...prev, status: "complete" } : prev));
+          setCurrentStep(6);
+        }
+        return;
+      }
+
+      if (startAt && now >= startAt && session.status === "lobby") {
+        transitionRef.current = true;
+        const startedAt = new Date().toISOString();
+        const { error } = await supabase
+          .from("sessions")
+          .update({ status: "running", current_step: 1, started_at: startedAt })
+          .eq("status", "lobby")
+          .eq("id", session.id);
+        transitionRef.current = false;
+        if (!error) {
+          setSession((prev) => (prev ? { ...prev, status: "running", current_step: 1 } : prev));
+          if (currentStepRef.current === 0) setCurrentStep(1);
+        }
+      }
+    };
+
+    void syncScheduledStatus();
+
+    const schedule = getSimulationSessionSchedule(session.simulation.preferences);
+    const futureEvents = [schedule.start_at, schedule.end_at]
+      .map((value) => (value ? new Date(value).getTime() : null))
+      .filter((value): value is number => value !== null && value > Date.now());
+
+    if (futureEvents.length === 0) return;
+
+    const timeout = window.setTimeout(() => {
+      void syncScheduledStatus();
+    }, Math.max(250, Math.min(...futureEvents) - Date.now() + 250));
+
+    return () => window.clearTimeout(timeout);
+  }, [session]);
 
   // Fetch hidden profile when transitioning to background step
   useEffect(() => {
@@ -316,6 +386,7 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
       justification_type: "written" | "video";
       estimated_minutes?: number | null;
       hidden_profiles_enabled?: boolean;
+      preferences?: Json;
     } | null;
 
     if (!simulationData?.id) {
@@ -829,6 +900,12 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
                   ? "Waiting for the instructor to start."
                   : `${participantCount} students joined. Waiting for the instructor to start.`}
               </p>
+              {(scheduledStartLabel || scheduledEndLabel) && (
+                <div className="space-y-1 text-xs text-muted-foreground">
+                  {scheduledStartLabel ? <p>Scheduled start: {scheduledStartLabel}</p> : null}
+                  {scheduledEndLabel ? <p>Scheduled end: {scheduledEndLabel}</p> : null}
+                </div>
+              )}
               <div className="flex items-center justify-center gap-2 mt-2 text-muted-foreground">
                 <Clock className="h-4 w-4 animate-pulse shrink-0" />
               </div>

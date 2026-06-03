@@ -93,6 +93,31 @@ function JoinForm() {
 
       if (error) throw error;
 
+      const { data: profiles } = await supabase
+        .from("simulation_profiles")
+        .select("id")
+        .eq("simulation_id", session.simulation_id)
+        .order("order_num", { ascending: true });
+
+      if (profiles && profiles.length > 0) {
+        const { data: sessionParticipants } = await supabase
+          .from("participants")
+          .select("id")
+          .eq("session_id", session.id)
+          .order("joined_at", { ascending: true });
+
+        const joinedIndex = sessionParticipants?.findIndex((p) => p.id === participant.id) ?? -1;
+        if (joinedIndex >= 0) {
+          const profileId = profiles[joinedIndex % profiles.length]?.id;
+          if (profileId) {
+            await supabase
+              .from("participants")
+              .update({ profile_id: profileId })
+              .eq("id", participant.id);
+          }
+        }
+      }
+
       // Store participant ID in sessionStorage (per-tab, so each tab can be a different student)
       sessionStorage.setItem(`participant_${session.id}`, participant.id);
       sessionStorage.setItem(`participant_name_${session.id}`, name.trim());

@@ -74,6 +74,13 @@ import { AiSectionTrigger } from "@/components/copilot/ai-section-trigger";
 import { CopilotPanel, type FocusedSection } from "@/components/copilot/copilot-panel";
 import { useAiEdit } from "@/hooks/use-ai-edit";
 import { SIMULATION_SCENARIO_IMAGE_ROW } from "@/lib/supabase-query-columns";
+import {
+  fromDatetimeLocalValue,
+  getScheduleValidationMessage,
+  getSimulationSessionSchedule,
+  setSimulationSessionSchedule,
+  toDatetimeLocalValue,
+} from "@/lib/session-schedule";
 
 interface DecisionWithOptions extends Decision {
   options: Option[];
@@ -191,6 +198,14 @@ export function SimulationEditor({
   const [showFeedbackBanner, setShowFeedbackBanner] = useState(isNewlyGenerated && isOwner);
   const [copilotOpen, setCopilotOpen] = useState(false);
   const [focusedSection, setFocusedSection] = useState<FocusedSection | null>(null);
+  const sessionSchedule = useMemo(
+    () => getSimulationSessionSchedule(simulation.preferences),
+    [simulation.preferences]
+  );
+  const scheduleValidationMessage = useMemo(
+    () => getScheduleValidationMessage(sessionSchedule),
+    [sessionSchedule]
+  );
 
   const handleFocusSection = useCallback((label: string, sectionContext: string) => {
     setFocusedSection({ label, sectionContext });
@@ -323,6 +338,10 @@ export function SimulationEditor({
     const silent = opts?.silent ?? false;
     const autosave = opts?.autosave ?? false;
     if (!isOwner) return true;
+    if (scheduleValidationMessage) {
+      toast.error(scheduleValidationMessage);
+      return false;
+    }
     setSaveUi(autosave ? "autosave" : "manual");
     const supabase = createClient();
 
@@ -338,6 +357,7 @@ export function SimulationEditor({
         team_assignment: simulation.team_assignment,
         difficulty: simulation.difficulty ?? null,
         estimated_minutes: simulation.estimated_minutes ?? null,
+        preferences: simulation.preferences,
         is_public: simulation.is_public,
         hidden_profiles_enabled: simulation.hidden_profiles_enabled,
         updated_at: new Date().toISOString(),
@@ -540,6 +560,7 @@ export function SimulationEditor({
     isMissingJustificationTypeColumn,
     isOwner,
     markClean,
+    scheduleValidationMessage,
   ]);
 
   const performSaveRef = useRef(performSave);
@@ -1591,6 +1612,82 @@ export function SimulationEditor({
                   </div>
                 </>
               )}
+
+              <Separator />
+
+              <div className="space-y-4">
+                <div className="flex items-center gap-1.5">
+                  <Label>Optional Session Schedule</Label>
+                  <FieldInfoHint>
+                    If set, sessions created from this simulation will auto-start at the scheduled start and auto-end at the scheduled end. Professors can still end a session manually at any time.
+                  </FieldInfoHint>
+                </div>
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div className="space-y-2">
+                    <Label htmlFor="scheduled-start">Start date &amp; time</Label>
+                    <Input
+                      id="scheduled-start"
+                      type="datetime-local"
+                      value={toDatetimeLocalValue(sessionSchedule.start_at)}
+                      onChange={(e) =>
+                        setSimulation((prev) => ({
+                          ...prev,
+                          preferences: setSimulationSessionSchedule(prev.preferences, {
+                            ...getSimulationSessionSchedule(prev.preferences),
+                            start_at: fromDatetimeLocalValue(e.target.value),
+                          }),
+                        }))
+                      }
+                      disabled={!isOwner}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="scheduled-end">End date &amp; time</Label>
+                    <Input
+                      id="scheduled-end"
+                      type="datetime-local"
+                      value={toDatetimeLocalValue(sessionSchedule.end_at)}
+                      onChange={(e) =>
+                        setSimulation((prev) => ({
+                          ...prev,
+                          preferences: setSimulationSessionSchedule(prev.preferences, {
+                            ...getSimulationSessionSchedule(prev.preferences),
+                            end_at: fromDatetimeLocalValue(e.target.value),
+                          }),
+                        }))
+                      }
+                      disabled={!isOwner}
+                    />
+                  </div>
+                </div>
+                {scheduleValidationMessage ? (
+                  <p className="text-sm text-destructive">{scheduleValidationMessage}</p>
+                ) : (
+                  <p className="text-sm text-muted-foreground">
+                    Leave either field blank if you do not want that automatic behavior.
+                  </p>
+                )}
+                {(sessionSchedule.start_at || sessionSchedule.end_at) && (
+                  <div>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() =>
+                        setSimulation((prev) => ({
+                          ...prev,
+                          preferences: setSimulationSessionSchedule(prev.preferences, {
+                            start_at: null,
+                            end_at: null,
+                          }),
+                        }))
+                      }
+                      disabled={!isOwner}
+                    >
+                      Clear schedule
+                    </Button>
+                  </div>
+                )}
+              </div>
             </CardContent>
           </Card>
 
