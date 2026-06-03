@@ -95,6 +95,16 @@ export default async function EditSimulationPage({ params, searchParams }: PageP
     .eq("simulation_id", id)
     .order("order_num", { ascending: true });
 
+  const { data: activeSession } = await supabase
+    .from("sessions")
+    .select("id, join_code, status, created_at")
+    .eq("simulation_id", id)
+    .neq("status", "complete")
+    .neq("is_preview", true)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
   // Sort options within each decision
   const sortedDecisions = decisions?.map(d => ({
     ...d,
@@ -113,6 +123,7 @@ export default async function EditSimulationPage({ params, searchParams }: PageP
         source_type: s.source_type as "file" | "url" | "text" | "manual",
       }))}
       scenarioImages={scenarioImages || []}
+      activeSession={activeSession || undefined}
       userId={user?.id}
       isNewlyGenerated={generated === "1"}
       isOwner={isOwner}

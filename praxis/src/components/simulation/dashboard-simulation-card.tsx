@@ -40,7 +40,7 @@ export type DashboardSimulationRow = {
 
 type DashboardSimulationCardProps = {
   simulation: DashboardSimulationRow;
-  activeSession?: { id: string };
+  activeSession?: { id: string; status: string };
   hasReports: boolean;
 };
 
@@ -62,7 +62,9 @@ export function DashboardSimulationCard({
   activeSession,
   hasReports,
 }: DashboardSimulationCardProps) {
-  const isActive = !!activeSession;
+  const hasSession = !!activeSession;
+  const isRunning = activeSession?.status === "running";
+  const isScheduled = activeSession?.status === "lobby";
   const isTeams = simulation.mode === "teams";
   const tile = appTileBackgroundForDifficulty(simulation.difficulty);
 
@@ -70,8 +72,11 @@ export function DashboardSimulationCard({
     <Card
       className={`${SIMULATION_CARD_TILE_SURFACE_CLASS} ${tile}`}
     >
-      {isActive && (
-        <div className="absolute inset-x-0 top-0 h-1 bg-emerald-500/80" aria-hidden />
+      {hasSession && (
+        <div
+          className={`absolute inset-x-0 top-0 h-1 ${isRunning ? "bg-emerald-500/80" : "bg-amber-500/80"}`}
+          aria-hidden
+        />
       )}
       <CardHeader className={SIMULATION_CARD_HEADER_CLASS}>
         <div className="flex items-start justify-between gap-2">
@@ -102,10 +107,15 @@ export function DashboardSimulationCard({
                   {difficultyBadgeLabel(simulation.difficulty)}
                 </Badge>
               )}
-              {isActive && (
+              {isRunning && (
                 <Badge className="gap-1 border-0 bg-emerald-500/15 text-xs font-medium text-emerald-700">
                   <CircleDot className="h-3 w-3 animate-pulse" aria-hidden />
                   Live
+                </Badge>
+              )}
+              {isScheduled && (
+                <Badge className="border-0 bg-amber-500/15 text-xs font-medium text-amber-700">
+                  Scheduled
                 </Badge>
               )}
             </div>
@@ -130,13 +140,13 @@ export function DashboardSimulationCard({
               <DropdownMenuItem asChild>
                 <Link
                   href={
-                    isActive
+                    hasSession
                       ? `/session/${simulation.id}/${activeSession.id}`
                       : `/session/${simulation.id}/new`
                   }
                 >
                   <Play className="mr-2 h-4 w-4" />
-                  {isActive ? "Continue Session" : "Start Session"}
+                  {isRunning ? "Continue Session" : isScheduled ? "Open Scheduled Session" : "Start Session"}
                 </Link>
               </DropdownMenuItem>
               <DropdownMenuItem asChild>
@@ -179,7 +189,7 @@ export function DashboardSimulationCard({
           </Link>
           <Link
             href={
-              isActive
+              hasSession
                 ? `/session/${simulation.id}/${activeSession.id}`
                 : `/session/${simulation.id}/new`
             }
@@ -187,14 +197,16 @@ export function DashboardSimulationCard({
           >
             <Button
               className={`w-full ${SIMULATION_CARD_ACTION_MIN_HEIGHT_CLASS} shadow-sm ${
-                isActive
+                isRunning
                   ? "bg-emerald-600 text-white hover:bg-emerald-700"
+                  : isScheduled
+                    ? "bg-amber-600 text-white hover:bg-amber-700"
                   : "bg-ink text-white hover:bg-ink/90"
               }`}
               size="sm"
             >
               <Play className="mr-2 h-4 w-4 shrink-0" />
-              {isActive ? "Continue" : "Start"}
+              {isRunning ? "Continue" : isScheduled ? "Scheduled" : "Start"}
             </Button>
           </Link>
         </div>

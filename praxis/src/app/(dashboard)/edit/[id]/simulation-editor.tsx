@@ -96,6 +96,12 @@ export interface SimulationEditorProps {
   profiles: SimulationProfile[];
   sources: SimulationSource[];
   scenarioImages?: SimulationScenarioImage[];
+  activeSession?: {
+    id: string;
+    join_code: string;
+    status: string;
+    created_at: string;
+  };
   userId?: string;
   isNewlyGenerated?: boolean;
   isOwner?: boolean;
@@ -104,6 +110,15 @@ export interface SimulationEditorProps {
 function sanitizeScenarioImageFilename(name: string): string {
   const s = name.replace(/[^a-zA-Z0-9._-]/g, "_").slice(0, 120);
   return s || "image";
+}
+
+function generateJoinCode(): string {
+  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+  let code = "";
+  for (let i = 0; i < 6; i++) {
+    code += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  return code;
 }
 
 function ScenarioImageThumb({ img }: { img: ScenarioImageEditorRow }) {
@@ -174,6 +189,7 @@ export function SimulationEditor({
   profiles: initialProfiles = [],
   sources: initialSources = [],
   scenarioImages: initialScenarioImages = [],
+  activeSession: initialActiveSession,
   userId,
   isNewlyGenerated = false,
   isOwner = true,
@@ -198,6 +214,7 @@ export function SimulationEditor({
   const [showFeedbackBanner, setShowFeedbackBanner] = useState(isNewlyGenerated && isOwner);
   const [copilotOpen, setCopilotOpen] = useState(false);
   const [focusedSection, setFocusedSection] = useState<FocusedSection | null>(null);
+  const [activeSession, setActiveSession] = useState(initialActiveSession);
   const sessionSchedule = useMemo(
     () => getSimulationSessionSchedule(simulation.preferences),
     [simulation.preferences]
@@ -332,6 +349,47 @@ export function SimulationEditor({
     const combined = `${maybeMessage} ${maybeDetails}`.toLowerCase();
     return combined.includes("justification_type") && combined.includes("column");
   }, []);
+
+  const ensureScheduledSession = useCallback(async () => {
+    const startAt = sessionSchedule.start_at ? new Date(sessionSchedule.start_at).getTime() : null;
+    if (!isOwner || !startAt || startAt <= Date.now()) return null;
+    if (activeSession && activeSession.status !== "complete") return activeSession;
+
+    const supabase = createClient();
+    const { data: existingSession } = await supabase
+      .from("sessions")
+      .select("id, join_code, status, created_at")
+      .eq("simulation_id", simulation.id)
+      .neq("status", "complete")
+      .neq("is_preview", true)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (existingSession) {
+      setActiveSession(existingSession);
+      return existingSession;
+    }
+
+    const { data: newSession, error } = await supabase
+      .from("sessions")
+      .insert({
+        simulation_id: simulation.id,
+        join_code: generateJoinCode(),
+        status: "lobby",
+        current_step: 0,
+      })
+      .select("id, join_code, status, created_at")
+      .single();
+
+    if (error) {
+      logger.error(error);
+      return null;
+    }
+
+    setActiveSession(newSession);
+    return newSession;
+  }, [activeSession, isOwner, sessionSchedule.start_at, simulation.id]);
 
   // Core save logic — returns true on success, false on failure
   const performSave = useCallback(async (opts?: { silent?: boolean; autosave?: boolean }): Promise<boolean> => {
@@ -537,6 +595,7 @@ export function SimulationEditor({
       }
 
       setScenarioImages(nextScenarioImages);
+      await ensureScheduledSession();
       markClean(nextScenarioImages);
       setLastSavedAt(new Date());
       if (!silent && !autosave) toast.success("Simulation saved!");
@@ -557,6 +616,7 @@ export function SimulationEditor({
     scenarioImages,
     initialDataBlocks,
     initialProfiles,
+    ensureScheduledSession,
     isMissingJustificationTypeColumn,
     isOwner,
     markClean,
@@ -1688,6 +1748,31 @@ export function SimulationEditor({
                     </Button>
                   </div>
                 )}
+                {sessionSchedule.start_at && new Date(sessionSchedule.start_at).getTime() > Date.now() && activeSession ? (
+                  <div className="rounded-lg border border-border bg-muted/30 p-4 space-y-2">
+                    <p className="text-sm font-medium">Scheduled session ready</p>
+                    <p className="text-sm text-muted-foreground">
+                      Join code: <span className="font-semibold tracking-wide text-foreground">{activeSession.join_code}</span>
+                    </p>
+                    <div className="flex flex-wrap gap-2">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={async () => {
+                          await navigator.clipboard.writeText(activeSession.join_code);
+                          toast.success("Join code copied");
+                        }}
+                      >
+                        Copy Code
+                      </Button>
+                      <Link href={`/session/${simulation.id}/${activeSession.id}`}>
+                        <Button type="button" variant="outline">
+                          Open Session Lobby
+                        </Button>
+                      </Link>
+                    </div>
+                  </div>
+                ) : null}
               </div>
             </CardContent>
           </Card>

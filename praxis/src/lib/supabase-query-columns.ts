@@ -4,7 +4,7 @@
  */
 
 export const SIMULATION_DASHBOARD_LIST =
-  "id, title, course_topic, mode, difficulty, updated_at" as const;
+  "id, title, course_topic, mode, difficulty, preferences, updated_at" as const;
 
 /** Full simulation row for the editor (explicit list avoids accidental wide reads). */
 export const SIMULATION_EDITOR_ROW =

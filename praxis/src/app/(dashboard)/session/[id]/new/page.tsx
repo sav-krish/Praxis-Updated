@@ -34,6 +34,20 @@ export default async function NewSessionPage({ params }: PageProps) {
     redirect("/dashboard");
   }
 
+  const { data: existingSession } = await supabase
+    .from("sessions")
+    .select("id")
+    .eq("simulation_id", id)
+    .neq("status", "complete")
+    .neq("is_preview", true)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (existingSession) {
+    redirect(`/session/${id}/${existingSession.id}`);
+  }
+
   // Create a new session
   const joinCode = generateJoinCode();
   const { data: session, error } = await supabase

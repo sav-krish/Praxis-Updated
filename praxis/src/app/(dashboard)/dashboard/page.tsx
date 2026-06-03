@@ -15,6 +15,8 @@ import {
   SIMULATION_CARD_GRID_ITEM_CLASS,
 } from "@/lib/simulation-card-layout";
 import { DashboardSimulationFilters } from "./dashboard-simulation-filters";
+import type { Json } from "@/types/database";
+import { getSimulationSessionSchedule } from "@/lib/session-schedule";
 
 /**
  * Friendly rotating greetings. We pick deterministically per-hour per-user so:
@@ -44,6 +46,7 @@ type DashboardSimRow = {
   course_topic: string | null;
   mode: string;
   difficulty: string | null;
+  preferences: Json;
   updated_at: string;
 };
 
@@ -120,15 +123,27 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
   const { data: runningSessions } = allSimIds.length > 0
     ? await supabase
         .from("sessions")
-        .select("id, simulation_id")
+        .select("id, simulation_id, status")
         .in("simulation_id", allSimIds)
-        .eq("status", "running")
+        .neq("status", "complete")
         .neq("is_preview", true)
         .order("created_at", { ascending: false })
-    : { data: [] as { id: string; simulation_id: string }[] };
+    : { data: [] as { id: string; simulation_id: string; status: string }[] };
 
-  const sessionBySimulation = (runningSessions || []).reduce<Record<string, { id: string }>>((acc, s) => {
-    if (!acc[s.simulation_id]) acc[s.simulation_id] = { id: s.id };
+  const simulationById = new Map(rows.map((row) => [row.id, row]));
+  const sessionBySimulation = (runningSessions || []).reduce<Record<string, { id: string; status: string }>>((acc, s) => {
+    const simulation = simulationById.get(s.simulation_id);
+    if (!simulation) return acc;
+
+    if (s.status === "lobby") {
+      const schedule = getSimulationSessionSchedule(simulation.preferences);
+      const scheduledStart = schedule.start_at ? new Date(schedule.start_at).getTime() : null;
+      if (!scheduledStart || scheduledStart <= Date.now()) {
+        return acc;
+      }
+    }
+
+    if (!acc[s.simulation_id]) acc[s.simulation_id] = { id: s.id, status: s.status };
     return acc;
   }, {});
 
