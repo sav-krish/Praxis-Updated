@@ -152,13 +152,22 @@ export default async function DashboardLayout({
             
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="ghost" className="relative h-10 w-10 rounded-full" data-tour="profile-menu">
+                <Button
+                  id="dashboard-profile-menu-trigger"
+                  variant="ghost"
+                  className="relative h-10 w-10 rounded-full"
+                  data-tour="profile-menu"
+                >
                   <Avatar className="h-10 w-10">
                     <AvatarFallback>{initials}</AvatarFallback>
                   </Avatar>
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-56">
+              <DropdownMenuContent
+                id="dashboard-profile-menu-content"
+                align="end"
+                className="w-56"
+              >
                 <div className="flex items-center justify-start gap-2 p-2">
                   <div className="flex flex-col space-y-1 leading-none">
                     {user.user_metadata?.name && (

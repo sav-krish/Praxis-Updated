@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
@@ -20,6 +20,7 @@ import {
   Trophy,
   BookOpen,
   Loader2,
+  RefreshCw,
   Sparkles,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -63,8 +64,8 @@ interface DebriefGuide {
 }
 
 type ReportsSimulation = Pick<Simulation, "id" | "title" | "mode" | "justification_type">;
-type ReportsSessionListItem = Pick<Session, "id" | "ended_at">;
-type ReportsSelectedSession = Pick<Session, "id" | "simulation_id" | "debrief_guide" | "video_gallery_share_id">;
+type ReportsSessionListItem = Pick<Session, "id" | "status" | "started_at" | "ended_at" | "created_at">;
+type ReportsSelectedSession = Pick<Session, "id" | "simulation_id" | "debrief_guide" | "video_gallery_share_id" | "status">;
 type ReportsParticipant = Pick<Participant, "id" | "session_id" | "team_id" | "name">;
 type ReportsTeam = Pick<Team, "id" | "session_id" | "name">;
 type ReportsResponse = Pick<
@@ -106,9 +107,18 @@ export function ReportsView({
 }: ReportsViewProps) {
   const router = useRouter();
   const galleryUrl = `/response-gallery/${selectedSession.video_gallery_share_id}`;
+  const isLiveSession = selectedSession.status === "running";
   const [debrief, setDebrief] = useState<DebriefGuide | null>(initialDebrief as DebriefGuide | null);
   const [generatingDebrief, setGeneratingDebrief] = useState(false);
   const [streamingField, setStreamingField] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!isLiveSession) return;
+    const interval = window.setInterval(() => {
+      router.refresh();
+    }, 5000);
+    return () => window.clearInterval(interval);
+  }, [isLiveSession, router]);
 
   const generateDebrief = async () => {
     setGeneratingDebrief(true);
@@ -353,7 +363,7 @@ export function ReportsView({
       {/* Header */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between mb-4 sm:mb-6">
         <div className="flex items-center gap-3 min-w-0">
-          <Link href="/dashboard">
+          <Link href={isLiveSession ? `/session/${simulation.id}/${selectedSession.id}` : "/dashboard"}>
             <Button variant="ghost" size="icon" className="shrink-0 min-h-[44px] min-w-[44px]">
               <ArrowLeft className="h-5 w-5" />
             </Button>
@@ -375,11 +385,23 @@ export function ReportsView({
               <SelectContent>
                 {sessions.map((s) => (
                   <SelectItem key={s.id} value={s.id}>
-                    {new Date(s.ended_at!).toLocaleDateString()} - {new Date(s.ended_at!).toLocaleTimeString()}
+                    {s.status === "running"
+                      ? `Live session · ${new Date(s.started_at ?? s.created_at).toLocaleDateString()} ${new Date(s.started_at ?? s.created_at).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}`
+                      : `${new Date(s.ended_at ?? s.created_at).toLocaleDateString()} - ${new Date(s.ended_at ?? s.created_at).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}`}
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
+          )}
+          {isLiveSession && (
+            <Button
+              variant="outline"
+              onClick={() => router.refresh()}
+              className="min-h-[44px] w-full sm:w-auto flex-1 sm:flex-none"
+            >
+              <RefreshCw className="mr-2 h-4 w-4 shrink-0" />
+              Refresh
+            </Button>
           )}
           <Button onClick={exportCSV} className="min-h-[44px] w-full sm:w-auto flex-1 sm:flex-none">
             <Download className="mr-2 h-4 w-4 shrink-0" />

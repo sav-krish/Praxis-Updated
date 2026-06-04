@@ -47,13 +47,14 @@ export default async function ReportsPage({ params, searchParams }: PageProps) {
     notFound();
   }
 
-  // Fetch all completed sessions for this simulation
+  // Fetch sessions for this simulation that can show results
   const { data: sessions } = await supabase
     .from("sessions")
     .select(SESSION_REPORTS_LIST)
     .eq("simulation_id", id)
-    .eq("status", "complete")
-    .order("ended_at", { ascending: false });
+    .in("status", ["running", "complete"])
+    .neq("is_preview", true)
+    .order("created_at", { ascending: false });
 
   // Get the selected session or the most recent one
   const selectedSessionId = sessionId || sessions?.[0]?.id;
@@ -61,9 +62,9 @@ export default async function ReportsPage({ params, searchParams }: PageProps) {
   if (!selectedSessionId) {
     return (
       <div className="max-w-4xl mx-auto text-center py-12">
-        <h1 className="text-2xl font-bold mb-4">No Completed Sessions</h1>
+        <h1 className="text-2xl font-bold mb-4">No Session Results Yet</h1>
         <p className="text-muted-foreground">
-          There are no completed sessions for this simulation yet.
+          There are no running or completed sessions for this simulation yet.
         </p>
       </div>
     );

@@ -409,10 +409,18 @@ export function SessionLobby({
             </div>
           )}
           {session.status === "running" && (
-            <Button variant="destructive" onClick={() => void endSimulation()} disabled={loading} className="min-h-[44px] flex-1 sm:flex-none">
-              {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <StopCircle className="mr-2 h-4 w-4" />}
-              End Session
-            </Button>
+            <>
+              <Link href={`/reports/${simulation.id}?session=${session.id}`} className="flex-1 sm:flex-none">
+                <Button variant="outline" className="w-full min-h-[44px]">
+                  <BarChart3 className="mr-2 h-4 w-4" />
+                  View Results
+                </Button>
+              </Link>
+              <Button variant="destructive" onClick={() => void endSimulation()} disabled={loading} className="min-h-[44px] flex-1 sm:flex-none">
+                {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <StopCircle className="mr-2 h-4 w-4" />}
+                End Session
+              </Button>
+            </>
           )}
           {session.status === "complete" && (
             <Link href={`/reports/${simulation.id}?session=${session.id}`} className="flex-1 sm:flex-none">

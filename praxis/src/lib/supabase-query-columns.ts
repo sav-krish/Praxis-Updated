@@ -33,7 +33,7 @@ export const SESSION_LOBBY_ROW =
 export const SESSION_LOBBY_SIMULATION =
   "id, title, mode, hidden_profiles_enabled, preferences" as const;
 
-export const SESSION_REPORTS_LIST = "id, ended_at" as const;
+export const SESSION_REPORTS_LIST = "id, status, started_at, ended_at, created_at" as const;
 
 export const SESSION_REPORTS_SELECTED =
   "id, simulation_id, debrief_guide, status, video_gallery_share_id" as const;
