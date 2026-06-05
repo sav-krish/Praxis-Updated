@@ -157,6 +157,7 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
   const [videoError, setVideoError] = useState<string | null>(null);
   const [responseInputMode, setResponseInputMode] = useState<"text" | "video">("text");
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const liveVideoPreviewRef = useRef<HTMLVideoElement>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const mediaStreamRef = useRef<MediaStream | null>(null);
   const mediaChunksRef = useRef<Blob[]>([]);
@@ -181,6 +182,22 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
       }
     };
   }, [videoPreviewUrl]);
+
+  useEffect(() => {
+    const videoElement = liveVideoPreviewRef.current;
+    if (!videoElement) return;
+
+    if (recording && mediaStreamRef.current) {
+      videoElement.srcObject = mediaStreamRef.current;
+      void videoElement.play().catch(() => {
+        /* autoplay can be blocked transiently; controls remain available */
+      });
+      return;
+    }
+
+    videoElement.pause();
+    videoElement.srcObject = null;
+  }, [recording]);
 
   const scheduledStartLabel = formatScheduleDateTime(
     session ? getSimulationSessionSchedule(session.simulation.preferences).start_at : null
@@ -1308,8 +1325,17 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
                       />
                       {videoError ? <p className="text-sm text-destructive">{videoError}</p> : null}
                       {recording ? (
-                        <div className="rounded-lg border border-primary/30 bg-primary/5 px-4 py-3 text-sm text-foreground">
-                          Recording in progress. Press stop when you finish your explanation.
+                        <div className="space-y-3">
+                          <div className="rounded-lg border border-primary/30 bg-primary/5 px-4 py-3 text-sm text-foreground">
+                            Recording in progress. Press stop when you finish your explanation.
+                          </div>
+                          <video
+                            ref={liveVideoPreviewRef}
+                            autoPlay
+                            muted
+                            playsInline
+                            className="w-full rounded-lg bg-black object-cover"
+                          />
                         </div>
                       ) : null}
                       {videoPreviewUrl ? (
