@@ -14,6 +14,7 @@ import {
   Users, 
   Copy, 
   Check, 
+  Download,
   Loader2,
   StopCircle,
   BarChart3
@@ -60,9 +61,12 @@ export function SessionLobby({
   const [teams, setTeams] = useState(initialTeams);
   const [responses, setResponses] = useState(initialResponses);
   const [copied, setCopied] = useState(false);
+  const [copiedJoinLink, setCopiedJoinLink] = useState(false);
+  const [downloadingQr, setDownloadingQr] = useState(false);
   const [loading, setLoading] = useState(false);
   const transitionRef = useRef(false);
   const scheduleClearedRef = useRef(false);
+  const qrWrapperRef = useRef<HTMLDivElement>(null);
   const sessionSchedule = useMemo(
     () => getSimulationSessionSchedule(simulation.preferences),
     [simulation.preferences]
@@ -180,6 +184,67 @@ export function SessionLobby({
     setCopied(true);
     toast.success("Join code copied!");
     setTimeout(() => setCopied(false), 2000);
+  };
+
+  const copyJoinLink = async () => {
+    if (!joinUrl) return;
+    await navigator.clipboard.writeText(joinUrl);
+    setCopiedJoinLink(true);
+    toast.success("Student join link copied!");
+    setTimeout(() => setCopiedJoinLink(false), 2000);
+  };
+
+  const downloadQrCode = async () => {
+    const svg = qrWrapperRef.current?.querySelector("svg");
+    if (!svg) {
+      toast.error("QR code unavailable");
+      return;
+    }
+
+    try {
+      setDownloadingQr(true);
+      const serializer = new XMLSerializer();
+      const svgMarkup = serializer.serializeToString(svg);
+      const svgBlob = new Blob([svgMarkup], {
+        type: "image/svg+xml;charset=utf-8",
+      });
+      const svgUrl = URL.createObjectURL(svgBlob);
+      const image = new Image();
+
+      await new Promise<void>((resolve, reject) => {
+        image.onload = () => resolve();
+        image.onerror = () => reject(new Error("Failed to render QR code"));
+        image.src = svgUrl;
+      });
+
+      const width = Number(svg.getAttribute("width")) || 160;
+      const height = Number(svg.getAttribute("height")) || 160;
+      const canvas = document.createElement("canvas");
+      canvas.width = width;
+      canvas.height = height;
+
+      const context = canvas.getContext("2d");
+      if (!context) {
+        URL.revokeObjectURL(svgUrl);
+        throw new Error("Canvas unavailable");
+      }
+
+      context.fillStyle = "#ffffff";
+      context.fillRect(0, 0, width, height);
+      context.drawImage(image, 0, 0, width, height);
+      URL.revokeObjectURL(svgUrl);
+
+      const pngUrl = canvas.toDataURL("image/png");
+      const downloadLink = document.createElement("a");
+      downloadLink.href = pngUrl;
+      downloadLink.download = `praxis-session-${session.join_code}-qr.png`;
+      downloadLink.click();
+      toast.success("QR code downloaded");
+    } catch {
+      toast.error("Could not download QR code");
+    } finally {
+      setDownloadingQr(false);
+    }
   };
 
   const assignProfilesToParticipants = async () => {
@@ -438,24 +503,53 @@ export function SessionLobby({
         <div className="space-y-4 sm:space-y-6">
           <Card>
             <CardHeader className="px-4 sm:px-6">
-              <CardTitle className="text-lg sm:text-xl">Join Code</CardTitle>
-              <CardDescription className="text-sm">Share this code with your students</CardDescription>
+              <CardTitle className="text-lg sm:text-xl">Student Access</CardTitle>
+              <CardDescription className="text-sm">Share this student join code, join link, or QR code with your students</CardDescription>
             </CardHeader>
-            <CardContent className="px-4 sm:px-6">
-              <div className="flex items-center justify-center gap-3 sm:gap-4 mb-4 sm:mb-6">
-                <div className="text-3xl sm:text-4xl md:text-5xl font-mono font-bold tracking-wider">
-                  {session.join_code}
-                </div>
-                <Button variant="outline" size="icon" onClick={copyJoinCode} className="shrink-0 min-h-[44px] min-w-[44px]">
-                  {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
-                </Button>
-              </div>
-              <div className="flex justify-center">
-                <div className="bg-white p-3 sm:p-4 rounded-lg inline-block">
-                  <QRCodeSVG value={joinUrl} size={160} />
+            <CardContent className="space-y-5 px-4 sm:px-6">
+              <div>
+                <p className="mb-3 text-sm font-medium text-muted-foreground">Student Join Code</p>
+                <div className="flex items-center justify-center gap-3 sm:gap-4 mb-4">
+                  <div className="text-3xl sm:text-4xl md:text-5xl font-mono font-bold tracking-wider">
+                    {session.join_code}
+                  </div>
+                  <Button variant="outline" size="icon" onClick={copyJoinCode} className="shrink-0 min-h-[44px] min-w-[44px]">
+                    {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+                  </Button>
                 </div>
               </div>
 
+              <div className="space-y-2">
+                <p className="text-sm font-medium text-muted-foreground">Student Join Link</p>
+                <div className="rounded-md border bg-muted/50 p-3 font-mono text-xs break-all">
+                  {joinUrl}
+                </div>
+                <Button variant="outline" onClick={copyJoinLink} className="min-h-[44px] w-full sm:w-auto">
+                  {copiedJoinLink ? <Check className="mr-2 h-4 w-4" /> : <Copy className="mr-2 h-4 w-4" />}
+                  {copiedJoinLink ? "Copied" : "Copy Student Link"}
+                </Button>
+              </div>
+
+              <div className="flex justify-center">
+                <div ref={qrWrapperRef} className="bg-white p-3 sm:p-4 rounded-lg inline-block">
+                  <QRCodeSVG value={joinUrl} size={160} />
+                </div>
+              </div>
+              <div className="flex justify-center">
+                <Button
+                  variant="outline"
+                  onClick={() => void downloadQrCode()}
+                  disabled={downloadingQr}
+                  className="min-h-[44px] w-full sm:w-auto"
+                >
+                  {downloadingQr ? (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  ) : (
+                    <Download className="mr-2 h-4 w-4" />
+                  )}
+                  Download QR Code
+                </Button>
+              </div>
             </CardContent>
           </Card>
 

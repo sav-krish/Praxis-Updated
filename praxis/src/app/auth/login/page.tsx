@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -14,9 +14,12 @@ import { toast } from "sonner";
 
 export default function LoginPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
+  const next = searchParams.get("next");
+  const nextPath = next?.startsWith("/") ? next : "/dashboard";
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -35,7 +38,7 @@ export default function LoginPage() {
     }
 
     toast.success("Welcome back!");
-    router.push("/dashboard");
+    router.push(nextPath);
     router.refresh();
   };
 
@@ -97,7 +100,10 @@ export default function LoginPage() {
             </Button>
             <p className="text-sm text-muted-foreground text-center">
               Don&apos;t have an account?{" "}
-              <Link href="/auth/signup" className="text-primary hover:underline">
+              <Link
+                href={`/auth/signup${next ? `?next=${encodeURIComponent(nextPath)}` : ""}`}
+                className="text-primary hover:underline"
+              >
                 Sign up
               </Link>
             </p>

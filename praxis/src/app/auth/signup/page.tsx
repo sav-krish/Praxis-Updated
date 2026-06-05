@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -14,17 +14,20 @@ import { toast } from "sonner";
 
 export default function SignupPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
+  const next = searchParams.get("next");
+  const nextPath = next?.startsWith("/") ? next : "/dashboard";
 
   const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
 
     const supabase = createClient();
-    const { error } = await supabase.auth.signUp({
+    const { data, error } = await supabase.auth.signUp({
       email,
       password,
       options: {
@@ -41,7 +44,7 @@ export default function SignupPage() {
     }
 
     toast.success("Account created! Please check your email to verify.");
-    router.push("/dashboard");
+    router.push(data.session ? nextPath : `/auth/login${next ? `?next=${encodeURIComponent(nextPath)}` : ""}`);
     router.refresh();
   };
 
@@ -113,7 +116,10 @@ export default function SignupPage() {
             </Button>
             <p className="text-sm text-muted-foreground text-center">
               Already have an account?{" "}
-              <Link href="/auth/login" className="text-primary hover:underline">
+              <Link
+                href={`/auth/login${next ? `?next=${encodeURIComponent(nextPath)}` : ""}`}
+                className="text-primary hover:underline"
+              >
                 Sign in
               </Link>
             </p>
