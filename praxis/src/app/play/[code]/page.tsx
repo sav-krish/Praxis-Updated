@@ -614,7 +614,13 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
     mediaStreamRef.current?.getTracks().forEach((track) => track.stop());
     mediaStreamRef.current = null;
     mediaRecorderRef.current = null;
+    mediaChunksRef.current = [];
+    recordingStartedAtRef.current = null;
     setRecording(false);
+    if (liveVideoPreviewRef.current) {
+      liveVideoPreviewRef.current.pause();
+      liveVideoPreviewRef.current.srcObject = null;
+    }
     if (videoPreviewUrl) {
       URL.revokeObjectURL(videoPreviewUrl);
     }
@@ -637,6 +643,12 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
       setPreparingRecorder(true);
       setVideoError(null);
       mediaStreamRef.current?.getTracks().forEach((track) => track.stop());
+      if (videoPreviewUrl) {
+        URL.revokeObjectURL(videoPreviewUrl);
+      }
+      setVideoFile(null);
+      setVideoPreviewUrl(null);
+      setVideoDurationSeconds(null);
       const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
       mediaStreamRef.current = stream;
       mediaChunksRef.current = [];
@@ -1280,11 +1292,25 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
                     </div>
                   ) : null}
                   {isVideoJustification ? (
-                    <div className="space-y-4">
-                      <p className="text-sm text-muted-foreground">
+                    <div className="flex flex-col gap-4">
+                      {recording ? (
+                        <div className="order-1 space-y-3 sm:order-4">
+                          <div className="rounded-lg border border-primary/30 bg-primary/5 px-4 py-3 text-sm text-foreground">
+                            Recording in progress. Press stop when you finish your explanation.
+                          </div>
+                          <video
+                            ref={liveVideoPreviewRef}
+                            autoPlay
+                            muted
+                            playsInline
+                            className="aspect-[4/5] w-full rounded-lg bg-black object-cover sm:aspect-video"
+                          />
+                        </div>
+                      ) : null}
+                      <p className="order-2 text-sm text-muted-foreground sm:order-1">
                         Record or upload a short video explaining your reasoning before continuing.
                       </p>
-                      <div className="flex flex-wrap gap-2">
+                      <div className="order-3 flex flex-wrap gap-2 sm:order-2">
                         {recording ? (
                           <Button type="button" variant="destructive" onClick={stopRecording}>
                             <Square className="mr-2 h-4 w-4" />
@@ -1323,31 +1349,21 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
                         className="hidden"
                         onChange={handleVideoUploadChange}
                       />
-                      {videoError ? <p className="text-sm text-destructive">{videoError}</p> : null}
-                      {recording ? (
-                        <div className="space-y-3">
-                          <div className="rounded-lg border border-primary/30 bg-primary/5 px-4 py-3 text-sm text-foreground">
-                            Recording in progress. Press stop when you finish your explanation.
-                          </div>
-                          <video
-                            ref={liveVideoPreviewRef}
-                            autoPlay
-                            muted
-                            playsInline
-                            className="w-full rounded-lg bg-black object-cover"
-                          />
-                        </div>
-                      ) : null}
+                      {videoError ? <p className="order-4 text-sm text-destructive sm:order-3">{videoError}</p> : null}
                       {videoPreviewUrl ? (
-                        <div className="space-y-2">
+                        <div className="order-5 space-y-2 sm:order-5">
                           <div className="flex items-center gap-2 text-sm text-muted-foreground">
                             <Video className="h-4 w-4" />
                             <span className="truncate">{videoFile?.name}</span>
                             {videoDurationSeconds ? <span>• {videoDurationSeconds}s</span> : null}
                           </div>
-                          <video controls preload="metadata" className="w-full rounded-lg bg-black">
-                            <source src={videoPreviewUrl} type={videoFile?.type || "video/webm"} />
-                          </video>
+                          <video
+                            key={videoPreviewUrl}
+                            controls
+                            preload="metadata"
+                            src={videoPreviewUrl}
+                            className="aspect-[4/5] w-full rounded-lg bg-black object-cover sm:aspect-video"
+                          />
                         </div>
                       ) : null}
                     </div>
