@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import { createClient, createServiceRoleClient } from "@/lib/supabase/server";
 import { ReportsView } from "./reports-view";
+import type { Database } from "@/types/database";
 import {
   SIMULATION_REPORTS_HEADER,
   SESSION_REPORTS_LIST,
@@ -13,11 +14,22 @@ import type { ResponseGalleryItem } from "@/components/reports/response-gallery"
 
 const SIMULATION_REPORTS_HEADER_LEGACY = "id, title, mode" as const;
 const SESSION_REPORTS_SELECTED_LEGACY = "id, simulation_id, debrief_guide, status" as const;
+const SESSION_REPORTS_SELECTED_FALLBACK = "id, simulation_id, debrief_guide, status, video_gallery_share_id, join_code" as const;
 
 interface PageProps {
   params: Promise<{ id: string }>;
   searchParams: Promise<{ session?: string }>;
 }
+
+type SessionReportsFallbackRow = {
+  id: string;
+  simulation_id: string;
+  debrief_guide: Database["public"]["Tables"]["sessions"]["Row"]["debrief_guide"];
+  status: "lobby" | "running" | "complete";
+  video_gallery_share_id?: string | null;
+  response_gallery_access_code?: string | null;
+  join_code?: string | null;
+};
 
 export default async function ReportsPage({ params, searchParams }: PageProps) {
   const { id } = await params;
@@ -71,11 +83,34 @@ export default async function ReportsPage({ params, searchParams }: PageProps) {
   }
 
   // Fetch session data
-  let { data: selectedSession } = await supabase
+  let selectedSessionResult = await supabase
     .from("sessions")
     .select(SESSION_REPORTS_SELECTED)
     .eq("id", selectedSessionId)
     .single();
+
+  if (selectedSessionResult.error?.message?.includes("response_gallery_access_code")) {
+    selectedSessionResult = await supabase
+      .from("sessions")
+      .select(SESSION_REPORTS_SELECTED_FALLBACK)
+      .eq("id", selectedSessionId)
+      .single();
+  }
+
+  const selectedSessionRow = selectedSessionResult.data as SessionReportsFallbackRow | null;
+
+  let selectedSession = selectedSessionRow
+      ? {
+          ...selectedSessionRow,
+          join_code: selectedSessionRow.join_code ?? selectedSessionId.slice(0, 6).toUpperCase(),
+          response_gallery_access_code:
+            selectedSessionRow.response_gallery_access_code ??
+            selectedSessionRow.join_code ??
+            selectedSessionId.slice(0, 8).toUpperCase(),
+          video_gallery_share_id:
+            selectedSessionRow.video_gallery_share_id ?? selectedSessionId,
+        }
+    : null;
 
   if (!selectedSession) {
     const legacySessionResult = await supabase
@@ -84,7 +119,12 @@ export default async function ReportsPage({ params, searchParams }: PageProps) {
       .eq("id", selectedSessionId)
       .single();
     selectedSession = legacySessionResult.data
-      ? { ...legacySessionResult.data, video_gallery_share_id: selectedSessionId }
+      ? {
+          ...legacySessionResult.data,
+          video_gallery_share_id: selectedSessionId,
+          response_gallery_access_code: selectedSessionId.slice(0, 8).toUpperCase(),
+          join_code: selectedSessionId.slice(0, 6).toUpperCase(),
+        }
       : null;
   }
 

@@ -100,23 +100,18 @@ interface ReflectionQuestion {
   question: string;
 }
 
-const SESSION_SIMULATION_SELECT =
-  `
-        id,
-        status,
-        current_step,
-        is_preview,
-        simulation:simulations(id, title, background_content, mode, justification_type, estimated_minutes, hidden_profiles_enabled, preferences)
-      ` as const;
-
-const SESSION_SIMULATION_SELECT_LEGACY =
-  `
-        id,
-        status,
-        current_step,
-        is_preview,
-        simulation:simulations(id, title, background_content, mode, estimated_minutes, hidden_profiles_enabled, preferences)
-      ` as const;
+interface PlaySessionPayload {
+  session: Session;
+  participantCount: number;
+  participant: { id: string; name: string; profile_id: string | null } | null;
+  playerProfile: PlayerProfile | null;
+  decisions: Decision[];
+  reflectionQuestions: ReflectionQuestion[];
+  dataBlocks: Array<{ id: string; block_type: string; title: string | null; data: unknown }>;
+  sources: Array<{ id: string; label: string; url?: string | null; source_type?: string | null }>;
+  scenarioImages: Array<{ id: string; storage_path: string; alt_text: string | null; order_num: number }>;
+  responses: Array<{ decision_id: string; option_id: string }>;
+}
 
 export default function PlayPage({ params }: { params: Promise<{ code: string }> }) {
   const { code } = use(params);
@@ -314,23 +309,30 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
     return () => window.clearTimeout(timeout);
   }, [session]);
 
+  async function fetchPlaySessionPayload(targetParticipantId?: string): Promise<PlaySessionPayload> {
+    const params = new URLSearchParams();
+    if (targetParticipantId) {
+      params.set("participantId", targetParticipantId);
+    }
+    const response = await fetch(`/api/play/session/${code.toUpperCase()}${params.size ? `?${params.toString()}` : ""}`);
+    const result = (await response.json().catch(() => null)) as PlaySessionPayload | { error?: string } | null;
+    if (!response.ok || !result || !("session" in result)) {
+      throw new Error(result && "error" in result ? result.error : "Session not found");
+    }
+    return result;
+  }
+
   // Fetch hidden profile when transitioning to background step
   useEffect(() => {
     if (currentStep !== 1 || playerProfile || !participantId || !session?.simulation?.hidden_profiles_enabled) return;
-    const supabase = createClient();
-    (async () => {
-      const { data: pData } = await supabase
-        .from("participants")
-        .select("profile_id")
-        .eq("id", participantId)
-        .single();
-      if (pData?.profile_id) {
-        const { data: prof } = await supabase
-          .from("simulation_profiles")
-          .select("profile_name, private_briefing")
-          .eq("id", pData.profile_id)
-          .single();
-        if (prof) setPlayerProfile(prof);
+    void (async () => {
+      try {
+        const payload = await fetchPlaySessionPayload(participantId);
+        if (payload.playerProfile) {
+          setPlayerProfile(payload.playerProfile);
+        }
+      } catch {
+        /* keep silent; player can continue without a loaded briefing */
       }
     })();
   }, [currentStep, participantId, playerProfile, session?.simulation?.hidden_profiles_enabled]);
@@ -360,86 +362,26 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
   }, [session?.id, currentStep]); // eslint-disable-line react-hooks/exhaustive-deps -- avoid duplicate timers on session object churn
 
   async function loadSession() {
-    const supabase = createClient();
-
-    // Get session
-    let { data: sessionData, error } = await supabase
-      .from("sessions")
-      .select(SESSION_SIMULATION_SELECT)
-      .eq("join_code", code.toUpperCase())
-      .single();
-
-    if (error?.message?.includes("justification_type")) {
-      const legacyResult = await supabase
-        .from("sessions")
-        .select(SESSION_SIMULATION_SELECT_LEGACY)
-        .eq("join_code", code.toUpperCase())
-        .single();
-      sessionData = (legacyResult.data
-        ? {
-            ...legacyResult.data,
-            simulation: legacyResult.data.simulation
-              ? {
-                  ...(legacyResult.data.simulation as Record<string, unknown>),
-                  justification_type: "written",
-                }
-              : null,
-          }
-        : null) as typeof sessionData;
-      error = legacyResult.error;
-    }
-
-    if (error || !sessionData) {
+    let initialPayload: PlaySessionPayload;
+    try {
+      initialPayload = await fetchPlaySessionPayload();
+    } catch {
       toast.error("Session not found");
       router.push("/join");
       return;
     }
 
-    // Extract simulation from the nested result (can be null if RLS blocks anon from reading simulation)
-    const simulationData = sessionData.simulation as unknown as {
-      id: string;
-      title: string;
-      background_content: string | null;
-      mode: string;
-      justification_type: "written" | "video" | "video_or_text";
-      estimated_minutes?: number | null;
-      hidden_profiles_enabled?: boolean;
-      preferences?: Json;
-    } | null;
-
-    if (!simulationData?.id) {
-      toast.error("Simulation data unavailable");
-      router.push("/join");
-      return;
-    }
-
-    const sessionWithSimulation: Session = {
-      id: sessionData.id,
-      status: sessionData.status,
-      current_step: sessionData.current_step,
-      is_preview: (sessionData as { is_preview?: boolean }).is_preview ?? false,
-      simulation: simulationData
-    };
-
-    setSession(sessionWithSimulation);
-
-    // Participant count for waiting screen
-    const { count } = await supabase
-      .from("participants")
-      .select("*", { count: "exact", head: true })
-      .eq("session_id", sessionData.id);
-    setParticipantCount(count ?? 0);
-
     // Get participant ID: URL params first (professor preview from Start Simulation), then sessionStorage
     const urlParticipantId = searchParams.get("participantId");
     const urlParticipantName = searchParams.get("participantName");
+    const initialSession = initialPayload.session;
 
-    let storedParticipantId = sessionStorage.getItem(`participant_${sessionData.id}`);
-    let storedName = sessionStorage.getItem(`participant_name_${sessionData.id}`);
+    let storedParticipantId = sessionStorage.getItem(`participant_${initialSession.id}`);
+    let storedName = sessionStorage.getItem(`participant_name_${initialSession.id}`);
 
     if (urlParticipantId && urlParticipantName) {
-      sessionStorage.setItem(`participant_${sessionData.id}`, urlParticipantId);
-      sessionStorage.setItem(`participant_name_${sessionData.id}`, urlParticipantName);
+      sessionStorage.setItem(`participant_${initialSession.id}`, urlParticipantId);
+      sessionStorage.setItem(`participant_name_${initialSession.id}`, urlParticipantName);
       storedParticipantId = urlParticipantId;
       storedName = urlParticipantName;
       if (typeof window !== "undefined") {
@@ -452,117 +394,54 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
       return;
     }
 
-    // Verify the participant still exists in the DB (handles deleted / stale entries)
-    const { data: existingParticipant } = await supabase
-      .from("participants")
-      .select("id, name, profile_id")
-      .eq("id", storedParticipantId)
-      .eq("session_id", sessionData.id)
-      .single();
-
-    if (!existingParticipant) {
-      sessionStorage.removeItem(`participant_${sessionData.id}`);
-      sessionStorage.removeItem(`participant_name_${sessionData.id}`);
+    let payload: PlaySessionPayload;
+    try {
+      payload = await fetchPlaySessionPayload(storedParticipantId);
+    } catch {
+      sessionStorage.removeItem(`participant_${initialSession.id}`);
+      sessionStorage.removeItem(`participant_name_${initialSession.id}`);
       router.push(`/join?code=${code}`);
       return;
     }
 
+    const existingParticipant = payload.participant;
+    if (!existingParticipant) {
+      sessionStorage.removeItem(`participant_${initialSession.id}`);
+      sessionStorage.removeItem(`participant_name_${initialSession.id}`);
+      router.push(`/join?code=${code}`);
+      return;
+    }
+
+    const sessionWithSimulation = payload.session;
+    setSession(sessionWithSimulation);
+    setParticipantCount(payload.participantCount ?? 0);
     setParticipantId(storedParticipantId);
     setParticipantName(existingParticipant.name || storedName || "");
+    setPlayerProfile(payload.playerProfile);
+    setDecisions(payload.decisions);
+    setReflectionQuestions(payload.reflectionQuestions);
+    setDataBlocks(payload.dataBlocks);
+    setSources(payload.sources);
+    setScenarioImages(payload.scenarioImages);
 
-    // Fetch assigned hidden profile (if any)
-    if (existingParticipant.profile_id) {
-      const { data: profileData } = await supabase
-        .from("simulation_profiles")
-        .select("profile_name, private_briefing")
-        .eq("id", existingParticipant.profile_id)
-        .single();
-      if (profileData) setPlayerProfile(profileData);
-    }
+    const answeredCount = payload.responses?.length || 0;
 
-    // Load decisions
-    const { data: decisionsData } = await supabase
-      .from("decisions")
-      .select(`
-        id,
-        order_num,
-        prompt,
-        options(id, label, title, description, consequence, score)
-      `)
-      .eq("simulation_id", simulationData.id)
-      .order("order_num", { ascending: true });
-
-    if (decisionsData) {
-      setDecisions(decisionsData.map((d: { id: string; order_num: number; prompt: string; options: Option[] }) => ({
-        ...d,
-        options: d.options.sort((a: Option, b: Option) => a.label.localeCompare(b.label))
-      })));
-    }
-
-    // Load reflection questions
-    const { data: questionsData } = await supabase
-      .from("reflection_questions")
-      .select("*")
-      .eq("simulation_id", simulationData.id)
-      .order("order_num", { ascending: true });
-
-    if (questionsData) {
-      setReflectionQuestions(questionsData);
-    }
-
-    // Load data blocks
-    const { data: blocksData } = await supabase
-      .from("simulation_data_blocks")
-      .select("id, block_type, title, data")
-      .eq("simulation_id", simulationData.id)
-      .order("order_num", { ascending: true });
-
-    if (blocksData) {
-      setDataBlocks(blocksData);
-    }
-
-    // Load sources / references
-    const { data: sourcesData } = await supabase
-      .from("simulation_sources")
-      .select("id, label, url, source_type")
-      .eq("simulation_id", simulationData.id)
-      .order("created_at", { ascending: true });
-
-    if (sourcesData) {
-      setSources(sourcesData);
-    }
-
-    const { data: scenarioImgData } = await supabase
-      .from("simulation_scenario_images")
-      .select("id, storage_path, alt_text, order_num")
-      .eq("simulation_id", simulationData.id)
-      .order("order_num", { ascending: true });
-
-    setScenarioImages(scenarioImgData ?? []);
-
-    // Load existing responses
-    const { data: responsesData } = await supabase
-      .from("responses")
-      .select("decision_id, option_id")
-      .eq("session_id", sessionData.id)
-      .eq("participant_id", storedParticipantId);
-
-    const answeredCount = responsesData?.length || 0;
-
-    if (responsesData && responsesData.length > 0) {
-      const responseMap = responsesData.map(r => {
-        const decision = decisionsData?.find(d => d.id === r.decision_id);
+    if (payload.responses && payload.responses.length > 0) {
+      const responseMap = payload.responses.map((r) => {
+        const decision = payload.decisions.find((d) => d.id === r.decision_id);
         const option = decision?.options.find((o: Option) => o.id === r.option_id);
         return { decision_id: r.decision_id, option_id: r.option_id, score: option?.score || 0 };
       });
       setMyResponses(responseMap);
+    } else {
+      setMyResponses([]);
     }
 
     // Set initial step based on session status
     let stepToSet = 0;
-    if (sessionData.status === "lobby") {
+    if (sessionWithSimulation.status === "lobby") {
       stepToSet = 0;
-    } else if (sessionData.status === "running") {
+    } else if (sessionWithSimulation.status === "running") {
       // Calculate where the student should be
       if (answeredCount === 0) {
         stepToSet = 1; // Background

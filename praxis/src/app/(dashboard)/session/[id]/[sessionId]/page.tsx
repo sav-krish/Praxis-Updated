@@ -30,7 +30,10 @@ export default async function SessionPage({ params }: PageProps) {
   let session = result.data;
   let error = result.error;
 
-  if (error?.message?.includes("video_gallery_share_id")) {
+  if (
+    error?.message?.includes("video_gallery_share_id") ||
+    error?.message?.includes("response_gallery_access_code")
+  ) {
     const legacyResult = await supabase
       .from("sessions")
       .select(`
@@ -41,7 +44,11 @@ export default async function SessionPage({ params }: PageProps) {
       .single();
 
     session = legacyResult.data
-      ? { ...legacyResult.data, video_gallery_share_id: sessionId }
+      ? {
+          ...legacyResult.data,
+          video_gallery_share_id: sessionId,
+          response_gallery_access_code: legacyResult.data.join_code,
+        }
       : null;
     error = legacyResult.error;
   }

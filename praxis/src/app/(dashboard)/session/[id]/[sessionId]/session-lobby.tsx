@@ -46,6 +46,22 @@ interface SessionLobbyProps {
   profiles: SimulationProfile[];
 }
 
+function upsertById<T extends { id: string }>(items: T[], next: T): T[] {
+  const existingIndex = items.findIndex((item) => item.id === next.id);
+  if (existingIndex === -1) {
+    return [...items, next];
+  }
+  return items.map((item) => (item.id === next.id ? next : item));
+}
+
+function responseIdentity(response: {
+  decision_id: string;
+  participant_id: string | null;
+  team_id: string | null;
+}) {
+  return `${response.decision_id}:${response.participant_id ?? "none"}:${response.team_id ?? "none"}`;
+}
+
 export function SessionLobby({ 
   session: initialSession, 
   simulation,
@@ -98,11 +114,11 @@ export function SessionLobby({
         { event: "*", schema: "public", table: "participants", filter: `session_id=eq.${sid}` },
         (payload) => {
           if (payload.eventType === "INSERT") {
-            setParticipants(prev => [...prev, payload.new as Participant]);
+            setParticipants(prev => upsertById(prev, payload.new as Participant));
           } else if (payload.eventType === "DELETE") {
             setParticipants(prev => prev.filter(p => p.id !== payload.old.id));
           } else if (payload.eventType === "UPDATE") {
-            setParticipants(prev => prev.map(p => p.id === payload.new.id ? payload.new as Participant : p));
+            setParticipants(prev => upsertById(prev, payload.new as Participant));
           }
         }
       )
@@ -116,7 +132,11 @@ export function SessionLobby({
         { event: "*", schema: "public", table: "teams", filter: `session_id=eq.${sid}` },
         (payload) => {
           if (payload.eventType === "INSERT") {
-            setTeams(prev => [...prev, payload.new as Team]);
+            setTeams(prev => upsertById(prev, payload.new as Team));
+          } else if (payload.eventType === "UPDATE") {
+            setTeams(prev => upsertById(prev, payload.new as Team));
+          } else if (payload.eventType === "DELETE") {
+            setTeams(prev => prev.filter(team => team.id !== payload.old.id));
           }
         }
       )
@@ -129,7 +149,11 @@ export function SessionLobby({
         "postgres_changes",
         { event: "INSERT", schema: "public", table: "responses", filter: `session_id=eq.${sid}` },
         (payload) => {
-          setResponses(prev => [...prev, payload.new as typeof responses[0]]);
+          setResponses(prev => {
+            const next = payload.new as typeof responses[0];
+            const key = responseIdentity(next);
+            return prev.some((item) => responseIdentity(item) === key) ? prev : [...prev, next];
+          });
         }
       )
       .subscribe();

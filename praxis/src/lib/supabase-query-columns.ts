@@ -28,7 +28,7 @@ export const SIMULATION_SCENARIO_IMAGE_ROW =
   "id, simulation_id, storage_path, alt_text, order_num, created_at" as const;
 
 export const SESSION_LOBBY_ROW =
-  "id, simulation_id, join_code, status, current_step, started_at, ended_at, debrief_guide, video_gallery_share_id, is_preview, created_at" as const;
+  "id, simulation_id, join_code, response_gallery_access_code, status, current_step, started_at, ended_at, debrief_guide, video_gallery_share_id, is_preview, created_at" as const;
 
 export const SESSION_LOBBY_SIMULATION =
   "id, title, mode, hidden_profiles_enabled, preferences" as const;
@@ -36,7 +36,7 @@ export const SESSION_LOBBY_SIMULATION =
 export const SESSION_REPORTS_LIST = "id, status, started_at, ended_at, created_at" as const;
 
 export const SESSION_REPORTS_SELECTED =
-  "id, simulation_id, debrief_guide, status, video_gallery_share_id" as const;
+  "id, simulation_id, debrief_guide, status, video_gallery_share_id, response_gallery_access_code, join_code" as const;
 
 export const PARTICIPANT_LOBBY_ROW =
   "id, session_id, team_id, profile_id, name, is_voter, joined_at" as const;

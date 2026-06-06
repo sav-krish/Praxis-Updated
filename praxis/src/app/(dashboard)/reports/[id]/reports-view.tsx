@@ -65,7 +65,7 @@ interface DebriefGuide {
 
 type ReportsSimulation = Pick<Simulation, "id" | "title" | "mode" | "justification_type">;
 type ReportsSessionListItem = Pick<Session, "id" | "status" | "started_at" | "ended_at" | "created_at">;
-type ReportsSelectedSession = Pick<Session, "id" | "simulation_id" | "debrief_guide" | "video_gallery_share_id" | "status">;
+type ReportsSelectedSession = Pick<Session, "id" | "simulation_id" | "debrief_guide" | "video_gallery_share_id" | "response_gallery_access_code" | "join_code" | "status">;
 type ReportsParticipant = Pick<Participant, "id" | "session_id" | "team_id" | "name">;
 type ReportsTeam = Pick<Team, "id" | "session_id" | "name">;
 type ReportsResponse = Pick<
@@ -107,6 +107,7 @@ export function ReportsView({
 }: ReportsViewProps) {
   const router = useRouter();
   const galleryUrl = `/response-gallery/${selectedSession.video_gallery_share_id}`;
+  const galleryAccessCode = selectedSession.response_gallery_access_code || selectedSession.join_code;
   const isLiveSession = selectedSession.status === "running";
   const [debrief, setDebrief] = useState<DebriefGuide | null>(initialDebrief as DebriefGuide | null);
   const [generatingDebrief, setGeneratingDebrief] = useState(false);
@@ -361,7 +362,7 @@ export function ReportsView({
   return (
     <div className="max-w-6xl mx-auto px-0 sm:px-4">
       {/* Header */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between mb-4 sm:mb-6">
+      <div className="mb-4 space-y-3 sm:mb-6">
         <div className="flex items-center gap-3 min-w-0">
           <Link href={isLiveSession ? `/session/${simulation.id}/${selectedSession.id}` : "/dashboard"}>
             <Button variant="ghost" size="icon" className="shrink-0 min-h-[44px] min-w-[44px]">
@@ -373,7 +374,15 @@ export function ReportsView({
             <p className="text-muted-foreground text-sm">Session Results</p>
           </div>
         </div>
-        <div className="flex flex-wrap items-center gap-2 sm:gap-4">
+        <div className="flex flex-wrap items-center justify-start gap-2 sm:gap-4">
+          <Button
+            variant="outline"
+            onClick={() => router.refresh()}
+            className="min-h-[44px] w-full sm:w-auto"
+          >
+            <RefreshCw className="mr-2 h-4 w-4 shrink-0" />
+            Refresh
+          </Button>
           {sessions.length > 1 && (
             <Select
               value={selectedSession.id}
@@ -393,17 +402,7 @@ export function ReportsView({
               </SelectContent>
             </Select>
           )}
-          {isLiveSession && (
-            <Button
-              variant="outline"
-              onClick={() => router.refresh()}
-              className="min-h-[44px] w-full sm:w-auto flex-1 sm:flex-none"
-            >
-              <RefreshCw className="mr-2 h-4 w-4 shrink-0" />
-              Refresh
-            </Button>
-          )}
-          <Button onClick={exportCSV} className="min-h-[44px] w-full sm:w-auto flex-1 sm:flex-none">
+          <Button onClick={exportCSV} className="min-h-[44px] w-full sm:w-auto">
             <Download className="mr-2 h-4 w-4 shrink-0" />
             Export CSV
           </Button>
@@ -519,19 +518,35 @@ export function ReportsView({
             <div>
               <h3 className="text-lg font-semibold">Response Gallery</h3>
               <p className="text-sm text-muted-foreground">
-                Organized by decision and selected option. Share the gallery after class to compare reasoning.
+                Organized by decision and selected option. Share the gallery link and access code with students to compare reasoning.
               </p>
             </div>
-            <Button
-              variant="outline"
-              onClick={async () => {
-                const fullUrl = `${window.location.origin}${galleryUrl}`;
-                await navigator.clipboard.writeText(fullUrl);
-                toast.success("Gallery link copied");
-              }}
-            >
-              Copy Gallery Link
-            </Button>
+            <div className="flex flex-col gap-2 sm:items-end">
+              <div className="rounded-md border border-border/70 bg-muted/20 px-3 py-2 text-sm">
+                Access code: <span className="font-mono font-semibold tracking-wide">{galleryAccessCode}</span>
+              </div>
+              <div className="flex flex-wrap justify-end gap-2">
+                <Button
+                  variant="outline"
+                  onClick={async () => {
+                    await navigator.clipboard.writeText(galleryAccessCode);
+                    toast.success("Gallery access code copied");
+                  }}
+                >
+                  Copy Access Code
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={async () => {
+                    const fullUrl = `${window.location.origin}${galleryUrl}`;
+                    await navigator.clipboard.writeText(fullUrl);
+                    toast.success("Gallery link copied");
+                  }}
+                >
+                  Copy Gallery Link
+                </Button>
+              </div>
+            </div>
           </div>
           <ResponseGallery decisions={decisions} items={responseGalleryItems} />
         </TabsContent>

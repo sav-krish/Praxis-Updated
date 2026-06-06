@@ -12,6 +12,19 @@ function generateJoinCode(): string {
   return code;
 }
 
+function generateGalleryAccessCode(): string {
+  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+  let code = "";
+  for (let i = 0; i < 8; i++) {
+    code += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  return code;
+}
+
+function isMissingResponseGalleryAccessCodeColumn(message?: string | null): boolean {
+  return !!message?.includes("response_gallery_access_code");
+}
+
 export async function createPreviewSession(
   simulationId: string
 ): Promise<
@@ -44,11 +57,12 @@ export async function createPreviewSession(
   const joinCode = generateJoinCode();
   const now = new Date().toISOString();
 
-  const { data: session, error: sessionError } = await supabase
+  let sessionInsertResult = await supabase
     .from("sessions")
     .insert({
       simulation_id: simulationId,
       join_code: joinCode,
+      response_gallery_access_code: generateGalleryAccessCode(),
       status: "running",
       current_step: 1,
       started_at: now,
@@ -56,6 +70,23 @@ export async function createPreviewSession(
     })
     .select("id")
     .single();
+
+  if (isMissingResponseGalleryAccessCodeColumn(sessionInsertResult.error?.message)) {
+    sessionInsertResult = await supabase
+      .from("sessions")
+      .insert({
+        simulation_id: simulationId,
+        join_code: joinCode,
+        status: "running",
+        current_step: 1,
+        started_at: now,
+        is_preview: true,
+      })
+      .select("id")
+      .single();
+  }
+
+  const { data: session, error: sessionError } = sessionInsertResult;
 
   if (sessionError || !session) {
     return { error: sessionError?.message ?? "Failed to create preview session." };

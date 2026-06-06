@@ -78,48 +78,23 @@ function JoinForm() {
     setLoading(true);
 
     try {
-      const supabase = createClient();
+      const response = await fetch(`/api/join/session/${joinCode.toUpperCase()}/participant`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: name.trim() }),
+      });
 
-      // Create participant
-      const { data: participant, error } = await supabase
-        .from("participants")
-        .insert({
-          session_id: session.id,
-          name: name.trim(),
-          is_voter: true, // For now, everyone is a voter in individual mode
-        })
-        .select()
-        .single();
+      const result = (await response.json().catch(() => null)) as
+        | { participantId: string; participantName: string; sessionId: string }
+        | { error?: string }
+        | null;
 
-      if (error) throw error;
-
-      const { data: profiles } = await supabase
-        .from("simulation_profiles")
-        .select("id")
-        .eq("simulation_id", session.simulation_id)
-        .order("order_num", { ascending: true });
-
-      if (profiles && profiles.length > 0) {
-        const { data: sessionParticipants } = await supabase
-          .from("participants")
-          .select("id")
-          .eq("session_id", session.id)
-          .order("joined_at", { ascending: true });
-
-        const joinedIndex = sessionParticipants?.findIndex((p) => p.id === participant.id) ?? -1;
-        if (joinedIndex >= 0) {
-          const profileId = profiles[joinedIndex % profiles.length]?.id;
-          if (profileId) {
-            await supabase
-              .from("participants")
-              .update({ profile_id: profileId })
-              .eq("id", participant.id);
-          }
-        }
+      if (!response.ok || !result || !("participantId" in result)) {
+        throw new Error(result && "error" in result ? result.error : "Failed to join session");
       }
 
       // Store participant ID in sessionStorage (per-tab, so each tab can be a different student)
-      sessionStorage.setItem(`participant_${session.id}`, participant.id);
+      sessionStorage.setItem(`participant_${session.id}`, result.participantId);
       sessionStorage.setItem(`participant_name_${session.id}`, name.trim());
 
       // Navigate to play page

@@ -230,6 +230,7 @@ export interface Database {
           id: string
           simulation_id: string
           join_code: string
+          response_gallery_access_code: string
           status: 'lobby' | 'running' | 'complete'
           current_step: number
           started_at: string | null
@@ -243,6 +244,7 @@ export interface Database {
           id?: string
           simulation_id: string
           join_code: string
+          response_gallery_access_code?: string
           status?: 'lobby' | 'running' | 'complete'
           current_step?: number
           started_at?: string | null
@@ -256,6 +258,7 @@ export interface Database {
           id?: string
           simulation_id?: string
           join_code?: string
+          response_gallery_access_code?: string
           status?: 'lobby' | 'running' | 'complete'
           current_step?: number
           started_at?: string | null

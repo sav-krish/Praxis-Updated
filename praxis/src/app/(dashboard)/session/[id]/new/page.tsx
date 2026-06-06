@@ -17,6 +17,19 @@ function generateJoinCode(): string {
   return code;
 }
 
+function generateGalleryAccessCode(): string {
+  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+  let code = "";
+  for (let i = 0; i < 8; i++) {
+    code += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  return code;
+}
+
+function isMissingResponseGalleryAccessCodeColumn(message?: string | null): boolean {
+  return !!message?.includes("response_gallery_access_code");
+}
+
 export default async function NewSessionPage({ params }: PageProps) {
   const { id } = await params;
   const supabase = await createClient();
@@ -86,16 +99,32 @@ export default async function NewSessionPage({ params }: PageProps) {
 
   // Create a new session
   const joinCode = generateJoinCode();
-  const { data: session, error } = await supabase
+  let insertResult = await supabase
     .from("sessions")
     .insert({
       simulation_id: id,
       join_code: joinCode,
+      response_gallery_access_code: generateGalleryAccessCode(),
       status: "lobby",
       current_step: 0,
     })
     .select()
     .single();
+
+  if (isMissingResponseGalleryAccessCodeColumn(insertResult.error?.message)) {
+    insertResult = await supabase
+      .from("sessions")
+      .insert({
+        simulation_id: id,
+        join_code: joinCode,
+        status: "lobby",
+        current_step: 0,
+      })
+      .select()
+      .single();
+  }
+
+  const { data: session, error } = insertResult;
 
   if (error || !session) {
     logger.error(error);
