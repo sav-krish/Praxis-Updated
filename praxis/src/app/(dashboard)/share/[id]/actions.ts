@@ -1,6 +1,6 @@
 "use server";
 
-import { createClient } from "@/lib/supabase/server";
+import { createClient, createServiceRoleClient } from "@/lib/supabase/server";
 import type { Database } from "@/types/database";
 import { publicScenarioImageUrl, SCENARIO_IMAGES_BUCKET } from "@/lib/scenario-image-url";
 
@@ -23,6 +23,7 @@ function omitKeys(row: Record<string, unknown>, keys: string[]): Record<string, 
 
 export async function copySimulationToAccount(simulationId: string): Promise<{ newId: string } | { error: string }> {
   const supabase = await createClient();
+  const serviceSupabase = createServiceRoleClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) {
     return { error: "You must be logged in to copy a simulation." };
@@ -42,7 +43,7 @@ export async function copySimulationToAccount(simulationId: string): Promise<{ n
     });
   }
 
-  const { data: sim, error: simError } = await supabase
+  const { data: sim, error: simError } = await serviceSupabase
     .from("simulations")
     .select("*")
     .eq("id", simulationId)
@@ -52,31 +53,31 @@ export async function copySimulationToAccount(simulationId: string): Promise<{ n
     return { error: "Simulation not found." };
   }
 
-  const { data: decisions } = await supabase
+  const { data: decisions } = await serviceSupabase
     .from("decisions")
     .select("*, options(*)")
     .eq("simulation_id", simulationId)
     .order("order_num", { ascending: true });
 
-  const { data: reflectionQuestions } = await supabase
+  const { data: reflectionQuestions } = await serviceSupabase
     .from("reflection_questions")
     .select("*")
     .eq("simulation_id", simulationId)
     .order("order_num", { ascending: true });
 
-  const { data: dataBlocks } = await supabase
+  const { data: dataBlocks } = await serviceSupabase
     .from("simulation_data_blocks")
     .select("*")
     .eq("simulation_id", simulationId)
     .order("order_num", { ascending: true });
 
-  const { data: profiles } = await supabase
+  const { data: profiles } = await serviceSupabase
     .from("simulation_profiles")
     .select("*")
     .eq("simulation_id", simulationId)
     .order("order_num", { ascending: true });
 
-  const { data: scenarioImages } = await supabase
+  const { data: scenarioImages } = await serviceSupabase
     .from("simulation_scenario_images")
     .select("id, storage_path, alt_text, order_num")
     .eq("simulation_id", simulationId)
