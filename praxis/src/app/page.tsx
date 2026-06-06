@@ -528,13 +528,13 @@ export default function HomePage() {
               href="/"
               className="flex items-center text-lg font-semibold text-ink"
             >
-              <span className="inline-flex shrink-0 items-center justify-center rounded-sm bg-white p-0.5">
+              <span className="inline-flex shrink-0 items-center justify-center">
                 <Image
-                  src="/new_logo.png"
+                  src="/praxis_transparent.png"
                   alt="Praxis"
-                  width={148}
-                  height={55}
-                  className="h-6 w-auto"
+                  width={220}
+                  height={82}
+                  className="h-10 w-auto"
                 />
               </span>
             </Link>

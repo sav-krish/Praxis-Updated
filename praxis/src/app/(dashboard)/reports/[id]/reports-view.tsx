@@ -468,9 +468,9 @@ export function ReportsView({
       <Tabs defaultValue="distribution" className="space-y-4 sm:space-y-6">
         <TabsList className="grid h-auto min-h-[44px] w-full grid-cols-5 p-1">
           <TabsTrigger value="distribution" className="text-xs sm:text-sm py-2">Distribution</TabsTrigger>
+          <TabsTrigger value="response-gallery" className="text-xs sm:text-sm py-2">Response Gallery</TabsTrigger>
           <TabsTrigger value="scores" className="text-xs sm:text-sm py-2">Scores</TabsTrigger>
           <TabsTrigger value="reflections" className="text-xs sm:text-sm py-2">Reflections</TabsTrigger>
-          <TabsTrigger value="response-gallery" className="text-xs sm:text-sm py-2">Response Gallery</TabsTrigger>
           <TabsTrigger value="debrief" className="text-xs sm:text-sm py-2">Debrief</TabsTrigger>
         </TabsList>
 
@@ -489,12 +489,29 @@ export function ReportsView({
                     {distribution.map((option) => (
                       <div key={option.id}>
                         <div className="flex flex-wrap justify-between gap-1 text-sm mb-1">
-                          <span className="font-medium break-words">{option.label}. {option.title}</span>
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span className={`break-words font-medium ${option.score === 3 ? "text-primary" : ""}`}>
+                              {option.label}. {option.title}
+                            </span>
+                            <Badge
+                              variant={option.score === 3 ? "default" : "secondary"}
+                              className="shrink-0"
+                            >
+                              {option.score} pts
+                            </Badge>
+                            {option.score === 3 ? (
+                              <Badge variant="outline" className="shrink-0 border-primary/40 text-primary">
+                                Correct
+                              </Badge>
+                            ) : null}
+                          </div>
                           <span className="text-muted-foreground shrink-0">{option.count} ({option.percentage}%)</span>
                         </div>
                         <div className="h-8 bg-muted rounded-full overflow-hidden relative">
                           <div 
-                            className="h-full bg-primary transition-all flex items-center px-3"
+                            className={`h-full transition-all flex items-center px-3 ${
+                              option.score === 3 ? "bg-primary" : "bg-primary/65"
+                            }`}
                             style={{ width: `${Math.max(option.percentage, 5)}%` }}
                           >
                             {option.percentage > 20 && (
