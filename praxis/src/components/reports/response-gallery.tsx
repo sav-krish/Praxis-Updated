@@ -22,15 +22,22 @@ export interface ResponseGalleryItem {
   created_at: string;
 }
 
+interface ResponseGalleryResponse {
+  decision_id: string;
+  option_id: string;
+}
+
 interface ResponseGalleryProps {
   decisions: ResponseGalleryDecision[];
   items: ResponseGalleryItem[];
+  responses?: ResponseGalleryResponse[];
   emptyLabel?: string;
 }
 
 export function ResponseGallery({
   decisions,
   items,
+  responses = [],
   emptyLabel = "No responses have been submitted yet.",
 }: ResponseGalleryProps) {
   if (items.length === 0) {
@@ -58,6 +65,16 @@ export function ResponseGallery({
               const optionItems = items.filter(
                 (item) => item.decision_id === decision.id && item.option_id === option.id
               );
+              const decisionResponses = responses.filter(
+                (response) => response.decision_id === decision.id
+              );
+              const optionResponseCount = decisionResponses.filter(
+                (response) => response.option_id === option.id
+              ).length;
+              const optionPercentage =
+                decisionResponses.length > 0
+                  ? Math.round((optionResponseCount / decisionResponses.length) * 100)
+                  : 0;
 
               return (
                 <div key={option.id} className="space-y-3">
@@ -67,8 +84,20 @@ export function ResponseGallery({
                       <span className="truncate text-sm font-medium">{option.title}</span>
                     </div>
                     <span className="shrink-0 text-xs text-muted-foreground">
-                      {optionItems.length} response{optionItems.length === 1 ? "" : "s"}
+                      {optionResponseCount} choice{optionResponseCount === 1 ? "" : "s"} · {optionPercentage}%
                     </span>
+                  </div>
+
+                  <div className="space-y-1">
+                    <div className="h-2 rounded-full bg-muted overflow-hidden">
+                      <div
+                        className="h-full rounded-full bg-primary/75 transition-all"
+                        style={{ width: `${Math.max(optionPercentage, optionResponseCount > 0 ? 6 : 0)}%` }}
+                      />
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      {decisionResponses.length} total response{decisionResponses.length === 1 ? "" : "s"} for this decision
+                    </p>
                   </div>
 
                   {optionItems.length === 0 ? (

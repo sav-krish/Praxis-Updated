@@ -216,6 +216,7 @@ export default async function ResponseGalleryPage({ params, searchParams }: Page
             options: [...decision.options].sort((a, b) => a.label.localeCompare(b.label)),
           }))}
           items={items}
+          responses={responses ?? []}
         />
       </div>
     </div>

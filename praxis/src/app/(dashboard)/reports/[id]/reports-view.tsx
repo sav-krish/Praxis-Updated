@@ -565,7 +565,7 @@ export function ReportsView({
               </div>
             </div>
           </div>
-          <ResponseGallery decisions={decisions} items={responseGalleryItems} />
+          <ResponseGallery decisions={decisions} items={responseGalleryItems} responses={responses} />
         </TabsContent>
 
         {/* Scores Tab */}
