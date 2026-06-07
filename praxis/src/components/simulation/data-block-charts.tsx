@@ -56,14 +56,19 @@ export function DataBlockChartRenderer({ block }: { block: SimulationDataBlock }
 
   if (isLineChartBlock(block)) {
     const data = block.data as LineChartBlockData;
-    const series = data.series || [];
-    const allPoints = series.flatMap((s) => s.data || []);
-    const xLabels = [...new Set(allPoints.map((p) => p.x))];
+    const series = (data.series || []).map((s, i) => ({
+      label: s.label?.trim() || `Series ${i + 1}`,
+      data: s.data || [],
+    }));
+    const allPoints = series.flatMap((s) => s.data);
+    const xLabels = [...new Set(allPoints.map((p) => p.x))].sort((a, b) =>
+      a.localeCompare(b, undefined, { numeric: true, sensitivity: "base" })
+    );
     const chartData = xLabels.map((x) => {
-      const point: Record<string, string | number> = { name: x };
+      const point: Record<string, string | number | null> = { name: x };
       for (const s of series) {
-        const p = s.data?.find((d) => d.x === x);
-        point[s.label] = p?.y ?? 0;
+        const p = s.data.find((d) => d.x === x);
+        point[s.label] = p?.y ?? null;
       }
       return point;
     });
@@ -77,30 +82,41 @@ export function DataBlockChartRenderer({ block }: { block: SimulationDataBlock }
           <ResponsiveContainer width="100%" height="100%">
             <LineChart data={chartData}>
               <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-              <XAxis dataKey="name" tick={{ fontSize: 12 }} />
-              <YAxis tick={{ fontSize: 12 }} />
-              <Tooltip />
+              <XAxis
+                dataKey="name"
+                tick={{ fontSize: 12 }}
+                label={data.xLabel ? { value: data.xLabel, position: "insideBottom", offset: -4 } : undefined}
+              />
+              <YAxis
+                tick={{ fontSize: 12 }}
+                label={data.yLabel ? { value: data.yLabel, angle: -90, position: "insideLeft" } : undefined}
+              />
+              <Tooltip
+                formatter={(value: string | number | readonly (string | number)[] | null | undefined) => [
+                  Array.isArray(value) ? value.join(", ") : (value ?? "—"),
+                  data.yLabel || "Value",
+                ]}
+              />
               <Legend />
               {series.map((s, i) => (
-                // Keep point markers visible at rest; the default theme-driven
-                // dots are too faint and effectively only readable on hover.
                 <Line
                   key={s.label}
                   type="monotone"
                   dataKey={s.label}
-                  stroke="#111111"
+                  connectNulls={false}
+                  stroke={colors[i % colors.length]}
                   strokeWidth={2}
                   dot={{
-                    r: 4,
-                    strokeWidth: 2,
-                    stroke: "#111111",
-                    fill: "#111111",
+                        r: 4,
+                        strokeWidth: 2,
+                    stroke: colors[i % colors.length],
+                    fill: colors[i % colors.length],
                   }}
                   activeDot={{
                     r: 5,
                     strokeWidth: 2,
-                    stroke: "#111111",
-                    fill: "#111111",
+                    stroke: colors[i % colors.length],
+                    fill: colors[i % colors.length],
                   }}
                 />
               ))}
