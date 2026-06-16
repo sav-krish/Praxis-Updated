@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServiceRoleClient } from "@/lib/supabase/server";
+import { rebalanceAutoTeamsForSession } from "@/lib/team-assignment";
 
 interface RouteContext {
   params: Promise<{ code: string }>;
@@ -17,13 +18,17 @@ export async function POST(request: NextRequest, { params }: RouteContext) {
   const supabase = createServiceRoleClient();
   const { data: session } = await supabase
     .from("sessions")
-    .select("id, simulation_id, status")
+    .select("id, simulation_id, status, simulation:simulations(mode, team_assignment, team_size)")
     .eq("join_code", code.toUpperCase())
     .single();
 
   if (!session || session.status === "complete") {
     return NextResponse.json({ error: "Session not found" }, { status: 404 });
   }
+
+  const simulation = session?.simulation as
+    | { mode: "individual" | "teams"; team_assignment: "auto" | "self" | null; team_size: number | null }
+    | null;
 
   const { data: participant, error } = await supabase
     .from("participants")
@@ -32,11 +37,29 @@ export async function POST(request: NextRequest, { params }: RouteContext) {
       name,
       is_voter: true,
     })
-    .select("id, name")
+    .select("id, name, team_id, is_voter")
     .single();
 
   if (error || !participant) {
     return NextResponse.json({ error: "Failed to join session" }, { status: 500 });
+  }
+
+  let participantRecord = participant;
+
+  if (simulation?.mode === "teams" && simulation.team_assignment === "auto") {
+    try {
+      await rebalanceAutoTeamsForSession(session.id, Math.max(2, simulation.team_size ?? 4), supabase);
+      const { data: refreshedParticipant } = await supabase
+        .from("participants")
+        .select("id, name, team_id, is_voter")
+        .eq("id", participant.id)
+        .single();
+      if (refreshedParticipant) {
+        participantRecord = refreshedParticipant;
+      }
+    } catch {
+      return NextResponse.json({ error: "Failed to assign team" }, { status: 500 });
+    }
   }
 
   const { data: profiles } = await supabase
@@ -67,7 +90,9 @@ export async function POST(request: NextRequest, { params }: RouteContext) {
   return NextResponse.json({
     sessionId: session.id,
     simulationId: session.simulation_id,
-    participantId: participant.id,
-    participantName: participant.name,
+    participantId: participantRecord.id,
+    participantName: participantRecord.name,
+    teamId: participantRecord.team_id,
+    isVoter: participantRecord.is_voter,
   });
 }

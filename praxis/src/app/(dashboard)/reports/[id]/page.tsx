@@ -167,6 +167,11 @@ export default async function ReportsPage({ params, searchParams }: PageProps) {
     .select(RESPONSE_REPORTS_ROW)
     .eq("session_id", selectedSessionId);
 
+  const { data: teamDecisionSubmissions } = await supabase
+    .from("team_decision_submissions")
+    .select("id, team_id, decision_id, option_id, submitted_at, submitted_by_participant_id")
+    .eq("session_id", selectedSessionId);
+
   // Fetch reflection responses
   const { data: reflectionResponses } = await supabase
     .from("reflection_responses")
@@ -265,6 +270,16 @@ export default async function ReportsPage({ params, searchParams }: PageProps) {
       participants={participants || []}
       teams={teams || []}
       responses={responses || []}
+      teamDecisionSubmissions={(teamDecisionSubmissions ?? []).map((item) => ({
+        id: item.id,
+        session_id: selectedSessionId,
+        participant_id: item.submitted_by_participant_id,
+        team_id: item.team_id,
+        decision_id: item.decision_id,
+        option_id: item.option_id,
+        justification: null,
+        submitted_at: item.submitted_at,
+      }))}
       responseGalleryItems={responseGalleryItems}
       reflectionResponses={reflectionResponses || []}
       initialDebrief={selectedSession?.debrief_guide as Record<string, unknown> | null}

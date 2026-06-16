@@ -82,11 +82,28 @@ interface Session {
     title: string;
     background_content: string | null;
     mode: string;
+    team_assignment?: "auto" | "self" | null;
+    team_size?: number | null;
     justification_type: "written" | "video" | "video_or_text";
     estimated_minutes?: number | null;
     hidden_profiles_enabled?: boolean;
     preferences?: Json;
   };
+}
+
+interface TeamMember {
+  id: string;
+  name: string;
+  team_id: string | null;
+  is_voter: boolean;
+}
+
+interface TeamDecisionSubmission {
+  id: string;
+  team_id: string;
+  decision_id: string;
+  option_id: string;
+  submitted_at: string;
 }
 
 interface PlayerProfile {
@@ -103,7 +120,15 @@ interface ReflectionQuestion {
 interface PlaySessionPayload {
   session: Session;
   participantCount: number;
-  participant: { id: string; name: string; profile_id: string | null } | null;
+  participant: {
+    id: string;
+    name: string;
+    profile_id: string | null;
+    team_id: string | null;
+    is_voter: boolean;
+  } | null;
+  team: { id: string; name: string; members: TeamMember[] } | null;
+  teamDecisions: TeamDecisionSubmission[];
   playerProfile: PlayerProfile | null;
   decisions: Decision[];
   reflectionQuestions: ReflectionQuestion[];
@@ -140,6 +165,11 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
   const [myResponses, setMyResponses] = useState<{ decision_id: string; option_id: string; score: number }[]>([]);
   const [reflectionAnswers, setReflectionAnswers] = useState<Record<string, string>>({});
   const [participantCount, setParticipantCount] = useState<number>(0);
+  const [teamId, setTeamId] = useState<string | null>(null);
+  const [teamName, setTeamName] = useState<string | null>(null);
+  const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
+  const [teamDecisions, setTeamDecisions] = useState<TeamDecisionSubmission[]>([]);
+  const [isTeamVoter, setIsTeamVoter] = useState<boolean>(true);
   const [returnToStep, setReturnToStep] = useState<number | null>(null);
   const [returnToConsequence, setReturnToConsequence] = useState(false);
   const [manualRefreshing, setManualRefreshing] = useState(false);
@@ -322,6 +352,50 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
     return result;
   }
 
+  function buildParticipantResponses(payload: PlaySessionPayload) {
+    return (payload.responses ?? []).map((r) => {
+      const decision = payload.decisions.find((d) => d.id === r.decision_id);
+      const option = decision?.options.find((o: Option) => o.id === r.option_id);
+      return { decision_id: r.decision_id, option_id: r.option_id, score: option?.score || 0 };
+    });
+  }
+
+  function resolveParticipantTeamState(payload: PlaySessionPayload, fallbackParticipantId?: string | null) {
+    const targetParticipantId = payload.participant?.id ?? fallbackParticipantId ?? null;
+    const teamMembers = Array.isArray(payload.team?.members) ? payload.team.members : [];
+    const matchingMember = targetParticipantId
+      ? teamMembers.find((member) => member.id === targetParticipantId) ?? null
+      : null;
+
+    return {
+      teamId: payload.participant?.team_id ?? payload.team?.id ?? matchingMember?.team_id ?? null,
+      isVoter: payload.participant?.is_voter ?? matchingMember?.is_voter ?? false,
+    };
+  }
+
+  function getStepForPayload(payload: PlaySessionPayload) {
+    if (payload.session.status === "lobby") return 0;
+    if (payload.session.status === "complete") return 6;
+
+    if (payload.session.simulation.mode !== "teams") {
+      const answeredCount = payload.responses?.length || 0;
+      if (answeredCount === 0) return 1;
+      if (answeredCount < 3) return answeredCount + 2;
+      return 5;
+    }
+
+    for (let index = 0; index < payload.decisions.length; index += 1) {
+      const decision = payload.decisions[index];
+      const hasTeamChoice = (payload.teamDecisions ?? []).some((item) => item.decision_id === decision.id);
+      const hasMyJustification = (payload.responses ?? []).some((item) => item.decision_id === decision.id);
+      if (!hasTeamChoice || !hasMyJustification) {
+        return index + 2;
+      }
+    }
+
+    return 5;
+  }
+
   // Fetch hidden profile when transitioning to background step
   useEffect(() => {
     if (currentStep !== 1 || playerProfile || !participantId || !session?.simulation?.hidden_profiles_enabled) return;
@@ -417,6 +491,12 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
     setParticipantCount(payload.participantCount ?? 0);
     setParticipantId(storedParticipantId);
     setParticipantName(existingParticipant.name || storedName || "");
+    const participantTeamState = resolveParticipantTeamState(payload, storedParticipantId);
+    setTeamId(participantTeamState.teamId);
+    setTeamName(payload.team?.name ?? null);
+    setTeamMembers(payload.team?.members ?? []);
+    setTeamDecisions(payload.teamDecisions ?? []);
+    setIsTeamVoter(participantTeamState.isVoter);
     setPlayerProfile(payload.playerProfile);
     setDecisions(payload.decisions);
     setReflectionQuestions(payload.reflectionQuestions);
@@ -424,36 +504,8 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
     setSources(payload.sources);
     setScenarioImages(payload.scenarioImages);
 
-    const answeredCount = payload.responses?.length || 0;
-
-    if (payload.responses && payload.responses.length > 0) {
-      const responseMap = payload.responses.map((r) => {
-        const decision = payload.decisions.find((d) => d.id === r.decision_id);
-        const option = decision?.options.find((o: Option) => o.id === r.option_id);
-        return { decision_id: r.decision_id, option_id: r.option_id, score: option?.score || 0 };
-      });
-      setMyResponses(responseMap);
-    } else {
-      setMyResponses([]);
-    }
-
-    // Set initial step based on session status
-    let stepToSet = 0;
-    if (sessionWithSimulation.status === "lobby") {
-      stepToSet = 0;
-    } else if (sessionWithSimulation.status === "running") {
-      // Calculate where the student should be
-      if (answeredCount === 0) {
-        stepToSet = 1; // Background
-      } else if (answeredCount < 3) {
-        stepToSet = answeredCount + 2; // Next decision
-      } else {
-        stepToSet = 5; // Reflection
-      }
-    } else {
-      stepToSet = 6; // Complete
-    }
-    setCurrentStep(stepToSet);
+    setMyResponses(buildParticipantResponses(payload));
+    setCurrentStep(getStepForPayload(payload));
 
     setLoading(false);
   }
@@ -463,6 +515,42 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
     // eslint-disable-next-line react-hooks/set-state-in-effect -- initial session hydration from join code only
     void loadSession();
   }, [code]); // eslint-disable-line react-hooks/exhaustive-deps -- loadSession closure reads searchParams/url once per join code route
+
+  useEffect(() => {
+    if (session?.simulation.mode !== "teams" || currentStep < 2 || currentStep > 4) return;
+    const decision = decisions[currentStep - 2];
+    if (!decision) return;
+    const teamChoice = teamDecisions.find((item) => item.decision_id === decision.id);
+    if (teamChoice) {
+      setSelectedOption(teamChoice.option_id);
+    }
+  }, [session?.simulation.mode, currentStep, decisions, teamDecisions]);
+
+  useEffect(() => {
+    if (!session || session.simulation.mode !== "teams" || !participantId || session.status !== "running") return;
+
+    const interval = window.setInterval(async () => {
+      try {
+        const payload = await fetchPlaySessionPayload(participantId);
+        const participantTeamState = resolveParticipantTeamState(payload, participantId);
+        setParticipantCount(payload.participantCount ?? 0);
+        setTeamId(participantTeamState.teamId);
+        setTeamName(payload.team?.name ?? null);
+        setTeamMembers(payload.team?.members ?? []);
+        setTeamDecisions(payload.teamDecisions ?? []);
+        setIsTeamVoter(participantTeamState.isVoter);
+        setMyResponses(buildParticipantResponses(payload));
+        const nextStep = getStepForPayload(payload);
+        if (currentStepRef.current !== nextStep && currentStepRef.current !== 6) {
+          setCurrentStep(nextStep);
+        }
+      } catch {
+        /* keep current UI if refresh fails */
+      }
+    }, 3000);
+
+    return () => window.clearInterval(interval);
+  }, [session?.id, session?.status, session?.simulation.mode, participantId, decisions]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const setVideoSelection = async (file: File) => {
     if (videoPreviewUrl) {
@@ -606,19 +694,80 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
 
     const decisionIndex = currentStep - 2;
     const decision = decisions[decisionIndex];
-    const option = decision.options.find(o => o.id === selectedOption);
+    let chosenOptionId = selectedOption;
+    let option = decision.options.find(o => o.id === chosenOptionId);
+    const existingTeamDecision =
+      session.simulation.mode === "teams"
+        ? teamDecisions.find((item) => item.decision_id === decision.id)
+        : null;
 
     // Skip DB insert for professor preview sessions
     if (!session.is_preview) {
       const supabase = createClient();
-      if (isVideoJustification && videoFile) {
+      if (session.simulation.mode === "teams") {
+        if (!teamId) {
+          toast.error("Your team assignment is missing.");
+          setSubmitting(false);
+          return;
+        }
+
+        if (!existingTeamDecision) {
+          if (!isTeamVoter) {
+            toast.error("Waiting for your team voter to choose an option.");
+            setSubmitting(false);
+            return;
+          }
+
+          const { data: createdTeamDecision, error: teamDecisionError } = await supabase
+            .from("team_decision_submissions")
+            .insert({
+              session_id: session.id,
+              team_id: teamId,
+              decision_id: decision.id,
+              option_id: selectedOption,
+              submitted_by_participant_id: participantId,
+            })
+            .select("id, team_id, decision_id, option_id, submitted_at")
+            .single();
+
+          if (teamDecisionError || !createdTeamDecision) {
+            toast.error("Failed to save team choice");
+            setSubmitting(false);
+            return;
+          }
+
+          setTeamDecisions((prev) => [...prev, createdTeamDecision]);
+          chosenOptionId = createdTeamDecision.option_id;
+          option = decision.options.find((o) => o.id === chosenOptionId);
+        } else {
+          chosenOptionId = existingTeamDecision.option_id;
+          option = decision.options.find((o) => o.id === chosenOptionId);
+        }
+
+        const { error } = await supabase
+          .from("responses")
+          .insert({
+            session_id: session.id,
+            participant_id: participantId,
+            team_id: teamId,
+            decision_id: decision.id,
+            option_id: chosenOptionId,
+            justification: trimmedJustification,
+          });
+
+        if (error) {
+          toast.error("Failed to submit justification");
+          setSubmitting(false);
+          return;
+        }
+      } else if (isVideoJustification && videoFile) {
         const { data: responseRow, error: responseError } = await supabase
           .from("responses")
           .insert({
             session_id: session.id,
             participant_id: participantId,
             decision_id: decision.id,
-            option_id: selectedOption,
+            option_id: chosenOptionId,
             justification: canChooseResponseInput && responseInputMode === "video" ? null : trimmedJustification || null,
           })
           .select("id")
@@ -651,7 +800,7 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
           session_id: session.id,
           simulation_id: session.simulation.id,
           decision_id: decision.id,
-          option_id: selectedOption,
+          option_id: chosenOptionId,
           participant_id: participantId,
           storage_path: storagePath,
           mime_type: videoFile.type || "video/webm",
@@ -673,7 +822,7 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
             session_id: session.id,
             participant_id: participantId,
             decision_id: decision.id,
-            option_id: selectedOption,
+            option_id: chosenOptionId,
             justification: trimmedJustification,
           });
 
@@ -688,7 +837,7 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
     // Add to my responses
     setMyResponses(prev => [...prev, { 
       decision_id: decision.id, 
-      option_id: selectedOption, 
+      option_id: chosenOptionId, 
       score: option?.score || 0 
     }]);
 
@@ -698,13 +847,32 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
     setSubmitting(false);
   };
 
-  const continueToNext = () => {
+  const continueToNext = async () => {
     setShowConsequence(false);
     setSelectedOption(null);
     setJustification("");
     setResponseInputMode("text");
     clearVideoSelection();
     setCurrentConsequence("");
+
+    if (session?.simulation.mode === "teams" && participantId) {
+      try {
+        const payload = await fetchPlaySessionPayload(participantId);
+        const participantTeamState = resolveParticipantTeamState(payload, participantId);
+        setParticipantCount(payload.participantCount ?? 0);
+        setTeamId(participantTeamState.teamId);
+        setTeamName(payload.team?.name ?? null);
+        setTeamMembers(payload.team?.members ?? []);
+        setTeamDecisions(payload.teamDecisions ?? []);
+        setIsTeamVoter(participantTeamState.isVoter);
+        setMyResponses(buildParticipantResponses(payload));
+        setCurrentStep(getStepForPayload(payload));
+        return;
+      } catch {
+        /* fall back to local step advance below */
+      }
+    }
+
     setCurrentStep(prev => prev + 1);
   };
 
@@ -723,6 +891,7 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
             .insert({
               session_id: session.id,
               participant_id: participantId,
+              team_id: teamId,
               question_id: question.id,
               response: answer,
             });
@@ -751,6 +920,21 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
     }
     setManualRefreshing(false);
   };
+
+  const currentTeamDecision =
+    session?.simulation.mode === "teams" && currentStep >= 2 && currentStep <= 4
+      ? teamDecisions.find((item) => item.decision_id === decisions[currentStep - 2]?.id)
+      : null;
+  const waitingForTeamChoice = session?.simulation.mode === "teams" && !currentTeamDecision;
+  const canSelectTeamChoice = Boolean(session?.simulation.mode === "teams" && isTeamVoter && !currentTeamDecision);
+  const teamChoiceIsLocked = Boolean(session?.simulation.mode === "teams" && currentTeamDecision);
+  const activeTeamName = teamName || "Your team";
+  const submitButtonLabel =
+    session?.simulation.mode === "teams"
+      ? currentTeamDecision
+        ? "Submit Justification"
+        : "Submit Team Choice & Justification"
+      : "Submit Decision";
 
   const handleLeaveStudentView = async () => {
     if (!session?.is_preview) return;
@@ -815,6 +999,12 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
           <CardContent className="px-4 sm:px-6">
             <div className="space-y-3 text-center">
               <p className="font-medium text-foreground">You&apos;re in.</p>
+              {session?.simulation.mode === "teams" ? (
+                <p className="text-sm text-muted-foreground">
+                  {teamName ? `${teamName} · ` : ""}
+                  {isTeamVoter ? "You are the team voter." : "A teammate will make the team choice."}
+                </p>
+              ) : null}
               <p className="text-muted-foreground text-sm sm:text-base">
                 {participantCount <= 1
                   ? "Waiting for the instructor to start."
@@ -1077,10 +1267,46 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
             </h2>
           </div>
 
+          {session?.simulation.mode === "teams" ? (
+            <Card className="border-muted/80 bg-card/95 shadow-sm">
+              <CardContent className="space-y-3 px-4 py-4 sm:px-6">
+                <div className="flex flex-wrap items-center gap-2">
+                  <Badge variant="outline">{activeTeamName}</Badge>
+                  <Badge variant={isTeamVoter ? "default" : "secondary"}>
+                    {isTeamVoter ? "You are the voter" : "Non-voter"}
+                  </Badge>
+                </div>
+                <p className="text-sm text-muted-foreground">
+                  {currentTeamDecision
+                    ? "Your team choice is locked in. Add your own justification to continue."
+                    : isTeamVoter
+                      ? "Choose the option for your team. Every teammate still submits their own justification."
+                      : "Waiting for your team voter to choose an option. Once they do, you will add your own justification."}
+                </p>
+                {teamMembers.length > 0 ? (
+                  <div className="flex flex-wrap gap-2">
+                    {teamMembers.map((member) => (
+                      <Badge key={member.id} variant={member.is_voter ? "default" : "secondary"}>
+                        {member.name}
+                        {member.is_voter ? " (Voter)" : ""}
+                      </Badge>
+                    ))}
+                  </div>
+                ) : null}
+              </CardContent>
+            </Card>
+          ) : null}
+
           {/* Options */}
           <Card className="border-muted/80 bg-card/95 shadow-sm">
             <CardContent className="space-y-3 px-4 sm:px-6 pt-5">
-              <RadioGroup value={selectedOption || ""} onValueChange={setSelectedOption}>
+              <RadioGroup
+                value={selectedOption || ""}
+                onValueChange={(value) => {
+                  if (session?.simulation.mode === "teams" && !canSelectTeamChoice) return;
+                  setSelectedOption(value);
+                }}
+              >
                 {decision.options.map((option) => (
                   <Collapsible key={option.id} className="group/option">
                     <div
@@ -1091,10 +1317,22 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
                       }`}
                     >
                       <div
-                        className="flex items-center gap-3 p-3 sm:p-4 min-h-[48px] cursor-pointer"
-                        onClick={() => setSelectedOption(option.id)}
+                        className={`flex items-center gap-3 p-3 sm:p-4 min-h-[48px] ${
+                          session?.simulation.mode === "teams" && !canSelectTeamChoice
+                            ? "cursor-not-allowed opacity-80"
+                            : "cursor-pointer"
+                        }`}
+                        onClick={() => {
+                          if (session?.simulation.mode === "teams" && !canSelectTeamChoice) return;
+                          setSelectedOption(option.id);
+                        }}
                       >
-                        <RadioGroupItem value={option.id} id={option.id} className="mt-0.5 shrink-0" />
+                        <RadioGroupItem
+                          value={option.id}
+                          id={option.id}
+                          disabled={Boolean(session?.simulation.mode === "teams" && !canSelectTeamChoice)}
+                          className="mt-0.5 shrink-0"
+                        />
                         <div className="flex-1 min-w-0">
                           <Label htmlFor={option.id} className="text-sm sm:text-[15px] font-medium cursor-pointer text-foreground/95 break-words">
                             {option.label}. {option.title}
@@ -1127,7 +1365,7 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
           </Card>
 
           {/* Justification / video response */}
-          <Collapsible defaultOpen={isVideoJustification} className="group">
+          <Collapsible defaultOpen={isVideoJustification || Boolean(currentTeamDecision) || canSelectTeamChoice} className="group">
             <Card className="border-muted/80 bg-card/95 shadow-sm overflow-hidden p-0 gap-0">
               <CollapsibleTrigger asChild>
                 <button
@@ -1146,7 +1384,11 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
               </CollapsibleTrigger>
               <CollapsibleContent>
                 <div className="px-6 pb-5 pt-0 border-t border-border/50">
-                  {canChooseResponseInput ? (
+                  {session?.simulation.mode === "teams" && waitingForTeamChoice && !canSelectTeamChoice ? (
+                    <div className="pt-4 text-sm text-muted-foreground">
+                      Waiting for your team voter to choose an option before you can submit your own justification.
+                    </div>
+                  ) : canChooseResponseInput ? (
                     <div className="mb-4 flex flex-wrap gap-2 pt-4">
                       <Button
                         type="button"
@@ -1268,11 +1510,16 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
             <Button
               size="lg"
               onClick={submitDecision}
-              disabled={!selectedOption || (isVideoJustification ? !videoFile : !justification.trim()) || submitting}
+              disabled={
+                !selectedOption ||
+                (isVideoJustification ? !videoFile : !justification.trim()) ||
+                Boolean(session?.simulation.mode === "teams" && waitingForTeamChoice && !canSelectTeamChoice) ||
+                submitting
+              }
               className="shadow-sm min-h-[48px] w-full sm:w-auto"
             >
               {submitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              Submit Decision
+              {submitButtonLabel}
             </Button>
           </div>
         </div>

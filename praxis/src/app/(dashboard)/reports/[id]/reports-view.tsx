@@ -80,6 +80,7 @@ type ReportsResponse = Pick<
   | "justification"
   | "submitted_at"
 >;
+type ReportsTeamDecisionSubmission = Omit<ReportsResponse, "justification"> & { justification: null };
 
 interface ReportsViewProps {
   simulation: ReportsSimulation;
@@ -89,6 +90,7 @@ interface ReportsViewProps {
   participants: ReportsParticipant[];
   teams: ReportsTeam[];
   responses: ReportsResponse[];
+  teamDecisionSubmissions: ReportsTeamDecisionSubmission[];
   responseGalleryItems: ResponseGalleryItem[];
   reflectionResponses: ReflectionResponseWithQuestion[];
   initialDebrief?: Record<string, unknown> | null;
@@ -102,6 +104,7 @@ export function ReportsView({
   participants,
   teams,
   responses,
+  teamDecisionSubmissions,
   responseGalleryItems,
   reflectionResponses,
   initialDebrief,
@@ -218,7 +221,10 @@ export function ReportsView({
 
   // Calculate distribution for each decision
   const getDistribution = (decisionId: string) => {
-    const decisionResponses = responses.filter(r => r.decision_id === decisionId);
+    const decisionResponses =
+      simulation.mode === "teams"
+        ? teamDecisionSubmissions.filter(r => r.decision_id === decisionId)
+        : responses.filter(r => r.decision_id === decisionId);
     const decision = decisions.find(d => d.id === decisionId);
     if (!decision) return [];
 
@@ -234,6 +240,7 @@ export function ReportsView({
   // Calculate scores per participant/team
   const getScores = () => {
     const scoreMap: Record<string, { name: string; scores: number[]; total: number }> = {};
+    const scoringResponses = simulation.mode === "teams" ? teamDecisionSubmissions : responses;
 
     if (simulation.mode === "teams") {
       teams.forEach(team => {
@@ -246,7 +253,7 @@ export function ReportsView({
     }
 
     decisions.forEach(decision => {
-      const decisionResponses = responses.filter(r => r.decision_id === decision.id);
+      const decisionResponses = scoringResponses.filter(r => r.decision_id === decision.id);
       
       decisionResponses.forEach(response => {
         const key = simulation.mode === "teams" ? response.team_id : response.participant_id;
@@ -281,17 +288,22 @@ export function ReportsView({
         const row: string[] = [team.name];
         
         decisions.forEach(decision => {
-          const response = responses.find(r => r.decision_id === decision.id && r.team_id === team.id);
+          const response = teamDecisionSubmissions.find(r => r.decision_id === decision.id && r.team_id === team.id);
           const option = decision.options.find(o => o.id === response?.option_id);
           row.push(option ? `${option.label}. ${option.title}` : "");
         });
 
         decisions.forEach(decision => {
-          const response = responses.find(r => r.decision_id === decision.id && r.team_id === team.id);
-          row.push(response?.justification || "");
+          const teamJustifications = responses
+            .filter(r => r.decision_id === decision.id && r.team_id === team.id && r.justification)
+            .map((r) => {
+              const participantName = participants.find((p) => p.id === r.participant_id)?.name ?? "Student";
+              return `${participantName}: ${r.justification}`;
+            });
+          row.push(teamJustifications.join(" | "));
         });
 
-        const totalScore = responses
+        const totalScore = teamDecisionSubmissions
           .filter(r => r.team_id === team.id)
           .reduce((sum, r) => {
             const decision = decisions.find(d => d.id === r.decision_id);
@@ -469,6 +481,7 @@ export function ReportsView({
       <DeterministicMetrics
         decisions={decisions}
         responses={responses}
+        teamDecisionSubmissions={teamDecisionSubmissions}
         participants={participants}
         teams={teams}
         reflectionResponses={reflectionResponses}
@@ -577,7 +590,11 @@ export function ReportsView({
               </div>
             </div>
           </div>
-          <ResponseGallery decisions={decisions} items={responseGalleryItems} responses={responses} />
+          <ResponseGallery
+            decisions={decisions}
+            items={responseGalleryItems}
+            responses={simulation.mode === "teams" ? teamDecisionSubmissions : responses}
+          />
         </TabsContent>
 
         {/* Scores Tab */}

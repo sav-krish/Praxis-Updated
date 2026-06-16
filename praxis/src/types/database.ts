@@ -299,6 +299,36 @@ export interface Database {
         }
         Relationships: []
       }
+      team_decision_submissions: {
+        Row: {
+          id: string
+          session_id: string
+          team_id: string
+          decision_id: string
+          option_id: string
+          submitted_by_participant_id: string | null
+          submitted_at: string
+        }
+        Insert: {
+          id?: string
+          session_id: string
+          team_id: string
+          decision_id: string
+          option_id: string
+          submitted_by_participant_id?: string | null
+          submitted_at?: string
+        }
+        Update: {
+          id?: string
+          session_id?: string
+          team_id?: string
+          decision_id?: string
+          option_id?: string
+          submitted_by_participant_id?: string | null
+          submitted_at?: string
+        }
+        Relationships: []
+      }
       participants: {
         Row: {
           id: string

@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
-import { createClient } from "@/lib/supabase/server";
+import { createClient, createServiceRoleClient } from "@/lib/supabase/server";
 import { SessionLobby } from "./session-lobby";
+import { maybeRebalanceSessionTeams } from "@/lib/team-assignment";
 import {
   SESSION_LOBBY_ROW,
   SESSION_LOBBY_SIMULATION,
@@ -56,6 +57,16 @@ export default async function SessionPage({ params }: PageProps) {
   if (error || !session) {
     notFound();
   }
+
+  await maybeRebalanceSessionTeams(
+    sessionId,
+    {
+      mode: session.simulation.mode,
+      team_assignment: session.simulation.team_assignment ?? null,
+      team_size: session.simulation.team_size ?? null,
+    },
+    createServiceRoleClient()
+  ).catch(() => null);
 
   // Fetch participants
   const { data: participants } = await supabase

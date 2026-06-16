@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServiceRoleClient } from "@/lib/supabase/server";
 import type { Json } from "@/types/database";
+import { maybeRebalanceSessionTeams } from "@/lib/team-assignment";
 
 const SESSION_SIMULATION_SELECT =
   `
@@ -8,7 +9,7 @@ const SESSION_SIMULATION_SELECT =
     status,
     current_step,
     is_preview,
-    simulation:simulations(id, title, background_content, mode, justification_type, estimated_minutes, hidden_profiles_enabled, preferences)
+    simulation:simulations(id, title, background_content, mode, team_assignment, team_size, justification_type, estimated_minutes, hidden_profiles_enabled, preferences)
   ` as const;
 
 const SESSION_SIMULATION_SELECT_LEGACY =
@@ -17,12 +18,14 @@ const SESSION_SIMULATION_SELECT_LEGACY =
     status,
     current_step,
     is_preview,
-    simulation:simulations(id, title, background_content, mode, estimated_minutes, hidden_profiles_enabled, preferences)
+    simulation:simulations(id, title, background_content, mode, team_assignment, team_size, estimated_minutes, hidden_profiles_enabled, preferences)
   ` as const;
 
 interface RouteContext {
   params: Promise<{ code: string }>;
 }
+
+type TeamRow = { id: string; name: string };
 
 export async function GET(request: NextRequest, { params }: RouteContext) {
   const { code } = await params;
@@ -65,6 +68,8 @@ export async function GET(request: NextRequest, { params }: RouteContext) {
         title: string;
         background_content: string | null;
         mode: string;
+        team_assignment?: "auto" | "self" | null;
+        team_size?: number | null;
         justification_type: "written" | "video" | "video_or_text";
         estimated_minutes?: number | null;
         hidden_profiles_enabled?: boolean;
@@ -75,6 +80,16 @@ export async function GET(request: NextRequest, { params }: RouteContext) {
   if (!simulationData?.id) {
     return NextResponse.json({ error: "Simulation data unavailable" }, { status: 404 });
   }
+
+  await maybeRebalanceSessionTeams(
+    sessionData.id,
+    {
+      mode: simulationData.mode as "individual" | "teams",
+      team_assignment: simulationData.team_assignment ?? null,
+      team_size: simulationData.team_size ?? null,
+    },
+    supabase
+  );
 
   const sessionPayload = {
     id: sessionData.id,
@@ -92,7 +107,7 @@ export async function GET(request: NextRequest, { params }: RouteContext) {
     participantId
       ? supabase
           .from("participants")
-          .select("id, name, profile_id")
+          .select("id, name, profile_id, team_id, is_voter")
           .eq("id", participantId)
           .eq("session_id", sessionData.id)
           .single()
@@ -103,8 +118,40 @@ export async function GET(request: NextRequest, { params }: RouteContext) {
     return NextResponse.json({ error: "Participant not found" }, { status: 404 });
   }
 
-  const playerProfileId = participantResult.data?.profile_id ?? null;
-  const [{ data: decisionsData }, { data: questionsData }, { data: blocksData }, { data: sourcesData }, { data: scenarioImgData }, { data: responsesData }, profileResult] = await Promise.all([
+  let participantData = participantResult.data;
+
+  if (
+    participantId &&
+    simulationData.mode === "teams" &&
+    simulationData.team_assignment !== "self" &&
+    participantData &&
+    !participantData.team_id
+  ) {
+    await maybeRebalanceSessionTeams(
+      sessionData.id,
+      {
+        mode: simulationData.mode as "individual" | "teams",
+        team_assignment: simulationData.team_assignment ?? null,
+        team_size: simulationData.team_size ?? null,
+      },
+      supabase
+    );
+
+    const { data: refreshedParticipant } = await supabase
+      .from("participants")
+      .select("id, name, profile_id, team_id, is_voter")
+      .eq("id", participantId)
+      .eq("session_id", sessionData.id)
+      .single();
+
+    if (refreshedParticipant) {
+      participantData = refreshedParticipant;
+    }
+  }
+
+  const playerProfileId = participantData?.profile_id ?? null;
+  const participantTeamId = participantData?.team_id ?? null;
+  const [{ data: decisionsData }, { data: questionsData }, { data: blocksData }, { data: sourcesData }, { data: scenarioImgData }, { data: responsesData }, { data: teamDecisionData }, { data: teamMembersData }, { data: teamData }, profileResult] = await Promise.all([
     supabase
       .from("decisions")
       .select("id, order_num, prompt, options(id, label, title, description, consequence, score)")
@@ -137,6 +184,28 @@ export async function GET(request: NextRequest, { params }: RouteContext) {
           .eq("session_id", sessionData.id)
           .eq("participant_id", participantId)
       : Promise.resolve({ data: [], error: null }),
+    simulationData.mode === "teams" && participantTeamId
+      ? supabase
+          .from("team_decision_submissions")
+          .select("id, team_id, decision_id, option_id, submitted_at")
+          .eq("session_id", sessionData.id)
+          .eq("team_id", participantTeamId)
+      : Promise.resolve({ data: [], error: null }),
+    simulationData.mode === "teams" && participantTeamId
+      ? supabase
+          .from("teams")
+          .select("id, name")
+          .eq("id", participantTeamId)
+          .single()
+      : Promise.resolve({ data: null, error: null }),
+    simulationData.mode === "teams" && participantTeamId
+      ? supabase
+          .from("participants")
+          .select("id, name, team_id, is_voter")
+          .eq("session_id", sessionData.id)
+          .eq("team_id", participantTeamId)
+          .order("joined_at", { ascending: true })
+      : Promise.resolve({ data: [], error: null }),
     playerProfileId
       ? supabase
           .from("simulation_profiles")
@@ -149,13 +218,23 @@ export async function GET(request: NextRequest, { params }: RouteContext) {
   return NextResponse.json({
     session: sessionPayload,
     participantCount: count ?? 0,
-    participant: participantResult.data
+    participant: participantData
       ? {
-          id: participantResult.data.id,
-          name: participantResult.data.name,
-          profile_id: participantResult.data.profile_id,
+          id: participantData.id,
+          name: participantData.name,
+          profile_id: participantData.profile_id,
+          team_id: participantData.team_id,
+          is_voter: participantData.is_voter,
         }
       : null,
+    team: participantTeamId
+      ? {
+          id: participantTeamId,
+          name: (teamData as TeamRow | null)?.name ?? "Team",
+          members: teamMembersData ?? [],
+        }
+      : null,
+    teamDecisions: teamDecisionData ?? [],
     playerProfile: profileResult.data ?? null,
     decisions: (decisionsData ?? []).map((decision) => ({
       ...decision,

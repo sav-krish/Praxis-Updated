@@ -31,7 +31,7 @@ export const SESSION_LOBBY_ROW =
   "id, simulation_id, join_code, response_gallery_access_code, status, current_step, started_at, ended_at, debrief_guide, video_gallery_share_id, is_preview, created_at" as const;
 
 export const SESSION_LOBBY_SIMULATION =
-  "id, title, mode, hidden_profiles_enabled, preferences" as const;
+  "id, title, mode, team_assignment, team_size, hidden_profiles_enabled, preferences" as const;
 
 export const SESSION_REPORTS_LIST = "id, status, started_at, ended_at, created_at" as const;
 

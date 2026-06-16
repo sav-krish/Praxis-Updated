@@ -54,6 +54,7 @@ interface ReflectionResponseLite {
 interface DeterministicMetricsProps {
   decisions: DecisionLite[];
   responses: ResponseLite[];
+  teamDecisionSubmissions?: ResponseLite[];
   participants: ParticipantLite[];
   teams: { id: string }[];
   reflectionResponses: ReflectionResponseLite[];
@@ -75,15 +76,18 @@ const STOPWORDS = new Set([
 export function DeterministicMetrics({
   decisions,
   responses,
+  teamDecisionSubmissions = [],
   participants,
   teams,
   reflectionResponses,
   mode,
 }: DeterministicMetricsProps) {
+  const effectiveDecisionResponses = mode === "teams" ? teamDecisionSubmissions : responses;
+
   // ---- Chart 1: Decision-by-decision option distribution (stacked bar) ----
   const distributionData = useMemo(() => {
     return decisions.map((d, idx) => {
-      const decisionResponses = responses.filter((r) => r.decision_id === d.id);
+      const decisionResponses = effectiveDecisionResponses.filter((r) => r.decision_id === d.id);
       const total = decisionResponses.length || 1;
       const row: Record<string, string | number> = { name: `D${idx + 1}` };
       d.options.forEach((opt) => {
@@ -92,7 +96,7 @@ export function DeterministicMetrics({
       });
       return row;
     });
-  }, [decisions, responses]);
+  }, [decisions, effectiveDecisionResponses]);
 
   // ---- Chart 2: Score histogram across actors ----
   const histogramData = useMemo(() => {
@@ -101,7 +105,7 @@ export function DeterministicMetrics({
     actors.forEach((id) => {
       let sum = 0;
       decisions.forEach((d) => {
-        const r = responses.find((r) =>
+        const r = effectiveDecisionResponses.find((r) =>
           r.decision_id === d.id &&
           (mode === "teams" ? r.team_id === id : r.participant_id === id),
         );
@@ -117,12 +121,12 @@ export function DeterministicMetrics({
       buckets.push({ score: String(s), count: totals.filter((t) => t === s).length });
     }
     return buckets;
-  }, [decisions, responses, participants, teams, mode]);
+  }, [decisions, effectiveDecisionResponses, participants, teams, mode]);
 
   // ---- Chart 3: Average time-to-decide per decision (line) ----
   const timeToDecideData = useMemo(() => {
     return decisions.map((d, idx) => {
-      const sorted = [...responses]
+      const sorted = [...effectiveDecisionResponses]
         .filter((r) => r.decision_id === d.id && r.submitted_at)
         .map((r) => ({
           actor: mode === "teams" ? r.team_id : r.participant_id,
@@ -145,7 +149,7 @@ export function DeterministicMetrics({
       const prev = decisions[idx - 1];
       const deltas: number[] = [];
       sorted.forEach((cur) => {
-        const prevR = responses.find(
+        const prevR = effectiveDecisionResponses.find(
           (r) =>
             r.decision_id === prev.id &&
             (mode === "teams" ? r.team_id : r.participant_id) === cur.actor &&
@@ -157,13 +161,13 @@ export function DeterministicMetrics({
       const avg = deltas.length ? deltas.reduce((a, b) => a + b, 0) / deltas.length : 0;
       return { name: `D${idx + 1}`, seconds: Math.round(avg) };
     });
-  }, [decisions, responses, participants, mode]);
+  }, [decisions, effectiveDecisionResponses, participants, mode]);
 
   // ---- Chart 4: Completion funnel ----
   const funnelData = useMemo(() => {
     const totalActors = mode === "teams" ? teams.length : participants.length;
     const startedActors = new Set(
-      responses.map((r) => (mode === "teams" ? r.team_id : r.participant_id)).filter(Boolean),
+      effectiveDecisionResponses.map((r) => (mode === "teams" ? r.team_id : r.participant_id)).filter(Boolean),
     ).size;
 
     const completedActors = (() => {
@@ -171,7 +175,7 @@ export function DeterministicMetrics({
       const actors = mode === "teams" ? teams : participants;
       actors.forEach((a) => {
         const made = decisions.every((d) =>
-          responses.some(
+          effectiveDecisionResponses.some(
             (r) =>
               r.decision_id === d.id &&
               (mode === "teams" ? r.team_id === a.id : r.participant_id === a.id),
@@ -194,12 +198,12 @@ export function DeterministicMetrics({
       { stage: "Completed", value: completedActors },
       { stage: "Reflected", value: reflectedActors },
     ];
-  }, [decisions, responses, reflectionResponses, participants, teams, mode]);
+  }, [decisions, effectiveDecisionResponses, reflectionResponses, participants, teams, mode]);
 
   // ---- Chart 5: Optimal-pick rate per decision (KPI cards) ----
   const optimalPickData = useMemo(() => {
     return decisions.map((d, idx) => {
-      const decisionResponses = responses.filter((r) => r.decision_id === d.id);
+      const decisionResponses = effectiveDecisionResponses.filter((r) => r.decision_id === d.id);
       const total = decisionResponses.length || 1;
       const optimal = d.options.find((o) => (o.score ?? 0) === 3);
       const count = optimal
@@ -213,7 +217,7 @@ export function DeterministicMetrics({
         optimalLabel: optimal?.label,
       };
     });
-  }, [decisions, responses]);
+  }, [decisions, effectiveDecisionResponses]);
 
   // ---- Chart 6: Reflection word cloud (deterministic frequency) ----
   const wordCloudData = useMemo(() => {
