@@ -57,21 +57,36 @@ export function DataBlockChartRenderer({ block }: { block: SimulationDataBlock }
   if (isLineChartBlock(block)) {
     const data = block.data as LineChartBlockData;
     const series = (data.series || []).map((s, i) => ({
+      key: `series_${i}`,
       label: s.label?.trim() || `Series ${i + 1}`,
       data: s.data || [],
     }));
     const allPoints = series.flatMap((s) => s.data);
-    const xLabels = [...new Set(allPoints.map((p) => p.x))].sort((a, b) =>
-      a.localeCompare(b, undefined, { numeric: true, sensitivity: "base" })
-    );
-    const chartData = xLabels.map((x) => {
-      const point: Record<string, string | number | null> = { name: x };
-      for (const s of series) {
-        const p = s.data.find((d) => d.x === x);
-        point[s.label] = p?.y ?? null;
-      }
-      return point;
-    });
+    const uniqueXLabelCount = new Set(allPoints.map((p) => p.x)).size;
+    const maxSeriesLength = Math.max(0, ...series.map((s) => s.data.length));
+    const useIndexAlignment = uniqueXLabelCount < maxSeriesLength;
+
+    const chartData = useIndexAlignment
+      ? Array.from({ length: maxSeriesLength }, (_, index) => {
+          const labelFromSeries = series.find((s) => s.data[index]?.x)?.data[index]?.x;
+          const point: Record<string, string | number | null> = {
+            name: labelFromSeries || `Point ${index + 1}`,
+          };
+          for (const s of series) {
+            point[s.key] = s.data[index]?.y ?? null;
+          }
+          return point;
+        })
+      : [...new Set(allPoints.map((p) => p.x))]
+          .sort((a, b) => a.localeCompare(b, undefined, { numeric: true, sensitivity: "base" }))
+          .map((x) => {
+            const point: Record<string, string | number | null> = { name: x };
+            for (const s of series) {
+              const p = s.data.find((d) => d.x === x);
+              point[s.key] = p?.y ?? null;
+            }
+            return point;
+          });
     const colors = ["hsl(var(--primary))", "#fd8c2e", "#f76224"];
     return (
       <div className="my-4 overflow-x-auto rounded-lg border bg-card p-4">
@@ -100,9 +115,10 @@ export function DataBlockChartRenderer({ block }: { block: SimulationDataBlock }
               <Legend />
               {series.map((s, i) => (
                 <Line
-                  key={s.label}
+                  key={s.key}
                   type="monotone"
-                  dataKey={s.label}
+                  dataKey={s.key}
+                  name={s.label}
                   connectNulls={false}
                   stroke={colors[i % colors.length]}
                   strokeWidth={2}

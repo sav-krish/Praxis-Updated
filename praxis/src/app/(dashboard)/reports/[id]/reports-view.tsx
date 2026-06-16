@@ -27,6 +27,7 @@ import { toast } from "sonner";
 import { FeedbackCard } from "@/components/simulation/FeedbackCard";
 import type { Simulation, Session, Decision, Option, Participant, Team, Response } from "@/types/database";
 import { ResponseGallery, type ResponseGalleryItem } from "@/components/reports/response-gallery";
+import { ReflectionGallery, type ReflectionGalleryItem } from "@/components/reports/reflection-gallery";
 
 // Lazy-load the recharts-heavy metrics panel so the initial /reports route
 // bundle stays small. In dev mode, this keeps the route compile fast and lets
@@ -107,6 +108,7 @@ export function ReportsView({
 }: ReportsViewProps) {
   const router = useRouter();
   const galleryUrl = `/response-gallery/${selectedSession.video_gallery_share_id}`;
+  const reflectionGalleryUrl = `/reflection-gallery/${selectedSession.video_gallery_share_id}`;
   const galleryAccessCode = selectedSession.response_gallery_access_code || selectedSession.join_code;
   const isLiveSession = selectedSession.status === "running";
   const [debrief, setDebrief] = useState<DebriefGuide | null>(initialDebrief as DebriefGuide | null);
@@ -358,6 +360,16 @@ export function ReportsView({
 
   const scores = getScores();
   const maxScore = decisions.length * 3;
+  const reflectionGalleryItems: ReflectionGalleryItem[] = reflectionResponses.map((item) => ({
+    id: item.id,
+    response: item.response,
+    participant_name:
+      (simulation.mode === "teams"
+        ? teams.find((team) => team.id === item.team_id)?.name
+        : participants.find((participant) => participant.id === item.participant_id)?.name) ??
+      "Student",
+    question: item.question.question,
+  }));
 
   return (
     <div className="max-w-6xl mx-auto px-0 sm:px-4">
@@ -616,46 +628,42 @@ export function ReportsView({
         </TabsContent>
 
         {/* Reflections Tab */}
-        <TabsContent value="reflections">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <MessageSquare className="h-5 w-5" />
-                Reflection Responses
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              {reflectionResponses.length === 0 ? (
-                <p className="text-muted-foreground text-center py-8">
-                  No reflection responses submitted yet.
-                </p>
-              ) : (
-                <div className="space-y-6">
-                  {[...new Set(reflectionResponses.map(r => r.question.question))].map(question => (
-                    <div key={question}>
-                      <h4 className="font-medium mb-3">{question}</h4>
-                      <div className="space-y-2">
-                        {reflectionResponses
-                          .filter(r => r.question.question === question)
-                          .map((r, i) => {
-                            const name = simulation.mode === "teams"
-                              ? teams.find(t => t.id === r.team_id)?.name
-                              : participants.find(p => p.id === r.participant_id)?.name;
-                            return (
-                              <div key={i} className="p-3 bg-muted rounded-lg">
-                                <p className="text-sm font-medium mb-1">{name}</p>
-                                <p className="text-sm text-muted-foreground">{r.response}</p>
-                              </div>
-                            );
-                          })}
-                      </div>
-                      <Separator className="my-4" />
-                    </div>
-                  ))}
-                </div>
-              )}
-            </CardContent>
-          </Card>
+        <TabsContent value="reflections" className="space-y-4 sm:space-y-6">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <h3 className="text-lg font-semibold">Reflection Gallery</h3>
+              <p className="text-sm text-muted-foreground">
+                Share the reflection gallery link and access code with students to review post-session thinking by question.
+              </p>
+            </div>
+            <div className="flex flex-col gap-2 sm:items-end">
+              <div className="rounded-md border border-border/70 bg-muted/20 px-3 py-2 text-sm">
+                Access code: <span className="font-mono font-semibold tracking-wide">{galleryAccessCode}</span>
+              </div>
+              <div className="flex flex-wrap justify-end gap-2">
+                <Button
+                  variant="outline"
+                  onClick={async () => {
+                    await navigator.clipboard.writeText(galleryAccessCode);
+                    toast.success("Gallery access code copied");
+                  }}
+                >
+                  Copy Access Code
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={async () => {
+                    const fullUrl = `${window.location.origin}${reflectionGalleryUrl}`;
+                    await navigator.clipboard.writeText(fullUrl);
+                    toast.success("Reflection gallery link copied");
+                  }}
+                >
+                  Copy Reflection Gallery Link
+                </Button>
+              </div>
+            </div>
+          </div>
+          <ReflectionGallery items={reflectionGalleryItems} />
         </TabsContent>
 
         {/* Debrief Tab */}
