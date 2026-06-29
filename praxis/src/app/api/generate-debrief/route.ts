@@ -13,8 +13,6 @@ export const dynamic = "force-dynamic";
  * Events:
  *   `cached`             — debrief already saved on the session; full payload returned in one shot.
  *   `field` { name }     — about to start a field (`correctCourseOfAction`, etc.).
- *   `delta` { name, t }  — partial text token for the named field (only emitted for the
- *                          two paragraph-shaped fields).
  *   `field-done` { name, value }  — final value for the named field.
  *   `done` { debrief }   — full debrief, also persisted to `sessions.debrief_guide`.
  *   `error` { message }  — fatal error.
@@ -142,8 +140,8 @@ ${decisionSummaries
           stream: true,
         });
 
-        // Buffer the streaming JSON; surface coarse-grained "field" + "delta"
-        // events whenever a new top-level field name appears in the buffer.
+        // Buffer the streaming JSON and surface coarse-grained "field" events
+        // whenever a new top-level field name appears in the buffer.
         let buffer = "";
         const fieldOrder: (keyof Debrief)[] = [
           "correctCourseOfAction",
@@ -153,7 +151,6 @@ ${decisionSummaries
           "facilitatorTips",
         ];
         const announced = new Set<string>();
-        let activeField: keyof Debrief | null = null;
 
         for await (const chunk of completion) {
           const delta = chunk.choices?.[0]?.delta?.content ?? "";
@@ -166,14 +163,7 @@ ${decisionSummaries
             if (idx !== -1) {
               announced.add(f);
               send("field", { name: f });
-              activeField = f;
             }
-          }
-
-          // Forward token deltas for paragraph-shaped string fields so the UI
-          // can render them as they arrive.
-          if (activeField === "correctCourseOfAction" || activeField === "connectionToObjectives") {
-            send("delta", { name: activeField, t: delta });
           }
         }
 

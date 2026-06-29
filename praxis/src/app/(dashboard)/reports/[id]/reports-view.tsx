@@ -162,14 +162,6 @@ export function ReportsView({
           setStreamingField((data as { name: string }).name);
           return;
         }
-        if (event === "delta") {
-          const { name, t } = data as { name: keyof DebriefGuide; t: string };
-          if (name === "correctCourseOfAction" || name === "connectionToObjectives") {
-            partial[name] = ((partial[name] as string | undefined) ?? "") + t;
-            setDebrief({ ...partial });
-          }
-          return;
-        }
         if (event === "field-done") {
           const { name, value } = data as { name: keyof DebriefGuide; value: unknown };
           // Type-narrow per field shape.
