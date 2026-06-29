@@ -945,7 +945,7 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
     }
     sessionStorage.removeItem(`participant_${session.id}`);
     sessionStorage.removeItem(`participant_name_${session.id}`);
-    router.push("/dashboard");
+    router.push(`/edit/${session.simulation.id}`);
   };
 
   const totalScore = myResponses.reduce((sum, r) => sum + r.score, 0);
@@ -1308,57 +1308,43 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
                 }}
               >
                 {decision.options.map((option) => (
-                  <Collapsible key={option.id} className="group/option">
+                  <div
+                    key={option.id}
+                    className={`rounded-xl border-2 transition-all duration-200 ${
+                      selectedOption === option.id
+                        ? "border-primary/60 bg-primary/5 shadow-sm"
+                        : "border-border/60 bg-muted/30 hover:border-muted-foreground/40 hover:bg-muted/50"
+                    }`}
+                  >
                     <div
-                      className={`rounded-xl border-2 transition-all duration-200 ${
-                        selectedOption === option.id
-                          ? "border-primary/60 bg-primary/5 shadow-sm"
-                          : "border-border/60 bg-muted/30 hover:border-muted-foreground/40 hover:bg-muted/50"
+                      className={`flex items-start gap-3 p-3 sm:p-4 min-h-[48px] ${
+                        session?.simulation.mode === "teams" && !canSelectTeamChoice
+                          ? "cursor-not-allowed opacity-80"
+                          : "cursor-pointer"
                       }`}
+                      onClick={() => {
+                        if (session?.simulation.mode === "teams" && !canSelectTeamChoice) return;
+                        setSelectedOption(option.id);
+                      }}
                     >
-                      <div
-                        className={`flex items-center gap-3 p-3 sm:p-4 min-h-[48px] ${
-                          session?.simulation.mode === "teams" && !canSelectTeamChoice
-                            ? "cursor-not-allowed opacity-80"
-                            : "cursor-pointer"
-                        }`}
-                        onClick={() => {
-                          if (session?.simulation.mode === "teams" && !canSelectTeamChoice) return;
-                          setSelectedOption(option.id);
-                        }}
-                      >
-                        <RadioGroupItem
-                          value={option.id}
-                          id={option.id}
-                          disabled={Boolean(session?.simulation.mode === "teams" && !canSelectTeamChoice)}
-                          className="mt-0.5 shrink-0"
-                        />
-                        <div className="flex-1 min-w-0">
-                          <Label htmlFor={option.id} className="text-sm sm:text-[15px] font-medium cursor-pointer text-foreground/95 break-words">
-                            {option.label}. {option.title}
-                          </Label>
-                        </div>
-                        {option.description && (
-                          <CollapsibleTrigger
-                            asChild
-                            onClick={(e: React.MouseEvent) => e.stopPropagation()}
-                          >
-                            <span className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground shrink-0 p-1 rounded">
-                              <ChevronRight className="h-4 w-4 transition-transform group-data-[state=open]/option:rotate-90" />
-                              <span className="sr-only">Toggle details</span>
-                            </span>
-                          </CollapsibleTrigger>
-                        )}
+                      <RadioGroupItem
+                        value={option.id}
+                        id={option.id}
+                        disabled={Boolean(session?.simulation.mode === "teams" && !canSelectTeamChoice)}
+                        className="mt-0.5 shrink-0"
+                      />
+                      <div className="min-w-0 flex-1">
+                        <Label htmlFor={option.id} className="cursor-pointer break-words text-sm font-medium text-foreground/95 sm:text-[15px]">
+                          {option.label}. {option.title}
+                        </Label>
+                        {option.description ? (
+                          <p className="mt-1 text-xs leading-relaxed text-muted-foreground sm:text-sm">
+                            {option.description}
+                          </p>
+                        ) : null}
                       </div>
-                      {option.description && (
-                        <CollapsibleContent>
-                          <div className="px-4 pb-4 pt-0 pl-9 border-t border-border/40">
-                            <p className="text-sm text-muted-foreground leading-relaxed">{option.description}</p>
-                          </div>
-                        </CollapsibleContent>
-                      )}
                     </div>
-                  </Collapsible>
+                  </div>
                 ))}
               </RadioGroup>
             </CardContent>
