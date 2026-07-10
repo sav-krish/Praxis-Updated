@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { copilotDailyLimiter } from "@/lib/rate-limit-daily";
-import { generateChatCompletion } from "@/lib/gemini-generate";
-import { getModel } from "@/lib/gemini-client";
+import { generateChatCompletion, getOpenAIModel } from "@/lib/openai-generate";
 
 const SYSTEM_PROMPT = `You are Praxis Copilot, an AI assistant built into Praxis — a platform that helps professors create interactive decision-based classroom simulations for higher education.
 
@@ -87,8 +86,8 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Daily limit reached. Try again tomorrow." }, { status: 429 });
   }
 
-  if (!process.env.GEMINI_API_KEY?.trim()) {
-    return NextResponse.json({ error: "Gemini is not configured." }, { status: 503 });
+  if (!process.env.OPENAI_API_KEY?.trim()) {
+    return NextResponse.json({ error: "OpenAI is not configured." }, { status: 503 });
   }
 
   const { messages, context } = await req.json();
@@ -115,7 +114,7 @@ export async function POST(req: NextRequest) {
   const message = await generateChatCompletion({
     system: contextMessage ? `${SYSTEM_PROMPT}\n\n${contextMessage}` : SYSTEM_PROMPT,
     messages,
-    model: getModel(),
+    model: getOpenAIModel(),
     maxTokens: 2500,
   });
 

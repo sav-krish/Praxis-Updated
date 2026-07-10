@@ -3,8 +3,7 @@ import { createClient, createServiceRoleClient } from "@/lib/supabase/server";
 import { isAdmin } from "@/lib/admin";
 import { buildAdminAnalyticsPayload } from "@/lib/admin-analytics";
 import { analyticsInsightDailyLimiter } from "@/lib/rate-limit-daily";
-import { generateChatCompletion } from "@/lib/gemini-generate";
-import { getModel } from "@/lib/gemini-client";
+import { generateChatCompletion, getOpenAIModel } from "@/lib/openai-generate";
 
 const DEFAULT_ANALYTICS_GOALS = `- Professors adopt Praxis to run interactive, decision-based classroom simulations.
 - Students join live sessions and submit decisions (responses) during runs.
@@ -40,8 +39,8 @@ export async function POST() {
     return NextResponse.json({ error: "Daily limit reached for insights. Try again tomorrow." }, { status: 429 });
   }
 
-  if (!process.env.GEMINI_API_KEY?.trim()) {
-    return NextResponse.json({ error: "Gemini is not configured." }, { status: 503 });
+  if (!process.env.OPENAI_API_KEY?.trim()) {
+    return NextResponse.json({ error: "OpenAI is not configured." }, { status: 503 });
   }
 
   let svc: ReturnType<typeof createServiceRoleClient>;
@@ -67,7 +66,7 @@ export async function POST() {
   const insight = await generateChatCompletion({
     system: ANALYST_SYSTEM_PROMPT,
     messages: [{ role: "user", content: userMessage }],
-    model: getModel(),
+    model: getOpenAIModel(),
     maxTokens: 1200,
   });
   if (!insight.trim()) {

@@ -1,5 +1,4 @@
-import { generateStructured } from "@/lib/gemini-generate";
-import { getOutlineModel } from "@/lib/gemini-client";
+import { generateStructured, getOpenAIModel } from "@/lib/openai-generate";
 import { ALL_SUBJECTS } from "@/lib/subjects";
 import { PREFERENCE_CATEGORIES } from "@/lib/simulation-metadata-presets";
 import {
@@ -69,7 +68,7 @@ Pick 0–3 options per preference category; use empty arrays when unsure.`;
     system: SYSTEM,
     user,
     schema: BulkCaseMetadataInferSchema,
-    model: process.env.BULK_INFER_MODEL?.trim() || getOutlineModel(),
+    model: process.env.BULK_INFER_MODEL?.trim() || getOpenAIModel(),
     temperature: 0.35,
   });
 }

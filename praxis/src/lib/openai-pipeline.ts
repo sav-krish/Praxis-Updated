@@ -22,8 +22,8 @@ import {
   generateJsonText,
   generateStructured,
   streamJsonText,
-} from "@/lib/gemini-generate";
-import { getModel, getOutlineModel } from "@/lib/gemini-client";
+  getOpenAIModel,
+} from "@/lib/openai-generate";
 import {
   OutlineSchema,
   BackgroundSchema,
@@ -139,7 +139,7 @@ ${requestContext(input)}`;
     system,
     user,
     schema: OutlineSchema,
-    model: getOutlineModel(),
+    model: getOpenAIModel(),
     temperature: 0.7,
   });
 }
@@ -172,7 +172,7 @@ ${requestContext(input)}`;
   const raw = await streamJsonText({
     system,
     user,
-    model: getModel(),
+    model: getOpenAIModel(),
     temperature: 0.7,
     onDelta: (piece) => {
       acc += piece;
@@ -260,7 +260,7 @@ ${requestContext(input)}`;
     system,
     user,
     schema: DecisionsSchema,
-    model: getModel(),
+    model: getOpenAIModel(),
     temperature: 0.7,
   });
   return parsed.decisions;
@@ -297,7 +297,7 @@ ${requestContext(input)}`;
     const raw = await generateJsonText({
       system,
       user,
-      model: getModel(),
+      model: getOpenAIModel(),
       temperature: 0.7,
     });
 
@@ -335,7 +335,7 @@ ${requestContext(input)}`;
     system,
     user,
     schema: ReflectionQuestionsSchema,
-    model: getModel(),
+    model: getOpenAIModel(),
     temperature: 0.7,
   });
   return parsed.reflectionQuestions;
@@ -354,7 +354,7 @@ ${requestContext(input)}`;
     system,
     user,
     schema: HiddenProfilesSchema,
-    model: getModel(),
+    model: getOpenAIModel(),
     temperature: 0.7,
   });
   return parsed.hiddenProfiles;

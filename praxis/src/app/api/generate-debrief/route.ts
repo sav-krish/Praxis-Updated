@@ -1,8 +1,7 @@
 import { NextRequest } from "next/server";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
-import { streamJsonText } from "@/lib/gemini-generate";
-import { getModel } from "@/lib/gemini-client";
+import { streamJsonText, getOpenAIModel } from "@/lib/openai-generate";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -138,7 +137,7 @@ ${decisionSummaries
         await streamJsonText({
           system,
           user,
-          model: getModel(),
+          model: getOpenAIModel(),
           temperature: 0.5,
           onDelta: (delta) => {
             buffer += delta;

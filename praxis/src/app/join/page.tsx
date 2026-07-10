@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Loader2, ArrowRight } from "lucide-react";
+import { Loader2, ArrowRight, UserPlus, SkipForward } from "lucide-react";
 import { toast } from "sonner";
 
 function JoinForm() {
@@ -21,6 +21,8 @@ function JoinForm() {
   const [loading, setLoading] = useState(false);
   const [checking, setChecking] = useState(false);
   const [session, setSession] = useState<{ id: string; simulation_id: string } | null>(null);
+  const [showAccountModal, setShowAccountModal] = useState(false);
+  const [pendingJoinData, setPendingJoinData] = useState<{ participantId: string; participantName: string; sessionId: string } | null>(null);
 
   const lookupSession = useCallback(async () => {
     setChecking(true);
@@ -93,18 +95,38 @@ function JoinForm() {
         throw new Error(result && "error" in result ? result.error : "Failed to join session");
       }
 
-      // Store participant ID in sessionStorage (per-tab, so each tab can be a different student)
-      sessionStorage.setItem(`participant_${session.id}`, result.participantId);
-      sessionStorage.setItem(`participant_name_${session.id}`, name.trim());
-
-      // Navigate to play page
-      router.push(`/play/${joinCode.toUpperCase()}`);
+      // Store the pending join data and show the account creation modal
+      setPendingJoinData(result);
+      setShowAccountModal(true);
     } catch (error) {
       logger.error(error);
       toast.error("Failed to join session");
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleCreateAccount = () => {
+    // Store participant data temporarily for after signup redirect
+    if (pendingJoinData) {
+      sessionStorage.setItem(`participant_${session!.id}`, pendingJoinData.participantId);
+      sessionStorage.setItem(`participant_name_${session!.id}`, pendingJoinData.participantName);
+      // Redirect to signup with the join code so they can create an account
+      // After signup, they'll be redirected back to the play page
+      router.push(`/auth/signup?role=student&code=${joinCode.toUpperCase()}`);
+    }
+  };
+
+  const handleContinueWithoutAccount = () => {
+    // Store participant data for anonymous session
+    if (pendingJoinData) {
+      sessionStorage.setItem(`participant_${session!.id}`, pendingJoinData.participantId);
+      sessionStorage.setItem(`participant_name_${session!.id}`, pendingJoinData.participantName);
+    }
+    setShowAccountModal(false);
+    setPendingJoinData(null);
+    // Navigate to play page
+    router.push(`/play/${joinCode.toUpperCase()}`);
   };
 
   // Show a spinner while verifying a returning student
@@ -188,15 +210,6 @@ function JoinForm() {
             </Button>
             <div className="mt-4 space-y-2 text-center text-sm text-muted-foreground">
               <p>
-                Want to save progress and view reports?{" "}
-                <Link
-                  href={`/auth/signup?role=student&code=${joinCode || ""}`}
-                  className="text-primary font-medium hover:underline"
-                >
-                  Create a student account
-                </Link>
-              </p>
-              <p>
                 Already have an account?{" "}
                 <Link href="/auth/login" className="text-primary font-medium hover:underline">
                   Sign in
@@ -206,6 +219,42 @@ function JoinForm() {
           </CardContent>
         </form>
       </Card>
+
+      {/* Account Creation Modal */}
+      {showAccountModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
+          <Card className="w-full max-w-sm">
+            <CardHeader className="text-center pb-2">
+              <div className="mx-auto mb-2 flex h-12 w-12 items-center justify-center rounded-full bg-primary/10">
+                <UserPlus className="h-6 w-6 text-primary" />
+              </div>
+              <CardTitle className="text-lg">Save Your Progress?</CardTitle>
+              <CardDescription>
+                Create an account to view your reports and track your performance over time.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-3 pt-4">
+              <Button
+                onClick={handleCreateAccount}
+                className="w-full"
+                size="lg"
+              >
+                <UserPlus className="mr-2 h-4 w-4" />
+                Create Account & Join
+              </Button>
+              <Button
+                onClick={handleContinueWithoutAccount}
+                variant="outline"
+                className="w-full"
+                size="lg"
+              >
+                <SkipForward className="mr-2 h-4 w-4" />
+                Continue Without Account
+              </Button>
+            </CardContent>
+          </Card>
+        </div>
+      )}
     </div>
   );
 }
