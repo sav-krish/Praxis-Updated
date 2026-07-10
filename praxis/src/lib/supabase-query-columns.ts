@@ -39,7 +39,7 @@ export const SESSION_REPORTS_SELECTED =
   "id, simulation_id, debrief_guide, status, video_gallery_share_id, response_gallery_access_code, join_code" as const;
 
 export const PARTICIPANT_LOBBY_ROW =
-  "id, session_id, team_id, profile_id, name, is_voter, joined_at" as const;
+  "id, session_id, team_id, user_id, profile_id, name, is_voter, joined_at" as const;
 
 export const TEAM_LOBBY_ROW = "id, session_id, name, created_at" as const;
 

@@ -3,9 +3,8 @@ import { createClient, createServiceRoleClient } from "@/lib/supabase/server";
 import { isAdmin } from "@/lib/admin";
 import { buildAdminAnalyticsPayload } from "@/lib/admin-analytics";
 import { analyticsInsightDailyLimiter } from "@/lib/rate-limit-daily";
-import OpenAI from "openai";
-
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+import { generateChatCompletion } from "@/lib/gemini-generate";
+import { getModel } from "@/lib/gemini-client";
 
 const DEFAULT_ANALYTICS_GOALS = `- Professors adopt Praxis to run interactive, decision-based classroom simulations.
 - Students join live sessions and submit decisions (responses) during runs.
@@ -41,8 +40,8 @@ export async function POST() {
     return NextResponse.json({ error: "Daily limit reached for insights. Try again tomorrow." }, { status: 429 });
   }
 
-  if (!process.env.OPENAI_API_KEY) {
-    return NextResponse.json({ error: "OpenAI is not configured." }, { status: 503 });
+  if (!process.env.GEMINI_API_KEY?.trim()) {
+    return NextResponse.json({ error: "Gemini is not configured." }, { status: 503 });
   }
 
   let svc: ReturnType<typeof createServiceRoleClient>;
@@ -65,18 +64,13 @@ export async function POST() {
 
   const userMessage = `Product goals (evaluate insights against these):\n${goals}\n\nAnalytics payload (JSON):\n${JSON.stringify(payload)}`;
 
-  const completion = await openai.chat.completions.create({
-    model: process.env.OPENAI_MODEL ?? "gpt-4o",
-    messages: [
-      { role: "system", content: ANALYST_SYSTEM_PROMPT },
-      { role: "user", content: userMessage },
-    ],
-    max_tokens: 1200,
-    stream: false,
+  const insight = await generateChatCompletion({
+    system: ANALYST_SYSTEM_PROMPT,
+    messages: [{ role: "user", content: userMessage }],
+    model: getModel(),
+    maxTokens: 1200,
   });
-
-  const insight = completion.choices[0]?.message?.content?.trim();
-  if (!insight) {
+  if (!insight.trim()) {
     return NextResponse.json({ error: "Empty model response." }, { status: 502 });
   }
 

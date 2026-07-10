@@ -42,6 +42,42 @@ export interface Database {
         }
         Relationships: []
       }
+      student_profiles: {
+        Row: {
+          user_id: string
+          first_name: string
+          last_name: string
+          school: string
+          graduation_year: number | null
+          major: string | null
+          career_interests: string[]
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          user_id: string
+          first_name?: string
+          last_name?: string
+          school?: string
+          graduation_year?: number | null
+          major?: string | null
+          career_interests?: string[]
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          user_id?: string
+          first_name?: string
+          last_name?: string
+          school?: string
+          graduation_year?: number | null
+          major?: string | null
+          career_interests?: string[]
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       simulations: {
         Row: {
           id: string
@@ -334,6 +370,7 @@ export interface Database {
           id: string
           session_id: string
           team_id: string | null
+          user_id: string | null
           profile_id: string | null
           name: string
           is_voter: boolean
@@ -343,6 +380,7 @@ export interface Database {
           id?: string
           session_id: string
           team_id?: string | null
+          user_id?: string | null
           profile_id?: string | null
           name: string
           is_voter?: boolean
@@ -352,12 +390,111 @@ export interface Database {
           id?: string
           session_id?: string
           team_id?: string | null
+          user_id?: string | null
           profile_id?: string | null
           name?: string
           is_voter?: boolean
           joined_at?: string
         }
         Relationships: []
+      }
+      student_simulation_assignments: {
+        Row: {
+          id: string
+          student_id: string
+          simulation_id: string
+          assigned_by_professor_id: string | null
+          due_date: string | null
+          assigned_at: string
+        }
+        Insert: {
+          id?: string
+          student_id: string
+          simulation_id: string
+          assigned_by_professor_id?: string | null
+          due_date?: string | null
+          assigned_at?: string
+        }
+        Update: {
+          id?: string
+          student_id?: string
+          simulation_id?: string
+          assigned_by_professor_id?: string | null
+          due_date?: string | null
+          assigned_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "student_simulation_assignments_simulation_id_fkey"
+            columns: ["simulation_id"]
+            isOneToOne: false
+            referencedRelation: "simulations"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
+      student_simulation_attempts: {
+        Row: {
+          id: string
+          student_id: string
+          simulation_id: string
+          session_id: string
+          participant_id: string | null
+          assignment_id: string | null
+          source: 'classroom' | 'explore'
+          status: 'in_progress' | 'completed'
+          score: number | null
+          started_at: string
+          completed_at: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          student_id: string
+          simulation_id: string
+          session_id: string
+          participant_id?: string | null
+          assignment_id?: string | null
+          source?: 'classroom' | 'explore'
+          status?: 'in_progress' | 'completed'
+          score?: number | null
+          started_at?: string
+          completed_at?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          student_id?: string
+          simulation_id?: string
+          session_id?: string
+          participant_id?: string | null
+          assignment_id?: string | null
+          source?: 'classroom' | 'explore'
+          status?: 'in_progress' | 'completed'
+          score?: number | null
+          started_at?: string
+          completed_at?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "student_simulation_attempts_simulation_id_fkey"
+            columns: ["simulation_id"]
+            isOneToOne: false
+            referencedRelation: "simulations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "student_simulation_attempts_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "sessions"
+            referencedColumns: ["id"]
+          }
+        ]
       }
       simulation_profiles: {
         Row: {

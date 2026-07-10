@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, Suspense } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -12,29 +12,49 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
 
-export default function SignupPage() {
+function SignupForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const roleParam = searchParams.get("role");
+  const isStudent = roleParam === "student";
+  const next = searchParams.get("next");
+  const joinCode = searchParams.get("code");
+  const nextPath = next?.startsWith("/") ? next : "/dashboard";
+
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [school, setSchool] = useState("");
+  const [graduationYear, setGraduationYear] = useState("");
+  const [major, setMajor] = useState("");
   const [loading, setLoading] = useState(false);
-  const next = searchParams.get("next");
-  const nextPath = next?.startsWith("/") ? next : "/dashboard";
 
   const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
 
     const supabase = createClient();
+    const metadata = isStudent
+      ? {
+          role: "student",
+          first_name: firstName.trim(),
+          last_name: lastName.trim(),
+          name: `${firstName.trim()} ${lastName.trim()}`.trim(),
+          school: school.trim(),
+          graduation_year: graduationYear,
+          major: major.trim() || null,
+        }
+      : {
+          role: "professor",
+          name: name.trim(),
+        };
+
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
-      options: {
-        data: {
-          name,
-        },
-      },
+      options: { data: metadata },
     });
 
     if (error) {
@@ -44,9 +64,50 @@ export default function SignupPage() {
     }
 
     toast.success("Account created! Please check your email to verify.");
-    router.push(data.session ? nextPath : `/auth/login${next ? `?next=${encodeURIComponent(nextPath)}` : ""}`);
+    const loginNext = joinCode
+      ? `/join?code=${encodeURIComponent(joinCode)}`
+      : nextPath;
+    router.push(data.session ? loginNext : `/auth/login${joinCode ? `?next=${encodeURIComponent(loginNext)}` : next ? `?next=${encodeURIComponent(nextPath)}` : ""}`);
     router.refresh();
   };
+
+  if (roleParam && roleParam !== "student" && roleParam !== "professor") {
+    return (
+      <div className="min-h-screen flex items-center justify-center px-4">
+        <Card className="w-full max-w-md">
+          <CardHeader>
+            <CardTitle>Choose your role</CardTitle>
+            <CardDescription>Select whether you are signing up as a student or professor.</CardDescription>
+          </CardHeader>
+          <CardFooter>
+            <Button asChild className="w-full min-h-[48px]">
+              <Link href="/auth/choose-role">Continue</Link>
+            </Button>
+          </CardFooter>
+        </Card>
+      </div>
+    );
+  }
+
+  if (!roleParam) {
+    return (
+      <div className="min-h-screen flex items-center justify-center px-4">
+        <Card className="w-full max-w-md">
+          <CardHeader>
+            <CardTitle>Choose your role</CardTitle>
+            <CardDescription>We need to know if you are a student or professor before creating your account.</CardDescription>
+          </CardHeader>
+          <CardFooter>
+            <Button asChild className="w-full min-h-[48px]">
+              <Link href={`/auth/choose-role${next ? `?next=${encodeURIComponent(nextPath)}` : ""}`}>
+                Continue
+              </Link>
+            </Button>
+          </CardFooter>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-muted/50 px-4 py-6">
@@ -64,24 +125,83 @@ export default function SignupPage() {
               />
             </span>
           </Link>
-          <CardTitle>Create an account</CardTitle>
+          <CardTitle>
+            {isStudent ? "Create your student account" : "Create your professor account"}
+          </CardTitle>
           <CardDescription>
-            Start creating engaging classroom simulations
+            {isStudent
+              ? "Practice simulations, track your score, and review decision feedback."
+              : "Start creating engaging classroom simulations."}
           </CardDescription>
         </CardHeader>
         <form onSubmit={handleSignup}>
           <CardContent className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="name">Name</Label>
-              <Input
-                id="name"
-                type="text"
-                placeholder="Dr. Jane Smith"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                required
-              />
-            </div>
+            {isStudent ? (
+              <>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-2">
+                    <Label htmlFor="firstName">First name</Label>
+                    <Input
+                      id="firstName"
+                      value={firstName}
+                      onChange={(e) => setFirstName(e.target.value)}
+                      required
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="lastName">Last name</Label>
+                    <Input
+                      id="lastName"
+                      value={lastName}
+                      onChange={(e) => setLastName(e.target.value)}
+                      required
+                    />
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="school">School</Label>
+                  <Input
+                    id="school"
+                    value={school}
+                    onChange={(e) => setSchool(e.target.value)}
+                    placeholder="University of Texas at Austin"
+                    required
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="graduationYear">Graduation year</Label>
+                  <Input
+                    id="graduationYear"
+                    type="number"
+                    min={2000}
+                    max={2100}
+                    value={graduationYear}
+                    onChange={(e) => setGraduationYear(e.target.value)}
+                    required
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="major">Major (optional)</Label>
+                  <Input
+                    id="major"
+                    value={major}
+                    onChange={(e) => setMajor(e.target.value)}
+                  />
+                </div>
+              </>
+            ) : (
+              <div className="space-y-2">
+                <Label htmlFor="name">Name</Label>
+                <Input
+                  id="name"
+                  type="text"
+                  placeholder="Dr. Jane Smith"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  required
+                />
+              </div>
+            )}
             <div className="space-y-2">
               <Label htmlFor="email">Email</Label>
               <Input
@@ -104,9 +224,7 @@ export default function SignupPage() {
                 minLength={6}
                 required
               />
-              <p className="text-xs text-muted-foreground">
-                Must be at least 6 characters
-              </p>
+              <p className="text-xs text-muted-foreground">Must be at least 6 characters</p>
             </div>
           </CardContent>
           <CardFooter className="flex flex-col gap-4 pt-2">
@@ -123,9 +241,28 @@ export default function SignupPage() {
                 Sign in
               </Link>
             </p>
+            <p className="text-sm text-muted-foreground text-center">
+              <Link href="/auth/choose-role" className="text-primary hover:underline">
+                Choose a different role
+              </Link>
+            </p>
           </CardFooter>
         </form>
       </Card>
     </div>
+  );
+}
+
+export default function SignupPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen flex items-center justify-center">
+          <Loader2 className="h-8 w-8 animate-spin" />
+        </div>
+      }
+    >
+      <SignupForm />
+    </Suspense>
   );
 }

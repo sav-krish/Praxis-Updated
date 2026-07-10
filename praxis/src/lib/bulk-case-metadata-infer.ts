@@ -1,5 +1,5 @@
-import { zodResponseFormat } from "openai/helpers/zod";
-import { getOpenAIClient, getOutlineModel } from "@/lib/openai-client";
+import { generateStructured } from "@/lib/gemini-generate";
+import { getOutlineModel } from "@/lib/gemini-client";
 import { ALL_SUBJECTS } from "@/lib/subjects";
 import { PREFERENCE_CATEGORIES } from "@/lib/simulation-metadata-presets";
 import {
@@ -65,24 +65,13 @@ ${input.caseSourceForInference}
 Infer the metadata. Prefer folder names as the discipline when they clearly indicate a field, but courseTopic must still be one of the approved subject strings (e.g. map "sales" folder → "Sales").
 Pick 0–3 options per preference category; use empty arrays when unsure.`;
 
-  const openai = getOpenAIClient();
-  const model = process.env.BULK_INFER_MODEL?.trim() || getOutlineModel();
-
-  const completion = await openai.chat.completions.parse({
-    model,
+  return generateStructured({
+    system: SYSTEM,
+    user,
+    schema: BulkCaseMetadataInferSchema,
+    model: process.env.BULK_INFER_MODEL?.trim() || getOutlineModel(),
     temperature: 0.35,
-    messages: [
-      { role: "system", content: SYSTEM },
-      { role: "user", content: user },
-    ],
-    response_format: zodResponseFormat(BulkCaseMetadataInferSchema, "bulk_case_metadata"),
   });
-
-  const parsed = completion.choices[0]?.message.parsed;
-  if (!parsed) {
-    throw new Error("Bulk metadata inference returned no parsed content.");
-  }
-  return parsed;
 }
 
 /** Maps inference output into the bulk manifest merge shape; strips useless RAG filters. */

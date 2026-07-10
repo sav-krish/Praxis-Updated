@@ -186,6 +186,23 @@ function JoinForm() {
                 <ArrowRight className="ml-2 h-4 w-4" />
               )}
             </Button>
+            <div className="mt-4 space-y-2 text-center text-sm text-muted-foreground">
+              <p>
+                Want to save progress and view reports?{" "}
+                <Link
+                  href={`/auth/signup?role=student&code=${joinCode || ""}`}
+                  className="text-primary font-medium hover:underline"
+                >
+                  Create a student account
+                </Link>
+              </p>
+              <p>
+                Already have an account?{" "}
+                <Link href="/auth/login" className="text-primary font-medium hover:underline">
+                  Sign in
+                </Link>
+              </p>
+            </div>
           </CardContent>
         </form>
       </Card>

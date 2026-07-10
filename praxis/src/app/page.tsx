@@ -247,7 +247,7 @@ export default function HomePage() {
             </h1>
             <div className="mx-auto mt-6 flex w-fit max-w-full flex-col items-center gap-7 pb-4 sm:mt-8 sm:flex-row sm:flex-nowrap sm:items-center sm:justify-center sm:gap-4 sm:pb-5 md:gap-6">
               <Link
-                href="/auth/signup"
+                href="/auth/choose-role"
                 className="flex min-h-[48px] w-fit justify-center"
               >
                 <Button
@@ -359,7 +359,7 @@ export default function HomePage() {
           <div className="container">
             <FadeIn className="mt-10 flex justify-center">
               <Link
-                href="/auth/signup"
+                href="/auth/choose-role"
                 className="inline-flex min-h-[48px] items-center justify-center"
               >
                 <Button className="min-h-[48px] text-base px-10 shadow-soft">

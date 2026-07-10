@@ -25,8 +25,8 @@ const MAX_MATERIAL_CHARS_GPT4O = 70_000;
 const MAX_MATERIAL_CHARS_MINI = 280_000;
 
 function getMaxMaterialChars(): number {
-  const model = process.env.OPENAI_MODEL || "gpt-4o-mini";
-  return model.includes("mini") ? MAX_MATERIAL_CHARS_MINI : MAX_MATERIAL_CHARS_GPT4O;
+  const model = process.env.GEMINI_MODEL || "gemini-2.0-flash";
+  return model.includes("flash") ? MAX_MATERIAL_CHARS_MINI : MAX_MATERIAL_CHARS_GPT4O;
 }
 
 export const runtime = "nodejs";

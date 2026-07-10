@@ -91,6 +91,48 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return null;
 
+  const { data: professorRole } = await supabase
+    .from("professors")
+    .select("active_role")
+    .eq("id", user.id)
+    .maybeSingle();
+
+  if (professorRole?.active_role === "student") {
+    const { StudentDashboardView } = await import("@/components/student/student-dashboard-view");
+    const { fetchStudentDashboardData } = await import("@/lib/student/data");
+    const { data: existingProfile } = await supabase
+      .from("student_profiles")
+      .select("user_id")
+      .eq("user_id", user.id)
+      .maybeSingle();
+
+    if (!existingProfile) {
+      await supabase.from("student_profiles").insert({
+        user_id: user.id,
+        first_name: (user.user_metadata?.first_name as string) ?? "",
+        last_name: (user.user_metadata?.last_name as string) ?? "",
+        school: (user.user_metadata?.school as string) ?? "",
+      });
+    }
+
+    const studentData = await fetchStudentDashboardData(user.id);
+    const displayName =
+      studentData.profile?.first_name?.trim() ||
+      user.user_metadata?.name ||
+      user.email?.split("@")[0] ||
+      "there";
+
+    return (
+      <StudentDashboardView
+        displayName={displayName}
+        assigned={studentData.assigned}
+        completed={studentData.completed}
+        exploreByTrack={studentData.exploreByTrack}
+        tracks={studentData.tracks}
+      />
+    );
+  }
+
   const { data: allSimulations } = await supabase
     .from("simulations")
     .select(SIMULATION_DASHBOARD_LIST)

@@ -128,18 +128,20 @@ export default async function DashboardLayout({
           </Link>
           
           <div className="flex items-center gap-2 sm:gap-4 shrink-0">
-            <Link href="/dashboard" title="Your simulations">
+            <Link href="/dashboard" title={isStudentMode ? "Student dashboard" : "Your simulations"}>
               <Button variant="ghost" className="min-h-[44px] px-3 text-sm">
                 <Home className="h-4 w-4 mr-1.5 shrink-0" />
-                <span className="hidden sm:inline">Home</span>
+                <span className="hidden sm:inline">{isStudentMode ? "Dashboard" : "Home"}</span>
               </Button>
             </Link>
+            {!isStudentMode && (
             <Link href="/library" data-tour="library-link">
               <Button variant="ghost" className="min-h-[44px] px-3 text-sm">
                 <BookOpen className="h-4 w-4 mr-1.5 shrink-0" />
                 <span className="hidden sm:inline">Library</span>
               </Button>
             </Link>
+            )}
             {!isStudentMode && (
               <Link href="/create" data-tour="new-sim">
                 <Button className="min-h-[44px] px-3 sm:px-4 text-sm sm:text-base">

@@ -1,15 +1,10 @@
 import { logger } from "@/lib/logger";
-import { getOpenAIClient } from "@/lib/openai";
+import { embedTextWithGemini } from "@/lib/gemini-generate";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/types/database";
 
 export async function embedText(text: string): Promise<number[]> {
-  const openai = getOpenAIClient();
-  const response = await openai.embeddings.create({
-    model: "text-embedding-3-small",
-    input: text,
-  });
-  return response.data[0].embedding;
+  return embedTextWithGemini(text);
 }
 
 function toPgVector(embedding: number[]): string {

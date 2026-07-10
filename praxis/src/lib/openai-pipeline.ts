@@ -13,13 +13,17 @@
  *   - `streamSimulationPipeline(...)`: async iterator that yields lifecycle
  *     events the route forwards as SSE.
  *
- * Prompt-caching note: OpenAI auto-caches identical prompt prefixes ≥1024 tokens.
+ * Prompt-caching note: Gemini reuses identical system instructions efficiently.
  * We put the immutable instructional-design preamble first and the per-request
  * fields last, so the system + outline schema gets cached across requests for a
  * single instructor.
  */
-import { zodResponseFormat } from "openai/helpers/zod";
-import { getOpenAIClient, getModel, getOutlineModel } from "@/lib/openai-client";
+import {
+  generateJsonText,
+  generateStructured,
+  streamJsonText,
+} from "@/lib/gemini-generate";
+import { getModel, getOutlineModel } from "@/lib/gemini-client";
 import {
   OutlineSchema,
   BackgroundSchema,
@@ -77,7 +81,7 @@ function difficultyGuidance(d: PipelineInput["difficulty"]): string {
 
 /**
  * The instructional-design preamble is identical across every generation call —
- * keep it first to maximize OpenAI prompt caching.
+ * keep it first to maximize reuse across generation calls.
  */
 const SYSTEM_PREAMBLE = `You are an expert instructional designer specializing in creating interactive classroom simulations for higher education. You produce realistic, well-grounded scenarios that create genuine dilemmas. You write in a tight, professional tone, you cite source material faithfully, and you never invent statistics. Your output is always strictly valid JSON conforming to the requested schema.`;
 
@@ -120,7 +124,6 @@ ${input.materials || "No specific materials provided — create a realistic scen
 async function generateOutline(
   input: PipelineInput
 ): Promise<SimulationOutline> {
-  const openai = getOpenAIClient();
   const system = `${SYSTEM_PREAMBLE}${sourceFidelityClause(input)}${reframeClause(input)}${preferencesClause(input)}
 
 You will produce a tight outline for a 3-decision classroom simulation.
@@ -132,21 +135,13 @@ You will produce a tight outline for a 3-decision classroom simulation.
 
 ${requestContext(input)}`;
 
-  const completion = await openai.chat.completions.parse({
+  return generateStructured({
+    system,
+    user,
+    schema: OutlineSchema,
     model: getOutlineModel(),
     temperature: 0.7,
-    messages: [
-      { role: "system", content: system },
-      { role: "user", content: user },
-    ],
-    response_format: zodResponseFormat(OutlineSchema, "simulation_outline"),
   });
-
-  const parsed = completion.choices[0]?.message.parsed;
-  if (!parsed) {
-    throw new Error("Outline pass returned no parsed content.");
-  }
-  return parsed;
 }
 
 // ── Sub-calls ──────────────────────────────────────────────────────────────
@@ -167,49 +162,50 @@ async function generateBackground(
   outline: SimulationOutline,
   onDelta?: (delta: string) => void
 ): Promise<string> {
-  const openai = getOpenAIClient();
   const system = commonSystem(input, outline);
   const user = `Write the background briefing the student reads first. Reference the data blocks in passing where it would help. Format with GitHub-Flavored Markdown inside backgroundContent: use ## for section titles, **double asterisks** for bold phrases, and hyphen bullets for lists. Never put the whole briefing inside a markdown code fence. Length is determined by difficulty. Output JSON.
 
 ${requestContext(input)}`;
 
-  // We stream and accumulate so the client can render text as it arrives.
-  const stream = await openai.chat.completions.stream({
-    model: getModel(),
-    temperature: 0.7,
-    messages: [
-      { role: "system", content: system },
-      { role: "user", content: user },
-    ],
-    response_format: zodResponseFormat(BackgroundSchema, "simulation_background"),
-  });
-
   let acc = "";
   let lastBgLen = 0;
-  for await (const event of stream) {
-    const piece =
-      event.choices[0]?.delta?.content ?? "";
-    if (!piece) continue;
-    acc += piece;
-    if (onDelta) {
-      // Best-effort progressive emit: pull whatever's parseable so far out of
-      // the JSON so the user sees text instead of escaped quotes.
-      const visible = extractBackgroundProgress(acc);
-      if (visible.length > lastBgLen) {
-        onDelta(visible.slice(lastBgLen));
-        lastBgLen = visible.length;
+  const raw = await streamJsonText({
+    system,
+    user,
+    model: getModel(),
+    temperature: 0.7,
+    onDelta: (piece) => {
+      acc += piece;
+      if (onDelta) {
+        const visible = extractBackgroundProgress(acc);
+        if (visible.length > lastBgLen) {
+          onDelta(visible.slice(lastBgLen));
+          lastBgLen = visible.length;
+        }
       }
-    }
-  }
+    },
+  });
 
-  const final = await stream.finalChatCompletion();
-  const parsed = final.choices[0]?.message.parsed;
-  if (!parsed) throw new Error("Background pass returned no parsed content.");
-  // Flush any tail the streaming heuristic missed.
-  if (onDelta && parsed.backgroundContent.length > lastBgLen) {
-    onDelta(parsed.backgroundContent.slice(lastBgLen));
+  const parsed = BackgroundSchema.safeParse(extractJsonObject(raw));
+  if (!parsed.success) throw new Error("Background pass returned no parsed content.");
+  if (onDelta && parsed.data.backgroundContent.length > lastBgLen) {
+    onDelta(parsed.data.backgroundContent.slice(lastBgLen));
   }
-  return parsed.backgroundContent;
+  return parsed.data.backgroundContent;
+}
+
+function extractJsonObject(text: string): unknown {
+  const trimmed = text.trim();
+  try {
+    return JSON.parse(trimmed);
+  } catch {
+    const start = trimmed.indexOf("{");
+    const end = trimmed.lastIndexOf("}");
+    if (start >= 0 && end > start) {
+      return JSON.parse(trimmed.slice(start, end + 1));
+    }
+    throw new Error("Model response was not valid JSON.");
+  }
 }
 
 /**
@@ -255,24 +251,18 @@ async function generateDecisions(
   input: PipelineInput,
   outline: SimulationOutline
 ): Promise<DecisionsResult["decisions"]> {
-  const openai = getOpenAIClient();
   const system = commonSystem(input, outline);
   const user = `Write the three decision points and their three options each (A, B, C). One option must score 3 (optimal), one 2, one 1. Consequences should be plausible and discipline-specific. Output JSON.
 
 ${requestContext(input)}`;
 
-  const completion = await openai.chat.completions.parse({
+  const parsed = await generateStructured({
+    system,
+    user,
+    schema: DecisionsSchema,
     model: getModel(),
     temperature: 0.7,
-    messages: [
-      { role: "system", content: system },
-      { role: "user", content: user },
-    ],
-    response_format: zodResponseFormat(DecisionsSchema, "simulation_decisions"),
   });
-
-  const parsed = completion.choices[0]?.message.parsed;
-  if (!parsed) throw new Error("Decisions pass returned no parsed content.");
   return parsed.decisions;
 }
 
@@ -280,7 +270,6 @@ async function generateDataBlocks(
   input: PipelineInput,
   outline: SimulationOutline
 ): Promise<DataBlocksResult["dataBlocks"]> {
-  const openai = getOpenAIClient();
   const system = commonSystem(input, outline);
   const baseUser = `Write the data blocks the student will see. Use the hinted block types if they fit; otherwise pick the best from: table, bar_chart, line_chart, kpi_cards, timeline, pie_chart. Numbers must be plausible and grounded in source materials.
 
@@ -305,24 +294,20 @@ ${requestContext(input)}`;
         ? baseUser
         : `Your previous JSON did not validate: ${lastError}\nReturn corrected JSON only.\n\n${baseUser}`;
 
-    const completion = await openai.chat.completions.create({
+    const raw = await generateJsonText({
+      system,
+      user,
       model: getModel(),
       temperature: 0.7,
-      messages: [
-        { role: "system", content: system },
-        { role: "user", content: user },
-      ],
-      response_format: { type: "json_object" },
     });
 
-    const raw = completion.choices[0]?.message?.content;
     if (!raw) {
       lastError = "Empty response from model";
       continue;
     }
     let parsed: unknown;
     try {
-      parsed = JSON.parse(raw);
+      parsed = extractJsonObject(raw);
     } catch (e) {
       lastError = e instanceof Error ? e.message : String(e);
       continue;
@@ -341,27 +326,18 @@ async function generateReflectionQuestions(
   input: PipelineInput,
   outline: SimulationOutline
 ): Promise<ReflectionQuestionsResult["reflectionQuestions"]> {
-  const openai = getOpenAIClient();
   const system = commonSystem(input, outline);
   const user = `Write exactly 2 reflection questions for after the simulation. They should connect the in-fiction decisions to the learning goal and prompt the student to explain trade-offs in their own words. Output JSON.
 
 ${requestContext(input)}`;
 
-  const completion = await openai.chat.completions.parse({
+  const parsed = await generateStructured({
+    system,
+    user,
+    schema: ReflectionQuestionsSchema,
     model: getModel(),
     temperature: 0.7,
-    messages: [
-      { role: "system", content: system },
-      { role: "user", content: user },
-    ],
-    response_format: zodResponseFormat(
-      ReflectionQuestionsSchema,
-      "simulation_reflections"
-    ),
   });
-
-  const parsed = completion.choices[0]?.message.parsed;
-  if (!parsed) throw new Error("Reflections pass returned no parsed content.");
   return parsed.reflectionQuestions;
 }
 
@@ -369,27 +345,18 @@ async function generateHiddenProfiles(
   input: PipelineInput,
   outline: SimulationOutline
 ): Promise<HiddenProfilesResult["hiddenProfiles"]> {
-  const openai = getOpenAIClient();
   const system = commonSystem(input, outline);
   const user = `Write exactly 3 distinct hidden student roles for asymmetric play. Each profile_name is short (e.g. "CFO", "Union lead"). Each private_briefing is 1-3 short paragraphs (Markdown allowed) revealing facts, constraints, or incentives only that role sees. Output JSON.
 
 ${requestContext(input)}`;
 
-  const completion = await openai.chat.completions.parse({
+  const parsed = await generateStructured({
+    system,
+    user,
+    schema: HiddenProfilesSchema,
     model: getModel(),
     temperature: 0.7,
-    messages: [
-      { role: "system", content: system },
-      { role: "user", content: user },
-    ],
-    response_format: zodResponseFormat(
-      HiddenProfilesSchema,
-      "simulation_hidden_profiles"
-    ),
   });
-
-  const parsed = completion.choices[0]?.message.parsed;
-  if (!parsed) throw new Error("Hidden profiles pass returned no parsed content.");
   return parsed.hiddenProfiles;
 }
 

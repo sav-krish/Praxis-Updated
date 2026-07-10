@@ -37,7 +37,9 @@ import {
   Trash2,
 } from "lucide-react";
 import { toast } from "sonner";
+import Link from "next/link";
 import { endPreviewSession } from "@/app/(dashboard)/session/[id]/actions";
+import { decisionQualityFromScore, decisionQualityLabel, scorePercent } from "@/lib/student/scoring";
 import { DataBlockRenderer } from "@/components/simulation/DataBlockRenderer";
 import { FeedbackCard } from "@/components/simulation/FeedbackCard";
 import { sourceTypeDisplayLabel } from "@/lib/source-display";
@@ -181,6 +183,8 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
   const [preparingRecorder, setPreparingRecorder] = useState(false);
   const [videoError, setVideoError] = useState<string | null>(null);
   const [responseInputMode, setResponseInputMode] = useState<"text" | "video">("text");
+  const [studentAttemptId, setStudentAttemptId] = useState<string | null>(null);
+  const [completedReportId, setCompletedReportId] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const liveVideoPreviewRef = useRef<HTMLVideoElement>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
@@ -506,6 +510,11 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
 
     setMyResponses(buildParticipantResponses(payload));
     setCurrentStep(getStepForPayload(payload));
+
+    const storedAttemptId = sessionStorage.getItem(`student_attempt_${initialSession.id}`);
+    if (storedAttemptId) {
+      setStudentAttemptId(storedAttemptId);
+    }
 
     setLoading(false);
   }
@@ -899,6 +908,33 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
       }
     }
 
+    const totalScore = myResponses.reduce((sum, r) => sum + r.score, 0);
+    const maxScore = decisions.length * 3;
+
+    if (studentAttemptId) {
+      try {
+        const response = await fetch("/api/student/attempts/complete", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            attemptId: studentAttemptId,
+            totalScore,
+            maxScore,
+          }),
+        });
+        const result = (await response.json().catch(() => null)) as
+          | { attemptId: string; score: number }
+          | { error?: string }
+          | null;
+        if (response.ok && result && "attemptId" in result) {
+          setCompletedReportId(result.attemptId);
+          sessionStorage.removeItem(`student_attempt_${session.id}`);
+        }
+      } catch {
+        /* results screen still shows local score */
+      }
+    }
+
     setCurrentStep(6);
     setSubmitting(false);
   };
@@ -950,6 +986,7 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
 
   const totalScore = myResponses.reduce((sum, r) => sum + r.score, 0);
   const maxScore = decisions.length * 3;
+  const displayScorePercent = scorePercent(totalScore, maxScore);
 
   if (loading) {
     return (
@@ -1590,11 +1627,32 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
           </CardHeader>
           <CardContent className="px-4 sm:px-6">
             <div className="text-center mb-4 sm:mb-6">
-              <div className="text-4xl sm:text-5xl font-bold text-primary mb-2">
-                {totalScore} / {maxScore}
-              </div>
-              <p className="text-muted-foreground text-sm">Total Score</p>
+              {studentAttemptId || completedReportId ? (
+                <>
+                  <div className="text-4xl sm:text-5xl font-bold text-primary mb-2">
+                    {displayScorePercent}%
+                  </div>
+                  <p className="text-muted-foreground text-sm">Your score</p>
+                </>
+              ) : (
+                <>
+                  <div className="text-4xl sm:text-5xl font-bold text-primary mb-2">
+                    {totalScore} / {maxScore}
+                  </div>
+                  <p className="text-muted-foreground text-sm">Total Score</p>
+                </>
+              )}
             </div>
+
+            {(completedReportId || studentAttemptId) && (
+              <div className="mb-4 flex justify-center">
+                <Button asChild className="min-h-[44px]">
+                  <Link href={`/student/reports/${completedReportId ?? studentAttemptId}`}>
+                    View full report
+                  </Link>
+                </Button>
+              </div>
+            )}
 
             <Separator className="my-4 sm:my-6" />
 
@@ -1603,17 +1661,28 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
               {decisions.map((decision, index) => {
                 const response = myResponses.find(r => r.decision_id === decision.id);
                 const selectedOpt = decision.options.find(o => o.id === response?.option_id);
+                const quality = decisionQualityFromScore(response?.score);
+                const explanation =
+                  selectedOpt?.consequence?.trim() ||
+                  (quality === "strong"
+                    ? "Strong choice that aligns well with the scenario objectives."
+                    : quality === "partial"
+                      ? "This captures part of the answer but misses important tradeoffs."
+                      : "This choice overlooks key constraints in the scenario.");
                 return (
-                  <div key={decision.id} className="flex items-center justify-between gap-3 p-3 bg-muted rounded-lg min-h-[52px]">
-                    <div className="min-w-0 flex-1">
-                      <p className="font-medium text-sm">Decision {index + 1}</p>
-                      <p className="text-xs sm:text-sm text-muted-foreground truncate">
-                        {selectedOpt ? `${selectedOpt.label}. ${selectedOpt.title}` : "No response"}
-                      </p>
+                  <div key={decision.id} className="p-3 bg-muted rounded-lg min-h-[52px] space-y-2">
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="min-w-0 flex-1">
+                        <p className="font-medium text-sm">Decision {index + 1}</p>
+                        <p className="text-xs sm:text-sm text-muted-foreground truncate">
+                          {selectedOpt ? `${selectedOpt.label}. ${selectedOpt.title}` : "No response"}
+                        </p>
+                      </div>
+                      <Badge variant={response?.score === 3 ? "default" : "secondary"} className="shrink-0">
+                        {decisionQualityLabel(quality)}
+                      </Badge>
                     </div>
-                    <Badge variant={response?.score === 3 ? "default" : "secondary"} className="shrink-0">
-                      +{response?.score || 0}
-                    </Badge>
+                    <p className="text-xs sm:text-sm text-ink leading-relaxed">{explanation}</p>
                   </div>
                 );
               })}

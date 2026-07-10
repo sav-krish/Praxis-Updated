@@ -1,8 +1,8 @@
 import { NextRequest } from "next/server";
 import { z } from "zod";
-import { zodResponseFormat } from "openai/helpers/zod";
 import { createClient } from "@/lib/supabase/server";
-import { getOpenAIClient, getModel } from "@/lib/openai";
+import { streamJsonText } from "@/lib/gemini-generate";
+import { getModel } from "@/lib/gemini-client";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -105,18 +105,9 @@ export async function POST(request: NextRequest) {
           };
         });
 
-        const openai = getOpenAIClient();
-        const completion = await openai.chat.completions.create({
-          model: getModel(),
-          messages: [
-            {
-              role: "system",
-              content:
-                "You are an expert classroom facilitator. Generate a concise, actionable debrief guide. Use specific, decision-aware language; cite Decision 1/2/3 by number when relevant.",
-            },
-            {
-              role: "user",
-              content: `Generate a facilitator debrief guide for this simulation.
+        const system =
+          "You are an expert classroom facilitator. Generate a concise, actionable debrief guide. Use specific, decision-aware language; cite Decision 1/2/3 by number when relevant.";
+        const user = `Generate a facilitator debrief guide for this simulation.
 
 **Title:** ${simulation.title}
 **Topic:** ${simulation.course_topic}
@@ -132,16 +123,8 @@ ${decisionSummaries
     (d) =>
       `Decision ${d.decision}: ${d.prompt}\nOptions: ${d.options}\nOptimal: ${d.optimal}\nResponses: ${d.responseCount}`,
   )
-  .join("\n\n")}`,
-            },
-          ],
-          temperature: 0.5,
-          response_format: zodResponseFormat(DebriefSchema, "debrief"),
-          stream: true,
-        });
+  .join("\n\n")}`;
 
-        // Buffer the streaming JSON and surface coarse-grained "field" events
-        // whenever a new top-level field name appears in the buffer.
         let buffer = "";
         const fieldOrder: (keyof Debrief)[] = [
           "correctCourseOfAction",
@@ -152,20 +135,23 @@ ${decisionSummaries
         ];
         const announced = new Set<string>();
 
-        for await (const chunk of completion) {
-          const delta = chunk.choices?.[0]?.delta?.content ?? "";
-          if (!delta) continue;
-          buffer += delta;
-
-          for (const f of fieldOrder) {
-            if (announced.has(f)) continue;
-            const idx = buffer.indexOf(`"${f}"`);
-            if (idx !== -1) {
-              announced.add(f);
-              send("field", { name: f });
+        await streamJsonText({
+          system,
+          user,
+          model: getModel(),
+          temperature: 0.5,
+          onDelta: (delta) => {
+            buffer += delta;
+            for (const f of fieldOrder) {
+              if (announced.has(f)) continue;
+              const idx = buffer.indexOf(`"${f}"`);
+              if (idx !== -1) {
+                announced.add(f);
+                send("field", { name: f });
+              }
             }
-          }
-        }
+          },
+        });
 
         // Validate + persist the final structured payload.
         let parsed: Debrief | null = null;

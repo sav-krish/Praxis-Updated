@@ -1,10 +1,9 @@
-import type { DataBlockType } from "@/types/data-blocks";
 import { runSimulationPipelineMerged } from "@/lib/openai-pipeline";
 
-export { getOpenAIClient, getModel } from "@/lib/openai-client";
+export { getGeminiClient, getModel, getOutlineModel, getOpenAIClient } from "@/lib/gemini-client";
 
 export interface GeneratedDataBlock {
-  block_type: DataBlockType;
+  block_type: import("@/types/data-blocks").DataBlockType;
   title: string;
   data: Record<string, unknown>;
 }
@@ -29,7 +28,6 @@ export interface GeneratedSimulation {
     }[];
   }[];
   reflectionQuestions: string[];
-  /** Present when instructor requested asymmetric / hidden roles */
   hiddenProfiles?: GeneratedHiddenProfile[];
 }
 
