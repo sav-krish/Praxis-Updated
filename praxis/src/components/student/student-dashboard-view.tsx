@@ -77,6 +77,7 @@ export function StudentDashboardView({
                       dueDate={row.due_date}
                       completed={Boolean(completedAttempt)}
                       attemptId={completedAttempt?.id}
+                      inProgressAttemptId={row.inProgressAttemptId}
                     />
                   );
                 })}

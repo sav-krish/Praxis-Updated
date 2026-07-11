@@ -97,6 +97,7 @@ type StudentSimulationTileProps = {
   assignmentId?: string;
   dueDate?: string | null;
   footer?: React.ReactNode;
+  inProgressAttemptId?: string;
 };
 
 export function StudentSimulationTile({
@@ -106,6 +107,7 @@ export function StudentSimulationTile({
   assignmentId,
   dueDate,
   footer,
+  inProgressAttemptId,
 }: StudentSimulationTileProps) {
   const tile = appTileBackgroundForDifficulty(simulation.difficulty);
 
@@ -135,23 +137,40 @@ export function StudentSimulationTile({
           {footer ?? (
             <>
               {completed && attemptId ? (
-                <Button
-                  asChild
-                  variant="outline"
-                  className={SIMULATION_CARD_ACTION_MIN_HEIGHT_CLASS}
-                >
-                  <Link href={`/student/reports/${attemptId}`}>
-                    <FileText className="mr-2 h-4 w-4" />
-                    View Report
-                  </Link>
-                </Button>
+                <div className="flex w-full flex-col gap-2 sm:flex-row">
+                  <StartSimulationButton
+                    simulationId={simulation.id}
+                    assignmentId={assignmentId}
+                    source={assignmentId ? "classroom" : "explore"}
+                    label="Start"
+                    className="flex-1"
+                  />
+                  <Button
+                    asChild
+                    variant="outline"
+                    className={`flex-1 ${SIMULATION_CARD_ACTION_MIN_HEIGHT_CLASS}`}
+                  >
+                    <Link href={`/student/reports/${attemptId}`}>
+                      <FileText className="mr-2 h-4 w-4" />
+                      View Report
+                    </Link>
+                  </Button>
+                </div>
+              ) : inProgressAttemptId ? (
+                <StartSimulationButton
+                  simulationId={simulation.id}
+                  assignmentId={assignmentId}
+                  source={assignmentId ? "classroom" : "explore"}
+                  label="Continue"
+                  className="w-full"
+                />
               ) : (
                 <StartSimulationButton
                   simulationId={simulation.id}
                   assignmentId={assignmentId}
                   source={assignmentId ? "classroom" : "explore"}
-                  disabled={completed}
-                  label={completed ? "Completed" : "Start"}
+                  label={assignmentId ? "Start" : "Start"}
+                  className="w-full"
                 />
               )}
             </>

@@ -12,6 +12,15 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
 
+const CAREER_INTERESTS = [
+  "Consulting",
+  "Entrepreneurship",
+  "Product Management",
+  "Policy",
+  "Finance",
+  "Marketing",
+];
+
 function SignupForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -29,7 +38,16 @@ function SignupForm() {
   const [school, setSchool] = useState("");
   const [graduationYear, setGraduationYear] = useState("");
   const [major, setMajor] = useState("");
+  const [careerInterests, setCareerInterests] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
+
+  const toggleCareerInterest = (interest: string) => {
+    setCareerInterests((prev) =>
+      prev.includes(interest)
+        ? prev.filter((i) => i !== interest)
+        : [...prev, interest]
+    );
+  };
 
   const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -45,6 +63,7 @@ function SignupForm() {
           school: school.trim(),
           graduation_year: graduationYear,
           major: major.trim() || null,
+          career_interests: careerInterests,
         }
       : {
           role: "professor",
@@ -187,6 +206,28 @@ function SignupForm() {
                     value={major}
                     onChange={(e) => setMajor(e.target.value)}
                   />
+                </div>
+                <div className="space-y-2">
+                  <Label>Career interests (optional)</Label>
+                  <p className="text-xs text-muted-foreground">
+                    Select the career paths you're most interested in.
+                  </p>
+                  <div className="flex flex-wrap gap-2 mt-1">
+                    {CAREER_INTERESTS.map((interest) => (
+                      <button
+                        key={interest}
+                        type="button"
+                        onClick={() => toggleCareerInterest(interest)}
+                        className={`rounded-full px-3 py-1.5 text-sm font-medium transition-colors border ${
+                          careerInterests.includes(interest)
+                            ? "bg-accent text-white border-accent"
+                            : "bg-white text-ink border-line hover:bg-accentSoft"
+                        }`}
+                      >
+                        {interest}
+                      </button>
+                    ))}
+                  </div>
                 </div>
               </>
             ) : (

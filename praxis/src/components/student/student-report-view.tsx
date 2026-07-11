@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
-import { ArrowLeft, Trophy } from "lucide-react";
+import { ArrowLeft, Trophy, Users, MessageSquare } from "lucide-react";
 import { FadeIn } from "@/components/landing/fade-in";
 import { APP_TILE_BACKGROUNDS } from "@/lib/app-tile-backgrounds";
 import { CopilotPanel } from "@/components/copilot/copilot-panel";
@@ -15,8 +15,10 @@ import type { DecisionExplanation } from "@/lib/student/explanations";
 type StudentReportViewProps = {
   simulationTitle: string;
   score: number;
+  teamScore: number | null;
   completedAt: string | null;
   decisions: DecisionExplanation[];
+  reflectionResponses: { question: string; response: string }[];
   attemptId: string;
   sessionId: string;
 };
@@ -30,8 +32,10 @@ function qualityBadgeClass(quality: DecisionExplanation["quality"]): string {
 export function StudentReportView({
   simulationTitle,
   score,
+  teamScore,
   completedAt,
   decisions,
+  reflectionResponses,
   attemptId,
   sessionId,
 }: StudentReportViewProps) {
@@ -69,12 +73,46 @@ export function StudentReportView({
               Completed {new Date(completedAt).toLocaleString()}
             </p>
           ) : null}
-          <div className="mt-6">
-            <p className="text-5xl font-bold text-accent">{score}%</p>
-            <p className="text-sm text-muted-text mt-1">Your score</p>
+          <div className="mt-6 flex items-center justify-center gap-8">
+            <div>
+              <p className="text-5xl font-bold text-accent">{score}%</p>
+              <p className="text-sm text-muted-text mt-1">Your score</p>
+            </div>
+            {teamScore !== null && (
+              <div className="border-l border-border/60 pl-8">
+                <p className="text-5xl font-bold text-ink/70">{teamScore}%</p>
+                <p className="text-sm text-muted-text mt-1 flex items-center justify-center gap-1">
+                  <Users className="h-3.5 w-3.5" />
+                  Team average
+                </p>
+              </div>
+            )}
           </div>
         </section>
       </FadeIn>
+
+      {/* Reflection Responses */}
+      {reflectionResponses.length > 0 && (
+        <Card>
+          <CardHeader>
+            <div className="flex items-center gap-2">
+              <MessageSquare className="h-5 w-5 text-muted-text" />
+              <CardTitle>Reflection Responses</CardTitle>
+            </div>
+            <CardDescription>
+              Your answers to the reflection questions after the simulation.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {reflectionResponses.map((ref, index) => (
+              <div key={index} className="rounded-2xl border border-border/80 bg-white/70 p-4 sm:p-5">
+                <p className="font-semibold text-ink mb-2">{ref.question}</p>
+                <p className="text-sm leading-relaxed text-ink whitespace-pre-wrap">{ref.response}</p>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+      )}
 
       <Card>
         <CardHeader>

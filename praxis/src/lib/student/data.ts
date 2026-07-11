@@ -17,6 +17,7 @@ export type StudentAssignmentRow = {
   due_date: string | null;
   assigned_at: string;
   simulation: StudentSimulationCard;
+  inProgressAttemptId?: string;
 };
 
 export type StudentAttemptRow = {
@@ -66,19 +67,24 @@ export async function fetchStudentDashboardData(userId: string) {
       .order("favorite_count", { ascending: false }),
   ]);
 
+  const completedAttempts = (attempts ?? []).filter((a) => a.status === "completed");
+  const inProgressAttempts = (attempts ?? []).filter((a) => a.status === "in_progress");
+
   const completedSimulationIds = new Set(
-    (attempts ?? [])
-      .filter((a) => a.status === "completed")
-      .map((a) => a.simulation_id)
+    completedAttempts.map((a) => a.simulation_id)
   );
+
+  // Build a map of simulation_id → in-progress attempt for assigned sims
+  const inProgressBySimulation = new Map<string, string>();
+  for (const a of inProgressAttempts) {
+    if (!inProgressBySimulation.has(a.simulation_id)) {
+      inProgressBySimulation.set(a.simulation_id, a.id);
+    }
+  }
 
   const assignedNotCompleted = (assignments ?? []).filter(
     (row) => !completedSimulationIds.has(row.simulation_id)
   );
-
-  const completedAttempts = (attempts ?? []).filter((a) => a.status === "completed");
-
-  const inProgressAttempts = (attempts ?? []).filter((a) => a.status === "in_progress");
 
   function toCard(
     sim: {
@@ -130,15 +136,17 @@ export async function fetchStudentDashboardData(userId: string) {
           } | null
         );
         if (!simulation) return null;
+        const attemptId = inProgressBySimulation.get(row.simulation_id);
         return {
           id: row.id,
           simulation_id: row.simulation_id,
           due_date: row.due_date,
           assigned_at: row.assigned_at,
           simulation,
+          ...(attemptId ? { inProgressAttemptId: attemptId } : {}),
         } satisfies StudentAssignmentRow;
       })
-      .filter((row): row is StudentAssignmentRow => row !== null),
+      .filter((row): row is NonNullable<typeof row> => row !== null),
     completed: completedAttempts
       .map((row) => {
         const simulation = toCard(

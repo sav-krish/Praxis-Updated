@@ -51,7 +51,7 @@ export default async function StudentReportPage({ params }: StudentReportPagePro
 
   const { data: participant } = await supabase
     .from("participants")
-    .select("id")
+    .select("id, team_id")
     .eq("session_id", attempt.session_id)
     .eq("user_id", user.id)
     .maybeSingle();
@@ -64,6 +64,56 @@ export default async function StudentReportPage({ params }: StudentReportPagePro
       .eq("session_id", attempt.session_id)
       .eq("participant_id", participant.id);
     responses = responseRows ?? [];
+  }
+
+  // Fetch reflection responses
+  let reflectionResponses: { question: string; response: string }[] = [];
+  if (participant) {
+    const { data: reflectionRows } = await supabase
+      .from("reflection_responses")
+      .select("question_id, response")
+      .eq("session_id", attempt.session_id)
+      .eq("participant_id", participant.id);
+
+    if (reflectionRows && reflectionRows.length > 0) {
+      const questionIds = reflectionRows.map((r) => r.question_id);
+      const { data: questions } = await supabase
+        .from("reflection_questions")
+        .select("id, question")
+        .in("id", questionIds)
+        .order("order_num", { ascending: true });
+
+      const questionMap = new Map((questions ?? []).map((q) => [q.id, q.question]));
+      reflectionResponses = reflectionRows.map((r) => ({
+        question: questionMap.get(r.question_id) ?? "Reflection question",
+        response: r.response,
+      }));
+    }
+  }
+
+  // Fetch team score (average of all team members' scores)
+  let teamScore: number | null = null;
+  if (participant?.team_id) {
+    const { data: teamParticipants } = await supabase
+      .from("participants")
+      .select("id")
+      .eq("session_id", attempt.session_id)
+      .eq("team_id", participant.team_id);
+
+    if (teamParticipants && teamParticipants.length > 0) {
+      const teamParticipantIds = teamParticipants.map((p) => p.id);
+      const { data: teamAttempts } = await supabase
+        .from("student_simulation_attempts")
+        .select("score")
+        .eq("session_id", attempt.session_id)
+        .in("participant_id", teamParticipantIds)
+        .not("score", "is", null);
+
+      if (teamAttempts && teamAttempts.length > 0) {
+        const total = teamAttempts.reduce((sum, a) => sum + (a.score ?? 0), 0);
+        teamScore = Math.round(total / teamAttempts.length);
+      }
+    }
   }
 
   const decisionExplanations = buildDecisionExplanations(
@@ -85,8 +135,10 @@ export default async function StudentReportPage({ params }: StudentReportPagePro
     <StudentReportView
       simulationTitle={simulation.title}
       score={attempt.score ?? 0}
+      teamScore={teamScore}
       completedAt={attempt.completed_at}
       decisions={decisionExplanations}
+      reflectionResponses={reflectionResponses}
       attemptId={attempt.id}
       sessionId={attempt.session_id}
     />
