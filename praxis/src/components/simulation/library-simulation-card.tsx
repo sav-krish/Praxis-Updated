@@ -202,23 +202,24 @@ export function LibrarySimulationCard({
             disabled={usingSim}
           >
             {usingSim ? (
-              <Loader2 className="h-4 w-4 animate-spin shrink-0" />
+              <Loader2 className="mr-2 h-4 w-4 animate-spin shrink-0" />
             ) : null}
-            Use simulation
+            {usingSim ? "Adding…" : "Use simulation"}
           </Button>
-          <Link href={`/edit/${sim.id}`} className="flex-1 min-w-0">
-            <Button
-              variant="outline"
-              size="sm"
-              className={
-                isSpotlight
-                  ? `w-full ${SIMULATION_CARD_ACTION_MIN_HEIGHT_CLASS} border-ink/25 bg-white/80 text-ink hover:bg-white`
-                  : `w-full ${SIMULATION_CARD_ACTION_MIN_HEIGHT_CLASS} border-ink/15 bg-white/75 text-ink backdrop-blur-sm hover:bg-white`
-              }
-            >
+          <Button
+            variant="outline"
+            size="sm"
+            asChild
+            className={
+              isSpotlight
+                ? `flex-1 ${SIMULATION_CARD_ACTION_MIN_HEIGHT_CLASS} border-ink/25 bg-white/80 text-ink hover:bg-white`
+                : `flex-1 ${SIMULATION_CARD_ACTION_MIN_HEIGHT_CLASS} border-ink/15 bg-white/75 text-ink backdrop-blur-sm hover:bg-white`
+            }
+          >
+            <Link href={`/edit/${sim.id}`}>
               View details
-            </Button>
-          </Link>
+            </Link>
+          </Button>
         </div>
       </CardContent>
     </Card>
