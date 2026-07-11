@@ -50,6 +50,13 @@ export function LibraryView({
   const [togglingFavorite, setTogglingFavorite] = useState<string | null>(null);
   const [searchInput, setSearchInput] = useState(currentQuery);
 
+  // IDs already shown in "Top Picks" and "Community favorites" — exclude from the main grid below
+  const featuredIds = new Set([
+    ...flagshipSimulations.map((s) => s.id),
+    ...topSimulations.map((s) => s.id),
+  ]);
+  const remainingSimulations = simulations.filter((s) => !featuredIds.has(s.id));
+
   // Pin the tour anchor to the FIRST simulation that will actually render
   // on the page. Flagship strip first, then community favorites, then the
   // generic results grid. Without this fallback, environments without seeded
@@ -58,7 +65,7 @@ export function LibraryView({
   const tourAnchorSimId =
     flagshipSimulations[0]?.id ??
     topSimulations[0]?.id ??
-    simulations[0]?.id ??
+    remainingSimulations[0]?.id ??
     null;
 
   const toggleFavorite = async (simulationId: string) => {
@@ -225,8 +232,8 @@ export function LibraryView({
         </div>
       </section>
 
-      {/* Results grid */}
-      {simulations.length === 0 ? (
+      {/* Results grid — simulations not already shown in featured sections */}
+      {remainingSimulations.length === 0 ? (
         <div className="text-center py-12">
           <p className="text-muted-foreground">
             {currentQuery || currentSubject !== "all" || currentDifficulty !== "all"
@@ -245,7 +252,7 @@ export function LibraryView({
         </div>
       ) : (
         <div className={`mt-4 ${SIMULATION_CARD_GRID_CLASS}`}>
-          {simulations.map((sim) => (
+          {remainingSimulations.map((sim) => (
             <div key={sim.id} className={SIMULATION_CARD_GRID_ITEM_CLASS}>
               <LibrarySimulationCard
                 sim={sim}
