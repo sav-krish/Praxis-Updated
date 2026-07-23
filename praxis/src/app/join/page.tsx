@@ -10,8 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Loader2, ArrowRight, UserPlus, SkipForward, Moon } from "lucide-react";
-import { useTheme } from "next-themes";
+import { Loader2, ArrowRight, UserPlus, SkipForward } from "lucide-react";
 import { toast } from "sonner";
 
 function JoinForm() {
@@ -36,8 +35,11 @@ function JoinForm() {
 
     if (data && data.status !== "complete") {
       setSession(data);
+
+      // Check if this tab already joined this session (sessionStorage = per-tab identity)
       const storedId = sessionStorage.getItem(`participant_${data.id}`);
       if (storedId) {
+        // Verify the participant still exists in the DB
         const { data: existing } = await supabase
           .from("participants")
           .select("id, name")
@@ -46,16 +48,15 @@ function JoinForm() {
           .single();
 
         if (existing) {
-          sessionStorage.setItem(`participant_${data.id}`, existing.id);
+          // This tab already joined -- send them straight back to play
           sessionStorage.setItem(`participant_name_${data.id}`, existing.name);
-          sessionStorage.setItem(`session_${data.id}`, data.id);
-          sessionStorage.setItem(`participant_${joinCode.toUpperCase()}`, existing.id);
-          sessionStorage.setItem(`session_${joinCode.toUpperCase()}`, data.id);
-          router.push(`/play/${joinCode.toUpperCase()}/role-select`);
+          router.push(`/play/${joinCode.toUpperCase()}`);
           return;
+        } else {
+          // Stale entry -- clear it so they can re-join fresh
+          sessionStorage.removeItem(`participant_${data.id}`);
+          sessionStorage.removeItem(`participant_name_${data.id}`);
         }
-        sessionStorage.removeItem(`participant_${data.id}`);
-        sessionStorage.removeItem(`participant_name_${data.id}`);
       }
     } else {
       setSession(null);
@@ -63,6 +64,7 @@ function JoinForm() {
     setChecking(false);
   }, [joinCode, router]);
 
+  // Auto-lookup session when code is complete
   useEffect(() => {
     if (joinCode.length === 6) {
       void lookupSession();
@@ -93,6 +95,7 @@ function JoinForm() {
         throw new Error(result && "error" in result ? result.error : "Failed to join session");
       }
 
+      // Store the pending join data and show the account creation modal
       setPendingJoinData(result);
       setShowAccountModal(true);
     } catch (error) {
@@ -104,33 +107,32 @@ function JoinForm() {
   };
 
   const handleCreateAccount = () => {
+    // Store participant data temporarily for after signup redirect
     if (pendingJoinData) {
       sessionStorage.setItem(`participant_${session!.id}`, pendingJoinData.participantId);
       sessionStorage.setItem(`participant_name_${session!.id}`, pendingJoinData.participantName);
-      sessionStorage.setItem(`session_${session!.id}`, session!.id);
-      sessionStorage.setItem(`participant_${joinCode.toUpperCase()}`, pendingJoinData.participantId);
-      sessionStorage.setItem(`session_${joinCode.toUpperCase()}`, session!.id);
+      // Redirect to signup with the join code so they can create an account
+      // After signup, they'll be redirected back to the play page
       router.push(`/auth/signup?role=student&code=${joinCode.toUpperCase()}`);
     }
   };
 
   const handleContinueWithoutAccount = () => {
+    // Store participant data for anonymous session
     if (pendingJoinData) {
-      const jc = joinCode.toUpperCase();
       sessionStorage.setItem(`participant_${session!.id}`, pendingJoinData.participantId);
       sessionStorage.setItem(`participant_name_${session!.id}`, pendingJoinData.participantName);
-      sessionStorage.setItem(`session_${session!.id}`, session!.id);
-      sessionStorage.setItem(`participant_${jc}`, pendingJoinData.participantId);
-      sessionStorage.setItem(`session_${jc}`, session!.id);
     }
     setShowAccountModal(false);
     setPendingJoinData(null);
-    router.push(`/play/${joinCode.toUpperCase()}/role-select`);
+    // Navigate to play page
+    router.push(`/play/${joinCode.toUpperCase()}`);
   };
 
+  // Show a spinner while verifying a returning student
   if (checking) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-muted/50 dark:bg-[#292724] px-4">
+      <div className="min-h-screen flex items-center justify-center bg-muted/50 px-4">
         <div className="flex flex-col items-center gap-3">
           <Loader2 className="h-8 w-8 animate-spin text-primary" />
           <p className="text-sm text-muted-foreground">Checking session...</p>
@@ -140,7 +142,7 @@ function JoinForm() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-muted/50 dark:bg-[#292724] px-4 py-6">
+    <div className="min-h-screen flex items-center justify-center bg-muted/50 px-4 py-6">
       <Card className="w-full max-w-md max-h-[calc(100dvh-3rem)] overflow-auto">
         <CardHeader className="text-center">
           <Link href="/" className="flex items-center justify-center gap-2 mb-4">
@@ -156,7 +158,9 @@ function JoinForm() {
             </span>
           </Link>
           <CardTitle>Join Session</CardTitle>
-          <CardDescription>Enter the code provided by your professor</CardDescription>
+          <CardDescription>
+            Enter the code provided by your professor
+          </CardDescription>
         </CardHeader>
         <form onSubmit={handleJoin}>
           <CardContent className="space-y-4">
@@ -192,9 +196,9 @@ function JoinForm() {
             </div>
           </CardContent>
           <CardContent className="pt-4">
-            <Button
-              type="submit"
-              className="w-full min-h-[48px]"
+            <Button 
+              type="submit" 
+              className="w-full min-h-[48px]" 
               disabled={loading || !session || !name.trim()}
             >
               Join Session
@@ -216,6 +220,7 @@ function JoinForm() {
         </form>
       </Card>
 
+      {/* Account Creation Modal */}
       {showAccountModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
           <Card className="w-full max-w-sm">
@@ -224,14 +229,25 @@ function JoinForm() {
                 <UserPlus className="h-6 w-6 text-primary" />
               </div>
               <CardTitle className="text-lg">Save Your Progress?</CardTitle>
-              <CardDescription>Create an account to view your reports and track your performance over time.</CardDescription>
+              <CardDescription>
+                Create an account to view your reports and track your performance over time.
+              </CardDescription>
             </CardHeader>
             <CardContent className="space-y-3 pt-4">
-              <Button type="button" onClick={handleCreateAccount} className="w-full" size="lg">
+              <Button
+                onClick={handleCreateAccount}
+                className="w-full"
+                size="lg"
+              >
                 <UserPlus className="mr-2 h-4 w-4" />
                 Create Account & Join
               </Button>
-              <Button type="button" onClick={handleContinueWithoutAccount} variant="outline" className="w-full" size="lg">
+              <Button
+                onClick={handleContinueWithoutAccount}
+                variant="outline"
+                className="w-full"
+                size="lg"
+              >
                 <SkipForward className="mr-2 h-4 w-4" />
                 Continue Without Account
               </Button>
@@ -243,31 +259,13 @@ function JoinForm() {
   );
 }
 
-function AuthThemeToggle() {
-  const { resolvedTheme, setTheme } = useTheme();
-  return (
-    <button
-      type="button"
-      onClick={() => setTheme(resolvedTheme === "dark" ? "light" : "dark")}
-      className="fixed top-4 right-4 z-50 flex h-10 w-10 items-center justify-center rounded-full bg-white dark:bg-[#33302c] border border-line dark:border-[#44403b] shadow-sm hover:shadow-md transition-shadow"
-      title="Toggle color theme"
-      aria-label="Toggle color theme"
-    >
-      <Moon className="h-5 w-5 text-[#4a1f10] dark:text-[#f0eee6]" strokeWidth={2.4} />
-    </button>
-  );
-}
-
 export default function JoinPage() {
   return (
-    <Suspense
-      fallback={
-        <div className="min-h-screen flex items-center justify-center">
-          <Loader2 className="h-8 w-8 animate-spin" />
-        </div>
-      }
-    >
-      <AuthThemeToggle />
+    <Suspense fallback={
+      <div className="min-h-screen flex items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin" />
+      </div>
+    }>
       <JoinForm />
     </Suspense>
   );

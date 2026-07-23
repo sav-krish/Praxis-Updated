@@ -9,8 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { Loader2, Moon } from "lucide-react";
-import { useTheme } from "next-themes";
+import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
 
 const CAREER_INTERESTS = [
@@ -130,7 +129,7 @@ function SignupForm() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-muted/50 dark:bg-[#292724] px-4 py-6">
+    <div className="min-h-screen flex items-center justify-center bg-muted/50 px-4 py-6">
       <Card className="w-full max-w-md max-h-[calc(100dvh-3rem)] overflow-auto">
         <CardHeader className="text-center">
           <Link href="/" className="flex items-center justify-center gap-2 mb-4">
@@ -222,7 +221,7 @@ function SignupForm() {
                         className={`rounded-full px-3 py-1.5 text-sm font-medium transition-colors border ${
                           careerInterests.includes(interest)
                             ? "bg-accent text-white border-accent"
-                            : "bg-white text-[#4a1f10] border-[#d8a986] hover:bg-[#ffe6d3]"
+                            : "bg-white text-ink border-line hover:bg-accentSoft"
                         }`}
                       >
                         {interest}
@@ -295,21 +294,6 @@ function SignupForm() {
   );
 }
 
-function AuthThemeToggle() {
-  const { resolvedTheme, setTheme } = useTheme();
-  return (
-    <button
-      type="button"
-      onClick={() => setTheme(resolvedTheme === "dark" ? "light" : "dark")}
-      className="fixed top-4 right-4 z-50 flex h-10 w-10 items-center justify-center rounded-full bg-white dark:bg-[#33302c] border border-line dark:border-[#44403b] shadow-sm hover:shadow-md transition-shadow"
-      title="Toggle color theme"
-      aria-label="Toggle color theme"
-    >
-      <Moon className="h-5 w-5 text-[#4a1f10] dark:text-[#f0eee6]" strokeWidth={2.4} />
-    </button>
-  );
-}
-
 export default function SignupPage() {
   return (
     <Suspense
@@ -319,7 +303,6 @@ export default function SignupPage() {
         </div>
       }
     >
-      <AuthThemeToggle />
       <SignupForm />
     </Suspense>
   );

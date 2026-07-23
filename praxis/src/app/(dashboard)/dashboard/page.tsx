@@ -220,10 +220,10 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
         <section
           className={`mb-6 sm:mb-8 rounded-3xl border border-border p-6 sm:p-10 ${APP_TILE_BACKGROUNDS[0]} shadow-[0_12px_30px_rgba(15,36,71,0.08)]`}
         >
-          <h1 className="text-3xl sm:text-4xl font-bold tracking-tight text-[#a93d07]">
+          <h1 className="text-3xl sm:text-4xl font-bold tracking-tight text-ink">
             {greeting}, {displayName}
           </h1>
-          <p className="mt-2 max-w-2xl text-sm sm:text-base text-[#a93d07]">
+          <p className="mt-2 max-w-2xl text-sm sm:text-base text-muted-text">
             Pick how you&apos;d like to start.
           </p>
 
@@ -231,13 +231,13 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
             {quickActions.map(({ href, icon: Icon, label }) => (
               <Link key={label} href={href} className="group">
                 <div className="flex h-full items-center justify-between gap-4 rounded-2xl bg-white/85 p-4 sm:p-5 backdrop-blur-sm transition-all hover:-translate-y-0.5 hover:bg-white hover:shadow-soft">
-                  <div className="flex items-center gap-3 text-[#a93d07]">
-                    <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#a93d07]/10 text-[#a93d07]">
+                  <div className="flex items-center gap-3 text-ink">
+                    <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-ink/5 text-ink">
                       <Icon className="h-5 w-5" />
                     </span>
                     <span className="text-sm sm:text-base font-semibold leading-snug">{label}</span>
                   </div>
-                  <ArrowRight className="h-5 w-5 shrink-0 text-[#a93d07] transition-transform duration-200 group-hover:translate-x-1" />
+                  <ArrowRight className="h-5 w-5 shrink-0 text-muted-text transition-transform duration-200 group-hover:translate-x-1" />
                 </div>
               </Link>
             ))}

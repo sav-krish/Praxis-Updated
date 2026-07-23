@@ -87,14 +87,14 @@ export function DashboardSimulationCard({
             <div className="flex flex-wrap items-center gap-1.5">
               <Badge
                 variant="secondary"
-                className="border-0 bg-white/70 text-xs font-medium text-[#a93d07] backdrop-blur-sm"
+                className="border-0 bg-white/70 text-xs font-medium text-ink backdrop-blur-sm"
               >
                 {simulation.course_topic}
               </Badge>
               {isTeams ? (
                 <Badge
                   variant="outline"
-                  className="gap-1 border-[#a93d07]/25 bg-white/55 text-xs font-medium text-[#a93d07] backdrop-blur-sm"
+                  className="gap-1 border-ink/15 bg-white/55 text-xs font-medium text-ink backdrop-blur-sm"
                 >
                   <Users className="h-3 w-3" aria-hidden />
                   Teams
@@ -102,7 +102,7 @@ export function DashboardSimulationCard({
               ) : (
                 <Badge
                   variant="outline"
-                  className="gap-1 border-[#a93d07]/25 bg-white/55 text-xs font-medium text-[#a93d07] backdrop-blur-sm"
+                  className="gap-1 border-ink/15 bg-white/55 text-xs font-medium text-ink backdrop-blur-sm"
                 >
                   {difficultyBadgeLabel(simulation.difficulty)}
                 </Badge>
@@ -125,7 +125,7 @@ export function DashboardSimulationCard({
               <Button
                 variant="ghost"
                 size="icon"
-                className="h-8 w-8 text-[#a93d07] hover:bg-white/60"
+                className="h-8 w-8 text-muted-text hover:bg-white/60"
               >
                 <MoreVertical className="h-4 w-4" />
               </Button>
@@ -173,14 +173,14 @@ export function DashboardSimulationCard({
         </div>
       </CardHeader>
       <CardContent className="mt-auto flex flex-col gap-3 pt-0">
-        <p className="text-xs text-[#a93d07]">
+        <p className="text-xs text-muted-text">
           Updated {new Date(simulation.updated_at).toLocaleDateString()}
         </p>
         <div className="flex gap-2">
           <Link href={`/edit/${simulation.id}`} className="flex-1 min-w-0">
             <Button
               variant="outline"
-                className={`w-full ${SIMULATION_CARD_ACTION_MIN_HEIGHT_CLASS} border-[#a93d07]/50 bg-white/80 text-[#a93d07] backdrop-blur-sm hover:bg-[#ffe6d3] hover:text-[#7d2d05]`}
+              className={`w-full ${SIMULATION_CARD_ACTION_MIN_HEIGHT_CLASS} border-ink/15 bg-white/75 text-ink backdrop-blur-sm hover:bg-white`}
               size="sm"
             >
               <Edit className="mr-2 h-4 w-4 shrink-0" />
@@ -201,7 +201,7 @@ export function DashboardSimulationCard({
                   ? "bg-emerald-600 text-white hover:bg-emerald-700"
                   : isScheduled
                     ? "bg-amber-600 text-white hover:bg-amber-700"
-                  : "border border-[#a93d07]/50 bg-[#fffaf4] text-[#a93d07] hover:bg-[#ffe6d3] hover:text-[#7d2d05]"
+                  : "bg-ink text-white hover:bg-ink/90"
               }`}
               size="sm"
             >

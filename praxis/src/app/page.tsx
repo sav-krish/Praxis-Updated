@@ -8,7 +8,6 @@ import { FadeIn } from "@/components/landing/fade-in";
 import { HowItWorksHorizontalScroll } from "@/components/landing/how-it-works";
 import { FaqSection } from "@/components/landing/faq-section";
 import { LandingBackground } from "@/components/landing/landing-background";
-import { ThemeToggle } from "@/components/theme-toggle";
 
 /* ─────────────────────────── Data ─────────────────────────── */
 
@@ -21,9 +20,9 @@ const navLinks = [
 
 /** Lavender / mint / sky pastel tiles: flat, no border (reference: analyst-style recognition cards). */
 const LANDING_TILE_BACKGROUNDS = [
-  "praxis-light-surface bg-[linear-gradient(160deg,#fff0e1_0%,#fff7ef_50%,#ffdabb_100%)]",
-  "praxis-light-surface bg-[linear-gradient(160deg,#fff4e8_0%,#fffaf4_50%,#ffe6d3_100%)]",
-  "praxis-light-surface bg-[linear-gradient(160deg,#ffe4ce_0%,#fff1e5_50%,#ffc795_100%)]",
+  "bg-[linear-gradient(160deg,#fff0e1_0%,#fff7ef_50%,#ffdabb_100%)]",
+  "bg-[linear-gradient(160deg,#fff4e8_0%,#fffaf4_50%,#ffe6d3_100%)]",
+  "bg-[linear-gradient(160deg,#ffe4ce_0%,#fff1e5_50%,#ffc795_100%)]",
 ] as const;
 
 const impactMetrics = [
@@ -82,7 +81,7 @@ function Button({
 }) {
   const styles = {
     primary:
-      "border-2 border-transparent bg-accent text-[#4a1f10] shadow-subtle hover:bg-accent/90 focus-visible:ring-accent",
+      "border-2 border-transparent bg-accent text-white shadow-subtle hover:bg-accent/90 focus-visible:ring-accent",
     secondary:
       "border-2 border-accent text-accent hover:bg-accentSoft focus-visible:ring-accent",
     ghost:
@@ -170,10 +169,10 @@ export default function HomePage() {
       <LandingBackground />
 
       {/* ── Nav ── */}
-      <header className="sticky top-0 z-40 border-b border-line/60 bg-white dark:bg-[#292724] dark:border-[#44403b] safe-area-inset-top">
+      <header className="sticky top-0 z-40 border-b border-line/60 bg-white safe-area-inset-top">
         <nav className="container flex min-h-16 items-center justify-between gap-2 px-4 py-2 sm:min-h-18 sm:gap-3 sm:px-6 sm:py-2.5">
           <Link href="/" className="flex min-w-0 shrink items-center gap-1.5 sm:gap-2">
-            <span className="inline-flex h-12 shrink-0 items-center justify-center rounded-sm bg-white dark:bg-transparent p-0.5 sm:h-14">
+            <span className="inline-flex h-12 shrink-0 items-center justify-center rounded-sm bg-white p-0.5 sm:h-14">
               <Image
                 src="/new_logo.png"
                 alt="Praxis"
@@ -196,7 +195,6 @@ export default function HomePage() {
             ))}
           </div>
           <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
-            <ThemeToggle />
             <Link
               href="/join"
               className="hidden md:inline-flex items-center"
@@ -316,11 +314,11 @@ export default function HomePage() {
                     <p className="text-[3.6rem] font-black leading-none tracking-[-0.05em] text-accent md:text-[4.8rem]">
                       {card.stat}
                     </p>
-                    <p className="mx-auto max-w-[24ch] text-base font-bold leading-tight text-[#a93d07] md:text-[1.05rem]">
+                    <p className="mx-auto max-w-[24ch] text-base font-bold leading-tight text-ink md:text-[1.05rem]">
                       {card.label}
                     </p>
                   </div>
-                  <p className="mx-auto mt-2 max-w-[24ch] text-[0.96rem] leading-relaxed text-[#6f3e27] md:text-sm">
+                  <p className="mx-auto mt-2 max-w-[24ch] text-[0.96rem] leading-relaxed text-muted md:text-sm">
                     {card.body}
                   </p>
                 </div>
@@ -333,7 +331,7 @@ export default function HomePage() {
               <div
                 className={`rounded-[calc(1.5rem-1.5px)] px-6 py-6 text-center ${LANDING_TILE_BACKGROUNDS[0]}`}
               >
-                <p className="text-lg font-semibold text-[#a93d07] md:text-xl leading-snug">
+                <p className="text-lg font-semibold text-ink md:text-xl leading-snug">
                   &ldquo;At the very moment deeper learning matters most, it is
                   the hardest to deliver.&rdquo;
                 </p>
@@ -401,14 +399,14 @@ export default function HomePage() {
                     />
                   </p>
                   <p
-                    className={`text-base font-bold leading-tight text-[#a93d07] md:text-[1.05rem] ${
+                    className={`text-base font-bold leading-tight text-ink md:text-[1.05rem] ${
                       metric.isQualitative ? "mt-1" : "mt-3"
                     }`}
                   >
                     {metric.label}
                   </p>
                   <p
-                    className={`text-[0.96rem] leading-relaxed text-[#6f3e27] md:text-sm ${
+                    className={`text-[0.96rem] leading-relaxed text-muted md:text-sm ${
                       metric.isQualitative ? "mt-1 max-w-[28ch]" : "mt-2 max-w-[24ch]"
                     }`}
                   >
@@ -440,14 +438,14 @@ export default function HomePage() {
                   >
                     &ldquo;
                   </span>
-                  <p className="mt-3 flex-1 text-base font-bold leading-snug text-[#a93d07] md:text-lg md:leading-snug">
+                  <p className="mt-3 flex-1 text-base font-bold leading-snug text-ink md:text-lg md:leading-snug">
                     {t.quote}
                   </p>
                   <div className="mt-auto w-full pt-6">
-                    <p className="text-sm font-semibold text-[#a93d07]">{t.name}</p>
-                    <p className="text-xs leading-snug text-[#6f3e27]">{t.title}</p>
+                    <p className="text-sm font-semibold text-ink">{t.name}</p>
+                    <p className="text-xs leading-snug text-muted">{t.title}</p>
                     {t.subtitle && (
-                      <p className="text-xs leading-snug text-[#6f3e27]">
+                      <p className="text-xs leading-snug text-muted">
                         {t.subtitle}
                       </p>
                     )}
@@ -464,7 +462,7 @@ export default function HomePage() {
         {/* ── Mailing List ── */}
         <section className="container py-12 md:py-16">
           <FadeIn>
-            <div className="rounded-2xl border border-accent/20 bg-gradient-to-br from-accentSoft/60 via-white/90 dark:via-[#33302c] to-accentSoft/40 p-8 md:p-12 text-center shadow-soft">
+            <div className="rounded-2xl border border-accent/20 bg-gradient-to-br from-accentSoft/60 via-white/90 to-accentSoft/40 p-8 md:p-12 text-center shadow-soft">
               <h2 className="text-2xl font-bold text-ink md:text-3xl">
                 Stay in the loop.
               </h2>
@@ -504,7 +502,7 @@ export default function HomePage() {
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     required
-                    className="w-full rounded-full border border-line bg-white dark:bg-[#33302c] px-5 py-3 text-sm text-ink placeholder:text-muted/60 focus:outline-none focus:ring-2 focus:ring-accent focus:ring-offset-2 focus:ring-offset-canvas"
+                    className="w-full rounded-full border border-line bg-white px-5 py-3 text-sm text-ink placeholder:text-muted/60 focus:outline-none focus:ring-2 focus:ring-accent focus:ring-offset-2 focus:ring-offset-canvas"
                   />
                   <Button
                     type="submit"
@@ -522,7 +520,7 @@ export default function HomePage() {
       {/* ── Footer ── */}
       <footer
         id="contact"
-        className="container scroll-mt-19 border-t border-line/60 dark:border-[#44403b] py-10"
+        className="container scroll-mt-19 border-t border-line/60 py-10"
       >
         <div className="flex flex-col items-start justify-between gap-6 md:flex-row md:items-center">
           <div>

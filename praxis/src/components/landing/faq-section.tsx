@@ -88,12 +88,12 @@ export function FaqSection() {
       </FadeIn>
 
       <FadeIn className="mx-auto mt-10 max-w-3xl" delay={0.08}>
-        <div className="praxis-light-surface rounded-2xl border border-[#d8a986] bg-[#fff7ef]/95 px-4 py-2 shadow-subtle backdrop-blur-sm md:px-6 md:py-3">
+        <div className="rounded-2xl border border-line/80 bg-white/70 px-4 py-2 shadow-subtle backdrop-blur-sm md:px-6 md:py-3">
           <Accordion type="single" collapsible className="w-full">
             {FAQ_ITEMS.map((item) => (
               <AccordionItem key={item.id} value={item.id}>
-                <AccordionTrigger className="text-[#a93d07] hover:text-[#7d2d05]">{item.question}</AccordionTrigger>
-                <AccordionContent className="text-[#4a1f10]">
+                <AccordionTrigger>{item.question}</AccordionTrigger>
+                <AccordionContent>
                   {item.answer ? (
                     <p>{item.answer}</p>
                   ) : (

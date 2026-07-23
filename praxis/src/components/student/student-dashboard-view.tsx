@@ -129,7 +129,7 @@ export function StudentDashboardView({
                 className={`rounded-full px-4 py-2 text-sm font-medium transition ${
                   activeTrack === track.id
                     ? "bg-accent text-white shadow-subtle"
-                    : "bg-white/90 text-[#4a1f10] border border-[#d8a986] hover:bg-[#ffe6d3]"
+                    : "bg-white/80 text-ink border border-line hover:bg-accentSoft"
                 }`}
               >
                 {track.label}

@@ -76,7 +76,7 @@ export function StartSimulationButton({
   return (
     <Button
       type="button"
-      className={`${SIMULATION_CARD_ACTION_MIN_HEIGHT_CLASS} border border-[#a93d07]/50 bg-[#fffaf4] text-[#a93d07] hover:bg-[#ffe6d3] hover:text-[#7d2d05] ${className ?? ""}`}
+      className={`${SIMULATION_CARD_ACTION_MIN_HEIGHT_CLASS} ${className ?? ""}`}
       disabled={disabled || loading}
       onClick={() => void handleStart()}
     >
@@ -148,7 +148,7 @@ export function StudentSimulationTile({
                   <Button
                     asChild
                     variant="outline"
-                    className={`flex-1 ${SIMULATION_CARD_ACTION_MIN_HEIGHT_CLASS} border-[#a93d07]/50 bg-white/80 text-[#a93d07] hover:bg-[#ffe6d3] hover:text-[#7d2d05]`}
+                    className={`flex-1 ${SIMULATION_CARD_ACTION_MIN_HEIGHT_CLASS}`}
                   >
                     <Link href={`/student/reports/${attemptId}`}>
                       <FileText className="mr-2 h-4 w-4" />

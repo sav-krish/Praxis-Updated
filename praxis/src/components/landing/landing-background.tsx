@@ -17,31 +17,22 @@ export function LandingBackground() {
       aria-hidden
       className="pointer-events-none fixed inset-0 -z-10 overflow-hidden"
     >
-      {/* Light mode gradient */}
       <div
-        className="absolute inset-0 opacity-80 dark:opacity-0 transition-opacity duration-500"
+        className="absolute inset-0 opacity-80"
         style={{
           background:
             "linear-gradient(155deg, #fff3e4 0%, #fff7ee 32%, #ffe6d3 62%, #ffd7b6 100%)",
         }}
       />
-      {/* Dark mode gradient */}
       <div
-        className="absolute inset-0 opacity-0 dark:opacity-80 transition-opacity duration-500"
-        style={{
-          background:
-            "linear-gradient(155deg, #1a0a05 0%, #2c140d 32%, #3a1a10 62%, #1a0a05 100%)",
-        }}
-      />
-      <div
-        className="absolute inset-0 opacity-50 dark:opacity-30 transition-opacity duration-500"
+        className="absolute inset-0 opacity-50"
         style={{
           background:
             "radial-gradient(ellipse 85% 55% at 15% 12%, rgba(253, 140, 46, 0.14), transparent 52%), radial-gradient(ellipse 75% 50% at 88% 78%, rgba(247, 98, 36, 0.1), transparent 48%), radial-gradient(ellipse 60% 40% at 50% 100%, rgba(249, 121, 42, 0.08), transparent 55%)",
         }}
       />
-      <div className="absolute -top-32 right-10 h-64 w-64 rounded-full bg-[#ffd0a8]/45 dark:bg-[#fd8c2e]/10 blur-3xl transition-colors duration-500" />
-      <div className="absolute bottom-0 left-0 h-72 w-72 rounded-full bg-[#fdb77f]/30 dark:bg-[#fd8c2e]/5 blur-3xl transition-colors duration-500" />
+      <div className="absolute -top-32 right-10 h-64 w-64 rounded-full bg-[#ffd0a8]/45 blur-3xl" />
+      <div className="absolute bottom-0 left-0 h-72 w-72 rounded-full bg-[#fdb77f]/30 blur-3xl" />
     </div>
   );
 }
