@@ -399,6 +399,14 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
     return 5;
   }
 
+  // Redirect to role selection if needed
+  useEffect(() => {
+    if (!session || currentStep !== 1 || !participantId) return;
+    if (session.simulation.hidden_profiles_enabled && !playerProfile) {
+      router.replace(`/play/${code}/role-select`);
+    }
+  }, [session, currentStep, participantId, playerProfile, code, router]);
+
   // Fetch hidden profile when transitioning to background
   useEffect(() => {
     if (currentStep !== 1 || playerProfile || !participantId || !session?.simulation?.hidden_profiles_enabled) return;
