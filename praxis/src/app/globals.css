@@ -197,6 +197,40 @@
   --chart-5: #ffd0a8;
 }
 
+[data-app="true"] .dark {
+  --background: #0f1221;
+  --foreground: #f3f4f6;
+  --card: #1a1d2e;
+  --card-foreground: #f3f4f6;
+  --popover: #1a1d2e;
+  --popover-foreground: #f3f4f6;
+  --primary: #fd8c2e;
+  --primary-foreground: #0f1221;
+  --secondary: #1f2335;
+  --secondary-foreground: #f3f4f6;
+  --muted: #1a1d2e;
+  --muted-foreground: #b8bfc9;
+  --accent: #2a3048;
+  --accent-foreground: #f3f4f6;
+  --destructive: #f87171;
+  --border: #2a3048;
+  --input: #2a3048;
+  --ring: #fd8c2e;
+  --chart-1: #fd8c2e;
+  --chart-2: #f9792a;
+  --chart-3: #f76224;
+  --chart-4: #f9a25e;
+  --chart-5: #ffd0a8;
+  --sidebar: #111222;
+  --sidebar-foreground: #f3f4f6;
+  --sidebar-primary: #fd8c2e;
+  --sidebar-primary-foreground: #0f1221;
+  --sidebar-accent: #1f2335;
+  --sidebar-accent-foreground: #f3f4f6;
+  --sidebar-border: #2a3048;
+  --sidebar-ring: #fd8c2e;
+}
+
 /* Landing: no horizontal page scroll / scrollbar (wide How it works strip, etc.) */
 html:has([data-landing="true"]) {
   overflow-x: hidden;

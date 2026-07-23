@@ -158,12 +158,13 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
   const [participantName, setParticipantName] = useState<string>("");
   const [playerProfile, setPlayerProfile] = useState<PlayerProfile | null>(null);
   
-  // Current state
-  const [currentStep, setCurrentStep] = useState(0); // 0 = waiting, 1 = background, 2-4 = decisions, 5 = reflection, 6 = results
+  const [currentStep, setCurrentStep] = useState(0); // 0 waiting, 1 background, 2-4 decisions, 5 class votes, 6 reflection, 7 results
   const [selectedOption, setSelectedOption] = useState<string | null>(null);
   const [justification, setJustification] = useState("");
   const [showConsequence, setShowConsequence] = useState(false);
   const [currentConsequence, setCurrentConsequence] = useState("");
+  const [currentDataImpact, setCurrentDataImpact] = useState<{ metric: string; change: string; direction: "up" | "down" | "neutral" }[] | undefined>(undefined);
+  const [outcomeRating, setOutcomeRating] = useState<"strong" | "decent" | "mixed" | "poor" | null>(null);
   const [myResponses, setMyResponses] = useState<{ decision_id: string; option_id: string; score: number }[]>([]);
   const [reflectionAnswers, setReflectionAnswers] = useState<Record<string, string>>({});
   const [participantCount, setParticipantCount] = useState<number>(0);
@@ -185,6 +186,8 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
   const [responseInputMode, setResponseInputMode] = useState<"text" | "video">("text");
   const [studentAttemptId, setStudentAttemptId] = useState<string | null>(null);
   const [completedReportId, setCompletedReportId] = useState<string | null>(null);
+  const [loadingConsequence, setLoadingConsequence] = useState(false);
+  const [aiJustificationFeedback, setAiJustificationFeedback] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const liveVideoPreviewRef = useRef<HTMLVideoElement>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
@@ -192,10 +195,7 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
   const mediaChunksRef = useRef<Blob[]>([]);
   const recordingStartedAtRef = useRef<number | null>(null);
 
-  // Ref to always have latest currentStep in callbacks without re-subscribing
   const currentStepRef = useRef(currentStep);
-
-  // Ref to hold session id for polling without re-subscribing
   const sessionIdRef = useRef<string | null>(null);
   const transitionRef = useRef(false);
 
@@ -218,9 +218,7 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
 
     if (recording && mediaStreamRef.current) {
       videoElement.srcObject = mediaStreamRef.current;
-      void videoElement.play().catch(() => {
-        /* autoplay can be blocked transiently; controls remain available */
-      });
+      void videoElement.play().catch(() => {});
       return;
     }
 
@@ -235,7 +233,7 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
     session ? getSimulationSessionSchedule(session.simulation.preferences).end_at : null
   );
 
-  // Subscribe to participant count while waiting (for "N students joined" message)
+  // Subscribe to participant count while waiting
   useEffect(() => {
     if (!session || currentStep !== 0) return;
     const supabase = createClient();
@@ -254,9 +252,9 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
       )
       .subscribe();
     return () => { supabase.removeChannel(channel); };
-  }, [session?.id, currentStep]); // eslint-disable-line react-hooks/exhaustive-deps -- keyed by stable session id + lobby step only
+  }, [session?.id, currentStep]);
 
-  // Subscribe to session updates via Supabase Realtime
+  // Subscribe to session updates
   useEffect(() => {
     if (!session) return;
     sessionIdRef.current = session.id;
@@ -270,10 +268,10 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
         (payload) => {
           const updated = payload.new as { status: string; current_step: number };
           if (updated.status === "running" && currentStepRef.current === 0) {
-            setCurrentStep(1); // Move to background
+            setCurrentStep(1);
           }
           if (updated.status === "complete") {
-            setCurrentStep(6); // Move to results
+            setCurrentStep(7);
           }
         }
       )
@@ -282,8 +280,9 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [session?.id]); // eslint-disable-line react-hooks/exhaustive-deps -- keyed by session id; avoid resubscribing on every step change
+  }, [session?.id]);
 
+  // Sync scheduled start/end
   useEffect(() => {
     if (!session || session.is_preview || session.status === "complete") return;
 
@@ -306,7 +305,7 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
         transitionRef.current = false;
         if (!error) {
           setSession((prev) => (prev ? { ...prev, status: "complete" } : prev));
-          setCurrentStep(6);
+          setCurrentStep(7);
         }
         return;
       }
@@ -379,13 +378,13 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
 
   function getStepForPayload(payload: PlaySessionPayload) {
     if (payload.session.status === "lobby") return 0;
-    if (payload.session.status === "complete") return 6;
+    if (payload.session.status === "complete") return 7;
 
     if (payload.session.simulation.mode !== "teams") {
       const answeredCount = payload.responses?.length || 0;
       if (answeredCount === 0) return 1;
       if (answeredCount < 3) return answeredCount + 2;
-      return 5;
+      return 5; // reflection
     }
 
     for (let index = 0; index < payload.decisions.length; index += 1) {
@@ -400,7 +399,7 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
     return 5;
   }
 
-  // Fetch hidden profile when transitioning to background step
+  // Fetch hidden profile when transitioning to background
   useEffect(() => {
     if (currentStep !== 1 || playerProfile || !participantId || !session?.simulation?.hidden_profiles_enabled) return;
     void (async () => {
@@ -410,12 +409,12 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
           setPlayerProfile(payload.playerProfile);
         }
       } catch {
-        /* keep silent; player can continue without a loaded briefing */
+        /* keep silent */
       }
     })();
   }, [currentStep, participantId, playerProfile, session?.simulation?.hidden_profiles_enabled]);
 
-  // Polling fallback: check session status every 2s (lobby) or 5s (active)
+  // Polling fallback
   useEffect(() => {
     if (!session) return;
 
@@ -431,13 +430,13 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
       if (data?.status === "running" && currentStepRef.current === 0) {
         setCurrentStep(1);
       }
-      if (data?.status === "complete" && currentStepRef.current !== 6) {
-        setCurrentStep(6);
+      if (data?.status === "complete" && currentStepRef.current !== 7) {
+        setCurrentStep(7);
       }
     }, pollInterval);
 
     return () => clearInterval(interval);
-  }, [session?.id, currentStep]); // eslint-disable-line react-hooks/exhaustive-deps -- avoid duplicate timers on session object churn
+  }, [session?.id, currentStep]);
 
   async function loadSession() {
     let initialPayload: PlaySessionPayload;
@@ -449,7 +448,6 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
       return;
     }
 
-    // Get participant ID: URL params first (professor preview from Start Simulation), then sessionStorage
     const urlParticipantId = searchParams.get("participantId");
     const urlParticipantName = searchParams.get("participantName");
     const initialSession = initialPayload.session;
@@ -519,11 +517,9 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
     setLoading(false);
   }
 
-  // Load session data
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- initial session hydration from join code only
     void loadSession();
-  }, [code]); // eslint-disable-line react-hooks/exhaustive-deps -- loadSession closure reads searchParams/url once per join code route
+  }, [code]);
 
   useEffect(() => {
     if (session?.simulation.mode !== "teams" || currentStep < 2 || currentStep > 4) return;
@@ -550,7 +546,7 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
         setIsTeamVoter(participantTeamState.isVoter);
         setMyResponses(buildParticipantResponses(payload));
         const nextStep = getStepForPayload(payload);
-        if (currentStepRef.current !== nextStep && currentStepRef.current !== 6) {
+        if (currentStepRef.current !== nextStep && currentStepRef.current !== 7) {
           setCurrentStep(nextStep);
         }
       } catch {
@@ -559,7 +555,7 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
     }, 3000);
 
     return () => window.clearInterval(interval);
-  }, [session?.id, session?.status, session?.simulation.mode, participantId, decisions]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [session?.id, session?.status, session?.simulation.mode, participantId, decisions]);
 
   const setVideoSelection = async (file: File) => {
     if (videoPreviewUrl) {
@@ -710,7 +706,6 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
         ? teamDecisions.find((item) => item.decision_id === decision.id)
         : null;
 
-    // Skip DB insert for professor preview sessions
     if (!session.is_preview) {
       const supabase = createClient();
       if (session.simulation.mode === "teams") {
@@ -843,16 +838,55 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
       }
     }
 
-    // Add to my responses
     setMyResponses(prev => [...prev, { 
       decision_id: decision.id, 
       option_id: chosenOptionId, 
       score: option?.score || 0 
     }]);
 
-    // Show consequence
-    setCurrentConsequence(option?.consequence || "");
-    setShowConsequence(true);
+    // Generate consequence if needed
+    if (!option?.consequence && session.simulation.mode === "individual") {
+      setLoadingConsequence(true);
+      void (async () => {
+        try {
+          const res = await fetch("/api/generate-consequence", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              scenarioTitle: session.simulation.title,
+              scenarioContext: session.simulation.background_content,
+              decisionPrompt: decision.prompt,
+              optionLabel: option?.label,
+              optionTitle: option?.title,
+              optionDescription: option?.description,
+              justification: trimmedJustification,
+              roleLabel: playerProfile?.profile_name || null,
+            }),
+          });
+          const data = await res.json();
+          if (data.consequence) {
+            setCurrentConsequence(data.consequence);
+          } else {
+            setCurrentConsequence("Your choice has been recorded. The consequences of your decision are outlined below.");
+          }
+          if (data.dataImpact) {
+            setCurrentDataImpact(data.dataImpact);
+          }
+          if (data.outcomeRating) {
+            setOutcomeRating(data.outcomeRating);
+          }
+        } catch {
+          setCurrentConsequence("Your choice has been recorded. The consequences of your decision are outlined below.");
+        } finally {
+          setLoadingConsequence(false);
+          setShowConsequence(true);
+        }
+      })();
+    } else {
+      setCurrentConsequence(option?.consequence || "");
+      setOutcomeRating(option?.score && option.score >= 3 ? "strong" : option?.score && option.score >= 2 ? "decent" : option?.score && option.score >= 1 ? "mixed" : "poor");
+      setShowConsequence(true);
+    }
     setSubmitting(false);
   };
 
@@ -863,6 +897,9 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
     setResponseInputMode("text");
     clearVideoSelection();
     setCurrentConsequence("");
+    setCurrentDataImpact(undefined);
+    setOutcomeRating(null);
+    setAiJustificationFeedback(null);
 
     if (session?.simulation.mode === "teams" && participantId) {
       try {
@@ -889,7 +926,6 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
     if (!session || !participantId) return;
     setSubmitting(true);
 
-    // Skip DB insert for professor preview sessions
     if (!session.is_preview) {
       const supabase = createClient();
       for (const question of reflectionQuestions) {
@@ -935,7 +971,7 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
       }
     }
 
-    setCurrentStep(6);
+    setCurrentStep(7);
     setSubmitting(false);
   };
 
@@ -952,7 +988,7 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
     if (data?.status === "running" && currentStep === 0) {
       setCurrentStep(1);
     } else if (data?.status === "complete") {
-      setCurrentStep(6);
+      setCurrentStep(7);
     }
     setManualRefreshing(false);
   };
@@ -987,6 +1023,8 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
   const totalScore = myResponses.reduce((sum, r) => sum + r.score, 0);
   const maxScore = decisions.length * 3;
   const displayScorePercent = scorePercent(totalScore, maxScore);
+
+  const outcomeLabel = outcomeRating ? { strong: "Strong Outcome", decent: "Decent Outcome", mixed: "Mixed Outcome", poor: "Poor Outcome" }[outcomeRating] : null;
 
   if (loading) {
     return (
@@ -1024,52 +1062,52 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
       <div className="flex min-h-dvh flex-col">
         {previewBar}
         <div className="flex min-h-0 flex-1 flex-col overflow-y-auto bg-muted/50">
-        <div className="flex flex-1 items-center justify-center px-4 py-6">
-        <Card className="w-full max-w-md text-center">
-          <CardHeader className="px-4 sm:px-6">
-            <div className="flex items-center justify-center gap-2 mb-4">
-              <BookOpen className="h-8 w-8 text-primary shrink-0" />
-            </div>
-            <CardTitle className="text-lg sm:text-xl line-clamp-2">{session?.simulation.title}</CardTitle>
-            <CardDescription>Welcome, {participantName}!</CardDescription>
-          </CardHeader>
-          <CardContent className="px-4 sm:px-6">
-            <div className="space-y-3 text-center">
-              <p className="font-medium text-foreground">You&apos;re in.</p>
-              {session?.simulation.mode === "teams" ? (
-                <p className="text-sm text-muted-foreground">
-                  {teamName ? `${teamName} · ` : ""}
-                  {isTeamVoter ? "You are the team voter." : "A teammate will make the team choice."}
-                </p>
-              ) : null}
-              <p className="text-muted-foreground text-sm sm:text-base">
-                {participantCount <= 1
-                  ? "Waiting for the instructor to start."
-                  : `${participantCount} students joined. Waiting for the instructor to start.`}
-              </p>
-              {(scheduledStartLabel || scheduledEndLabel) && (
-                <div className="space-y-1 text-xs text-muted-foreground">
-                  {scheduledStartLabel ? <p>Scheduled start: {scheduledStartLabel}</p> : null}
-                  {scheduledEndLabel ? <p>Scheduled end: {scheduledEndLabel}</p> : null}
+          <div className="flex flex-1 items-center justify-center px-4 py-6">
+            <Card className="w-full max-w-md text-center">
+              <CardHeader className="px-4 sm:px-6">
+                <div className="flex items-center justify-center gap-2 mb-4">
+                  <BookOpen className="h-8 w-8 text-primary shrink-0" />
                 </div>
-              )}
-              <div className="flex items-center justify-center gap-2 mt-2 text-muted-foreground">
-                <Clock className="h-4 w-4 animate-pulse shrink-0" />
-              </div>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={manualRefreshSession}
-                disabled={manualRefreshing}
-                className="mt-3 text-muted-foreground"
-              >
-                <RefreshCw className={`mr-2 h-3.5 w-3.5 ${manualRefreshing ? "animate-spin" : ""}`} />
-                {manualRefreshing ? "Checking..." : "Refresh status"}
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+                <CardTitle className="text-lg sm:text-xl line-clamp-2">{session?.simulation.title}</CardTitle>
+                <CardDescription>Welcome, {participantName}!</CardDescription>
+              </CardHeader>
+              <CardContent className="px-4 sm:px-6">
+                <div className="space-y-3 text-center">
+                  <p className="font-medium text-foreground">You're in.</p>
+                  {session?.simulation.mode === "teams" ? (
+                    <p className="text-sm text-muted-foreground">
+                      {teamName ? `${teamName} · ` : ""}
+                      {isTeamVoter ? "You are the team voter." : "A teammate will make the team choice."}
+                    </p>
+                  ) : null}
+                  <p className="text-muted-foreground text-sm sm:text-base">
+                    {participantCount <= 1
+                      ? "Waiting for the instructor to start."
+                      : `${participantCount} students joined. Waiting for the instructor to start.`}
+                  </p>
+                  {(scheduledStartLabel || scheduledEndLabel) && (
+                    <div className="space-y-1 text-xs text-muted-foreground">
+                      {scheduledStartLabel ? <p>Scheduled start: {scheduledStartLabel}</p> : null}
+                      {scheduledEndLabel ? <p>Scheduled end: {scheduledEndLabel}</p> : null}
+                    </div>
+                  )}
+                  <div className="flex items-center justify-center gap-2 mt-2 text-muted-foreground">
+                    <Clock className="h-4 w-4 animate-pulse shrink-0" />
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={manualRefreshSession}
+                    disabled={manualRefreshing}
+                    className="mt-3 text-muted-foreground"
+                  >
+                    <RefreshCw className={`mr-2 h-3.5 w-3.5 ${manualRefreshing ? "animate-spin" : ""}`} />
+                    {manualRefreshing ? "Checking..." : "Refresh status"}
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
         </div>
       </div>
     );
@@ -1081,144 +1119,144 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
       <div className="flex min-h-dvh flex-col">
         {previewBar}
         <div className="flex min-h-0 flex-1 flex-col overflow-y-auto bg-muted/50">
-        <div className="px-3 py-4 sm:px-4 sm:py-8">
-        <div className="max-w-3xl mx-auto">
-          <Card>
-            <CardHeader className="px-4 sm:px-6">
-              <Badge className="w-fit mb-2">Background</Badge>
-              <CardTitle className="text-lg sm:text-xl line-clamp-2">{session?.simulation.title}</CardTitle>
-              <CardDescription className="text-sm">
-                Read the scenario carefully before making decisions.
-                {session?.simulation.estimated_minutes ? (
-                  <span className="block mt-1 text-muted-foreground">
-                    <Clock className="h-3.5 w-3.5 inline mr-1" />
-                    Est. ~{session.simulation.estimated_minutes} min
-                  </span>
-                ) : null}
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="px-4 sm:px-6">
-              {playerProfile && (
-                <div className="mb-6 border-l-4 border-primary rounded-lg bg-primary/5 p-4 space-y-2">
-                  <div className="flex items-center gap-2">
-                    <Badge>Your Role: {playerProfile.profile_name}</Badge>
-                  </div>
-                  <MarkdownBody className="prose prose-sm max-w-none text-sm">
-                    {playerProfile.private_briefing}
-                  </MarkdownBody>
-                  <p className="text-[11px] text-muted-foreground italic">
-                    This briefing is private to your role. Other participants have different information.
-                  </p>
-                </div>
-              )}
-              {scenarioImages.length > 0 && (
-                <div className="mb-6 grid grid-cols-1 gap-3 sm:grid-cols-2">
-                  {scenarioImages.map((im) => {
-                    const src = publicScenarioImageUrl(im.storage_path);
-                    if (!src) return null;
-                    return (
-                      <figure key={im.id} className="overflow-hidden rounded-lg border border-border bg-muted/30">
-                        <Image
-                          src={src}
-                          alt={im.alt_text || "Scenario image"}
-                          width={1600}
-                          height={1200}
-                          className="max-h-72 w-full object-cover"
+          <div className="px-3 py-4 sm:px-4 sm:py-8">
+            <div className="max-w-3xl mx-auto">
+              <Card>
+                <CardHeader className="px-4 sm:px-6">
+                  <Badge className="w-fit mb-2">Background</Badge>
+                  <CardTitle className="text-lg sm:text-xl line-clamp-2">{session?.simulation.title}</CardTitle>
+                  <CardDescription className="text-sm">
+                    Read the scenario carefully before making decisions.
+                    {session?.simulation.estimated_minutes ? (
+                      <span className="block mt-1 text-muted-foreground">
+                        <Clock className="h-3.5 w-3.5 inline mr-1" />
+                        Est. ~{session.simulation.estimated_minutes} min
+                      </span>
+                    ) : null}
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="px-4 sm:px-6">
+                  {playerProfile && (
+                    <div className="mb-6 border-l-4 border-primary rounded-lg bg-primary/5 p-4 space-y-2">
+                      <div className="flex items-center gap-2">
+                        <Badge>Your Role: {playerProfile.profile_name}</Badge>
+                      </div>
+                      <MarkdownBody className="prose prose-sm max-w-none text-sm">
+                        {playerProfile.private_briefing}
+                      </MarkdownBody>
+                      <p className="text-[11px] text-muted-foreground italic">
+                        This briefing is private to your role. Other participants have different information.
+                      </p>
+                    </div>
+                  )}
+                  {scenarioImages.length > 0 && (
+                    <div className="mb-6 grid grid-cols-1 gap-3 sm:grid-cols-2">
+                      {scenarioImages.map((im) => {
+                        const src = publicScenarioImageUrl(im.storage_path);
+                        if (!src) return null;
+                        return (
+                          <figure key={im.id} className="overflow-hidden rounded-lg border border-border bg-muted/30">
+                            <Image
+                              src={src}
+                              alt={im.alt_text || "Scenario image"}
+                              width={1600}
+                              height={1200}
+                              className="max-h-72 w-full object-cover"
+                            />
+                            {im.alt_text ? (
+                              <figcaption className="px-2 py-1.5 text-center text-xs text-muted-foreground">
+                                {im.alt_text}
+                              </figcaption>
+                            ) : null}
+                          </figure>
+                        );
+                      })}
+                    </div>
+                  )}
+                  {session?.simulation.background_content ? (
+                    <MarkdownBody className="prose prose-sm max-w-none text-sm sm:text-base prose-table:overflow-x-auto prose-td:border prose-td:px-3 prose-td:py-2 prose-th:border prose-th:px-3 prose-th:py-2 prose-th:bg-muted/50">
+                      {session.simulation.background_content}
+                    </MarkdownBody>
+                  ) : (
+                    <p className="text-muted-foreground">No background content provided.</p>
+                  )}
+                  {dataBlocks.length > 0 && (
+                    <div className="mt-6 space-y-4">
+                      {dataBlocks.map((block) => (
+                        <DataBlockRenderer
+                          key={block.id}
+                          block={block as Parameters<typeof DataBlockRenderer>[0]["block"]}
                         />
-                        {im.alt_text ? (
-                          <figcaption className="px-2 py-1.5 text-center text-xs text-muted-foreground">
-                            {im.alt_text}
-                          </figcaption>
-                        ) : null}
-                      </figure>
-                    );
-                  })}
-                </div>
-              )}
-              {session?.simulation.background_content ? (
-                <MarkdownBody className="prose prose-sm max-w-none text-sm sm:text-base prose-table:overflow-x-auto prose-td:border prose-td:px-3 prose-td:py-2 prose-th:border prose-th:px-3 prose-th:py-2 prose-th:bg-muted/50">
-                  {session.simulation.background_content}
-                </MarkdownBody>
-              ) : (
-                <p className="text-muted-foreground">No background content provided.</p>
-              )}
-              {dataBlocks.length > 0 && (
-                <div className="mt-6 space-y-4">
-                  {dataBlocks.map((block) => (
-                    <DataBlockRenderer
-                      key={block.id}
-                      block={block as Parameters<typeof DataBlockRenderer>[0]["block"]}
-                    />
-                  ))}
-                </div>
-              )}
-              {sources.length > 0 && (
-                <div className="mt-6 pt-4 border-t border-border">
-                  <h4 className="text-sm font-semibold text-foreground mb-3">
-                    Sources & References
-                  </h4>
-                  <ol className="space-y-2 list-none pl-0">
-                    {sources.map((s, idx) => {
-                      const typeLabel = sourceTypeDisplayLabel(s.source_type);
-                      return (
-                        <li key={s.id} className="flex items-start gap-2.5 text-sm leading-relaxed">
-                          <span className="shrink-0 mt-0.5 text-xs font-medium text-muted-foreground tabular-nums w-5 text-right">{idx + 1}.</span>
-                          {typeLabel && (
-                            <span className="shrink-0 mt-0.5 inline-flex items-center rounded-md border border-border bg-muted/50 px-1.5 py-0 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-                              {typeLabel}
-                            </span>
-                          )}
-                          <span className="min-w-0">
-                            {s.url ? (
-                              <a
-                                href={s.url}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="underline underline-offset-2 text-foreground/90 hover:text-foreground"
-                              >
-                                {s.label}
-                              </a>
-                            ) : (
-                              <span className="text-foreground/90">{s.label}</span>
-                            )}
-                          </span>
-                        </li>
-                      );
-                    })}
-                  </ol>
-                </div>
-              )}
-              <Separator className="my-4 sm:my-6" />
-              <div className="flex justify-end">
-                {returnToStep != null ? (
-                  <Button
-                    onClick={() => {
-                      setCurrentStep(returnToStep);
-                      setReturnToStep(null);
-                      if (returnToConsequence) setShowConsequence(true);
-                      setReturnToConsequence(false);
-                    }}
-                    variant="outline"
-                    className="min-h-[48px] w-full sm:w-auto"
-                  >
-                    <ArrowLeft className="mr-2 h-4 w-4 shrink-0" />
-                    {returnToStep >= 2 && returnToStep <= 4
-                      ? `Back to Decision ${returnToStep - 1}`
-                      : returnToStep === 5
-                        ? "Back to Reflection"
-                        : "Back"}
-                  </Button>
-                ) : (
-                  <Button onClick={() => setCurrentStep(2)} className="min-h-[48px] w-full sm:w-auto">
-                    Continue to Decisions
-                    <ArrowRight className="ml-2 h-4 w-4 shrink-0" />
-                  </Button>
-                )}
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-      </div>
+                      ))}
+                    </div>
+                  )}
+                  {sources.length > 0 && (
+                    <div className="mt-6 pt-4 border-t border-border">
+                      <h4 className="text-sm font-semibold text-foreground mb-3">
+                        Sources & References
+                      </h4>
+                      <ol className="space-y-2 list-none pl-0">
+                        {sources.map((s, idx) => {
+                          const typeLabel = sourceTypeDisplayLabel(s.source_type);
+                          return (
+                            <li key={s.id} className="flex items-start gap-2.5 text-sm leading-relaxed">
+                              <span className="shrink-0 mt-0.5 text-xs font-medium text-muted-foreground tabular-nums w-5 text-right">{idx + 1}.</span>
+                              {typeLabel && (
+                                <span className="shrink-0 mt-0.5 inline-flex items-center rounded-md border border-border bg-muted/50 px-1.5 py-0 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                                  {typeLabel}
+                                </span>
+                              )}
+                              <span className="min-w-0">
+                                {s.url ? (
+                                  <a
+                                    href={s.url}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="underline underline-offset-2 text-foreground/90 hover:text-foreground"
+                                  >
+                                    {s.label}
+                                  </a>
+                                ) : (
+                                  <span className="text-foreground/90">{s.label}</span>
+                                )}
+                              </span>
+                            </li>
+                          );
+                        })}
+                      </ol>
+                    </div>
+                  )}
+                  <Separator className="my-4 sm:my-6" />
+                  <div className="flex justify-end">
+                    {returnToStep != null ? (
+                      <Button
+                        onClick={() => {
+                          setCurrentStep(returnToStep);
+                          setReturnToStep(null);
+                          if (returnToConsequence) setShowConsequence(true);
+                          setReturnToConsequence(false);
+                        }}
+                        variant="outline"
+                        className="min-h-[48px] w-full sm:w-auto"
+                      >
+                        <ArrowLeft className="mr-2 h-4 w-4 shrink-0" />
+                        {returnToStep >= 2 && returnToStep <= 4
+                          ? `Back to Decision ${returnToStep - 1}`
+                          : returnToStep === 6
+                            ? "Back to Reflection"
+                            : "Back"}
+                      </Button>
+                    ) : (
+                      <Button onClick={() => setCurrentStep(2)} className="min-h-[48px] w-full sm:w-auto">
+                        Continue to Decisions
+                        <ArrowRight className="ml-2 h-4 w-4 shrink-0" />
+                      </Button>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          </div>
         </div>
       </div>
     );
@@ -1242,39 +1280,66 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
 
     // Show consequence after submission
     if (showConsequence) {
+      const selectedOpt = decision.options.find(o => o.id === selectedOption);
       return (
         <div className="flex min-h-dvh flex-col">
           {previewBar}
           <div className="flex min-h-0 flex-1 flex-col overflow-y-auto bg-muted/50">
-          <div className="px-3 py-4 sm:px-4 sm:py-8">
-          <div className="max-w-3xl mx-auto space-y-4">
-            <Card>
-              <CardHeader className="px-4 sm:px-6">
-                <Badge variant="secondary" className="w-fit mb-2">Consequence</Badge>
-                <CardTitle className="text-lg sm:text-xl">Decision {decision.order_num} Result</CardTitle>
-              </CardHeader>
-              <CardContent className="px-4 sm:px-6 space-y-4">
-                <div className="p-4 sm:p-6 bg-muted rounded-lg">
-                  <p className="text-base sm:text-lg break-words">{currentConsequence || "Your choice has been recorded."}</p>
-                </div>
-                <Button
-                  variant="outline"
-                  onClick={() => goToScenario(currentStep, true)}
-                  className="w-full sm:w-auto min-h-[44px]"
-                >
-                  <BookOpen className="mr-2 h-4 w-4 shrink-0" />
-                  View scenario
-                </Button>
-                <div className="flex justify-end pt-2">
-                  <Button onClick={continueToNext} className="min-h-[48px] w-full sm:w-auto">
-                    {decisionIndex < 2 ? "Next Decision" : "Continue to Reflection"}
-                    <ArrowRight className="ml-2 h-4 w-4 shrink-0" />
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-        </div>
+            <div className="px-3 py-4 sm:px-4 sm:py-8">
+              <div className="max-w-3xl mx-auto space-y-4">
+                <Card>
+                  <CardHeader className="px-4 sm:px-6">
+                    <div className="flex items-center justify-between gap-3">
+                      <div>
+                        <Badge variant="secondary" className="w-fit mb-2">Consequence</Badge>
+                        <CardTitle className="text-lg sm:text-xl">Decision {decision.order_num} Result</CardTitle>
+                      </div>
+                      {outcomeLabel && (
+                        <Badge className={
+                          outcomeRating === "strong" ? "bg-emerald-600 text-white" :
+                          outcomeRating === "decent" ? "bg-emerald-500 text-white" :
+                          outcomeRating === "mixed" ? "bg-amber-500 text-white" :
+                          "bg-red-500 text-white"
+                        }>
+                          {outcomeLabel}
+                        </Badge>
+                      )}
+                    </div>
+                  </CardHeader>
+                  <CardContent className="px-4 sm:px-6 space-y-4">
+                    <div className="p-4 sm:p-6 bg-muted rounded-lg">
+                      <p className="text-base sm:text-lg break-words">{currentConsequence || "Your choice has been recorded."}</p>
+                    </div>
+                    {currentDataImpact && currentDataImpact.length > 0 && (
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                        {currentDataImpact.map((impact) => (
+                          <div key={impact.metric} className="p-3 rounded-lg bg-muted/60 text-center">
+                            <p className="text-xs text-muted-foreground mb-1">{impact.metric}</p>
+                            <p className={`text-lg font-bold ${impact.direction === "up" ? "text-emerald-600" : impact.direction === "down" ? "text-red-600" : "text-gray-600"}`}>
+                              {impact.change}
+                            </p>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    <div className="flex flex-col sm:flex-row gap-2 justify-between pt-2">
+                      <Button
+                        variant="outline"
+                        onClick={() => goToScenario(currentStep, true)}
+                        className="w-full sm:w-auto min-h-[44px]"
+                      >
+                        <BookOpen className="mr-2 h-4 w-4 shrink-0" />
+                        View scenario
+                      </Button>
+                      <Button onClick={continueToNext} className="w-full sm:w-auto min-h-[48px]">
+                        {decisionIndex < 2 ? "Proceed to Next Decision →" : "Proceed to Class Votes →"}
+                        <ArrowRight className="ml-2 h-4 w-4 shrink-0" />
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+            </div>
           </div>
         </div>
       );
@@ -1283,326 +1348,403 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
     return (
       <div className="flex min-h-dvh flex-col">
         {previewBar}
-        <div className="flex min-h-0 flex-1 flex-col overflow-y-auto bg-linear-to-b from-muted/30 to-muted/60">
-        <div className="px-3 py-4 sm:px-4 sm:py-8">
-        <div className="max-w-2xl mx-auto space-y-4">
-          <Button
-            variant="outline"
-            onClick={() => goToScenario(currentStep, false)}
-            className="w-full sm:w-auto min-h-[44px]"
-          >
-            <BookOpen className="mr-2 h-4 w-4 shrink-0" />
-            View scenario
-          </Button>
-
-
-          {/* Decision prompt – large, prominent question */}
-          <div className="space-y-2">
-            <Badge variant="secondary" className="w-fit">Decision {decision.order_num} of 3</Badge>
-            <h2 className="text-xl sm:text-2xl font-bold leading-snug text-foreground break-words">
-              {decision.prompt}
-            </h2>
-          </div>
-
-          {session?.simulation.mode === "teams" ? (
-            <Card className="border-muted/80 bg-card/95 shadow-sm">
-              <CardContent className="space-y-3 px-4 py-4 sm:px-6">
-                <div className="flex flex-wrap items-center gap-2">
-                  <Badge variant="outline">{activeTeamName}</Badge>
-                  <Badge variant={isTeamVoter ? "default" : "secondary"}>
-                    {isTeamVoter ? "You are the voter" : "Non-voter"}
-                  </Badge>
-                </div>
-                <p className="text-sm text-muted-foreground">
-                  {currentTeamDecision
-                    ? "Your team choice is locked in. Add your own justification to continue."
-                    : isTeamVoter
-                      ? "Choose the option for your team. Every teammate still submits their own justification."
-                      : "Waiting for your team voter to choose an option. Once they do, you will add your own justification."}
-                </p>
-                {teamMembers.length > 0 ? (
-                  <div className="flex flex-wrap gap-2">
-                    {teamMembers.map((member) => (
-                      <Badge key={member.id} variant={member.is_voter ? "default" : "secondary"}>
-                        {member.name}
-                        {member.is_voter ? " (Voter)" : ""}
-                      </Badge>
-                    ))}
-                  </div>
-                ) : null}
-              </CardContent>
-            </Card>
-          ) : null}
-
-          {/* Options */}
-          <Card className="border-muted/80 bg-card/95 shadow-sm">
-            <CardContent className="space-y-3 px-4 sm:px-6 pt-5">
-              <RadioGroup
-                value={selectedOption || ""}
-                onValueChange={(value) => {
-                  if (session?.simulation.mode === "teams" && !canSelectTeamChoice) return;
-                  setSelectedOption(value);
-                }}
+        <div className="flex min-h-0 flex-1 flex-col overflow-y-auto bg-muted/50">
+          <div className="px-3 py-4 sm:px-4 sm:py-8">
+            <div className="max-w-2xl mx-auto space-y-4">
+              <Button
+                variant="outline"
+                onClick={() => goToScenario(currentStep, false)}
+                className="w-full sm:w-auto min-h-[44px]"
               >
-                {decision.options.map((option) => (
-                  <div
-                    key={option.id}
-                    className={`rounded-xl border-2 transition-all duration-200 ${
-                      selectedOption === option.id
-                        ? "border-primary/60 bg-primary/5 shadow-sm"
-                        : "border-border/60 bg-muted/30 hover:border-muted-foreground/40 hover:bg-muted/50"
-                    }`}
+                <BookOpen className="mr-2 h-4 w-4 shrink-0" />
+                View scenario
+              </Button>
+
+              <div className="space-y-2">
+                <Badge variant="secondary" className="w-fit">Decision {decision.order_num} of 3</Badge>
+                <h2 className="text-xl sm:text-2xl font-bold leading-snug text-foreground break-words">
+                  {decision.prompt}
+                </h2>
+              </div>
+
+              {session?.simulation.mode === "teams" ? (
+                <Card className="border-muted/80 bg-card/95 shadow-sm">
+                  <CardContent className="space-y-3 px-4 py-4 sm:px-6">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <Badge variant="outline">{activeTeamName}</Badge>
+                      <Badge variant={isTeamVoter ? "default" : "secondary"}>
+                        {isTeamVoter ? "You are the voter" : "Non-voter"}
+                      </Badge>
+                    </div>
+                    <p className="text-sm text-muted-foreground">
+                      {currentTeamDecision
+                        ? "Your team choice is locked in. Add your own justification to continue."
+                        : isTeamVoter
+                          ? "Choose the option for your team. Every teammate still submits their own justification."
+                          : "Waiting for your team voter to choose an option. Once they do, you will add your own justification."}
+                    </p>
+                    {teamMembers.length > 0 ? (
+                      <div className="flex flex-wrap gap-2">
+                        {teamMembers.map((member) => (
+                          <Badge key={member.id} variant={member.is_voter ? "default" : "secondary"}>
+                            {member.name}
+                            {member.is_voter ? " (Voter)" : ""}
+                          </Badge>
+                        ))}
+                      </div>
+                    ) : null}
+                  </CardContent>
+                </Card>
+              ) : null}
+
+              <Card className="border-muted/80 bg-card/95 shadow-sm">
+                <CardContent className="space-y-3 px-4 sm:px-6 pt-5">
+                  <RadioGroup
+                    value={selectedOption || ""}
+                    onValueChange={(value) => {
+                      if (session?.simulation.mode === "teams" && !canSelectTeamChoice) return;
+                      setSelectedOption(value);
+                    }}
                   >
-                    <div
-                      className={`flex items-start gap-3 p-3 sm:p-4 min-h-[48px] ${
-                        session?.simulation.mode === "teams" && !canSelectTeamChoice
-                          ? "cursor-not-allowed opacity-80"
-                          : "cursor-pointer"
-                      }`}
-                      onClick={() => {
-                        if (session?.simulation.mode === "teams" && !canSelectTeamChoice) return;
-                        setSelectedOption(option.id);
-                      }}
-                    >
-                      <RadioGroupItem
-                        value={option.id}
-                        id={option.id}
-                        disabled={Boolean(session?.simulation.mode === "teams" && !canSelectTeamChoice)}
-                        className="mt-0.5 shrink-0"
-                      />
-                      <div className="min-w-0 flex-1">
-                        <Label htmlFor={option.id} className="cursor-pointer break-words text-sm font-medium text-foreground/95 sm:text-[15px]">
-                          {option.label}. {option.title}
-                        </Label>
-                        {option.description ? (
-                          <p className="mt-1 text-xs leading-relaxed text-muted-foreground sm:text-sm">
-                            {option.description}
-                          </p>
-                        ) : null}
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </RadioGroup>
-            </CardContent>
-          </Card>
-
-          {/* Justification / video response */}
-          <Collapsible defaultOpen={isVideoJustification || Boolean(currentTeamDecision) || canSelectTeamChoice} className="group">
-            <Card className="border-muted/80 bg-card/95 shadow-sm overflow-hidden p-0 gap-0">
-              <CollapsibleTrigger asChild>
-                <button
-                  type="button"
-                  className="w-full text-left px-4 sm:px-6 py-4 min-h-[48px] flex items-center justify-between gap-3 bg-transparent hover:bg-muted/50 transition-colors duration-150 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-                >
-                  <span className="text-sm font-medium text-muted-foreground">
-                    {canChooseResponseInput
-                      ? "Add response"
-                      : isVideoJustification
-                        ? "Add video response"
-                        : "Add justification"}
-                  </span>
-                  <ChevronDown className="h-5 w-5 shrink-0 text-muted-foreground transition-transform group-data-[state=open]:rotate-180" />
-                </button>
-              </CollapsibleTrigger>
-              <CollapsibleContent>
-                <div className="px-6 pb-5 pt-0 border-t border-border/50">
-                  {session?.simulation.mode === "teams" && waitingForTeamChoice && !canSelectTeamChoice ? (
-                    <div className="pt-4 text-sm text-muted-foreground">
-                      Waiting for your team voter to choose an option before you can submit your own justification.
-                    </div>
-                  ) : canChooseResponseInput ? (
-                    <div className="mb-4 flex flex-wrap gap-2 pt-4">
-                      <Button
-                        type="button"
-                        variant={responseInputMode === "text" ? "default" : "outline"}
-                        onClick={() => {
-                          setResponseInputMode("text");
-                          clearVideoSelection();
-                        }}
+                    {decision.options.map((option) => (
+                      <div
+                        key={option.id}
+                        className={`rounded-xl border-2 transition-all duration-200 ${
+                          selectedOption === option.id
+                            ? "border-primary/60 bg-primary/5 shadow-sm"
+                            : "border-border/60 bg-muted/30 hover:border-muted-foreground/40 hover:bg-muted/50"
+                        }`}
                       >
-                        Text response
-                      </Button>
-                      <Button
-                        type="button"
-                        variant={responseInputMode === "video" ? "default" : "outline"}
-                        onClick={() => {
-                          setResponseInputMode("video");
-                          setJustification("");
-                        }}
-                      >
-                        Video response
-                      </Button>
-                    </div>
-                  ) : null}
-                  {isVideoJustification ? (
-                    <div className="flex flex-col gap-4">
-                      {recording ? (
-                        <div className="order-1 space-y-3 sm:order-4">
-                          <div className="rounded-lg border border-primary/30 bg-primary/5 px-4 py-3 text-sm text-foreground">
-                            Recording in progress. Press stop when you finish your explanation.
-                          </div>
-                          <video
-                            ref={liveVideoPreviewRef}
-                            autoPlay
-                            muted
-                            playsInline
-                            className="aspect-[4/5] w-full rounded-lg bg-black object-cover sm:aspect-video"
-                          />
-                        </div>
-                      ) : null}
-                      <p className="order-2 text-sm text-muted-foreground sm:order-1">
-                        Record or upload a short video explaining your reasoning before continuing.
-                      </p>
-                      <div className="order-3 flex flex-wrap gap-2 sm:order-2">
-                        {recording ? (
-                          <Button type="button" variant="destructive" onClick={stopRecording}>
-                            <Square className="mr-2 h-4 w-4" />
-                            Stop Recording
-                          </Button>
-                        ) : (
-                          <Button type="button" onClick={startRecording} disabled={preparingRecorder}>
-                            {preparingRecorder ? (
-                              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                            ) : (
-                              <Circle className="mr-2 h-4 w-4" />
-                            )}
-                            Record Video
-                          </Button>
-                        )}
-                        <Button
-                          type="button"
-                          variant="outline"
-                          onClick={() => fileInputRef.current?.click()}
-                          disabled={recording}
+                        <div
+                          className={`flex items-start gap-3 p-3 sm:p-4 min-h-[48px] ${
+                            session?.simulation.mode === "teams" && !canSelectTeamChoice
+                              ? "cursor-not-allowed opacity-80"
+                              : "cursor-pointer"
+                          }`}
+                          onClick={() => {
+                            if (session?.simulation.mode === "teams" && !canSelectTeamChoice) return;
+                            setSelectedOption(option.id);
+                          }}
                         >
-                          <Upload className="mr-2 h-4 w-4" />
-                          Upload Video
-                        </Button>
-                        {(videoFile || videoPreviewUrl) ? (
-                          <Button type="button" variant="ghost" onClick={clearVideoSelection}>
-                            <Trash2 className="mr-2 h-4 w-4" />
-                            Clear
-                          </Button>
-                        ) : null}
-                      </div>
-                      <input
-                        ref={fileInputRef}
-                        type="file"
-                        accept="video/*"
-                        className="hidden"
-                        onChange={handleVideoUploadChange}
-                      />
-                      {videoError ? <p className="order-4 text-sm text-destructive sm:order-3">{videoError}</p> : null}
-                      {videoPreviewUrl ? (
-                        <div className="order-5 space-y-2 sm:order-5">
-                          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                            <Video className="h-4 w-4" />
-                            <span className="truncate">{videoFile?.name}</span>
-                            {videoDurationSeconds ? <span>• {videoDurationSeconds}s</span> : null}
-                          </div>
-                          <video
-                            key={videoPreviewUrl}
-                            controls
-                            preload="metadata"
-                            src={videoPreviewUrl}
-                            className="aspect-[4/5] w-full rounded-lg bg-black object-cover sm:aspect-video"
+                          <RadioGroupItem
+                            value={option.id}
+                            id={option.id}
+                            disabled={Boolean(session?.simulation.mode === "teams" && !canSelectTeamChoice)}
+                            className="mt-0.5 shrink-0"
                           />
+                          <div className="min-w-0 flex-1">
+                            <Label htmlFor={option.id} className="cursor-pointer break-words text-sm font-medium text-foreground/95 sm:text-[15px]">
+                              {option.label}. {option.title}
+                            </Label>
+                            {option.description ? (
+                              <p className="mt-1 text-xs leading-relaxed text-muted-foreground sm:text-sm">
+                                {option.description}
+                              </p>
+                            ) : null}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </RadioGroup>
+                </CardContent>
+              </Card>
+
+              <Collapsible defaultOpen={isVideoJustification || Boolean(currentTeamDecision) || canSelectTeamChoice} className="group">
+                <Card className="border-muted/80 bg-card/95 shadow-sm overflow-hidden p-0 gap-0">
+                  <CollapsibleTrigger asChild>
+                    <button
+                      type="button"
+                      className="w-full text-left px-4 sm:px-6 py-4 min-h-[48px] flex items-center justify-between gap-3 bg-transparent hover:bg-muted/50 transition-colors duration-150 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                    >
+                      <span className="text-sm font-medium text-muted-foreground">
+                        {canChooseResponseInput
+                          ? "Add response"
+                          : isVideoJustification
+                            ? "Add video response"
+                            : "Add justification"}
+                      </span>
+                      <ChevronDown className="h-5 w-5 shrink-0 text-muted-foreground transition-transform group-data-[state=open]:rotate-180" />
+                    </button>
+                  </CollapsibleTrigger>
+                  <CollapsibleContent>
+                    <div className="px-6 pb-5 pt-0 border-t border-border/50">
+                      {session?.simulation.mode === "teams" && waitingForTeamChoice && !canSelectTeamChoice ? (
+                        <div className="pt-4 text-sm text-zinc-500 dark:text-zinc-400">
+                          Waiting for your team voter to choose an option before you can submit your own justification.
+                        </div>
+                      ) : canChooseResponseInput ? (
+                        <div className="mb-4 flex flex-wrap gap-2 pt-4">
+                          <Button
+                            type="button"
+                            variant={responseInputMode === "text" ? "default" : "outline"}
+                            onClick={() => {
+                              setResponseInputMode("text");
+                              clearVideoSelection();
+                            }}
+                          >
+                            Text response
+                          </Button>
+                          <Button
+                            type="button"
+                            variant={responseInputMode === "video" ? "default" : "outline"}
+                            onClick={() => {
+                              setResponseInputMode("video");
+                              setJustification("");
+                            }}
+                          >
+                            Video response
+                          </Button>
                         </div>
                       ) : null}
+                      {isVideoJustification ? (
+                        <div className="flex flex-col gap-4">
+                          {recording ? (
+                            <div className="order-1 space-y-3 sm:order-4">
+                              <div className="rounded-lg border border-primary/30 bg-primary/5 px-4 py-3 text-sm text-foreground">
+                                Recording in progress. Press stop when you finish your explanation.
+                              </div>
+                              <video
+                                ref={liveVideoPreviewRef}
+                                autoPlay
+                                muted
+                                playsInline
+                                className="aspect-[4/5] w-full rounded-lg bg-black object-cover sm:aspect-video"
+                              />
+                            </div>
+                          ) : null}
+                          <p className="order-2 text-sm text-muted-foreground sm:order-1">
+                            Record or upload a short video explaining your reasoning before continuing.
+                          </p>
+                          <div className="order-3 flex flex-wrap gap-2 sm:order-2">
+                            {recording ? (
+                              <Button type="button" variant="destructive" onClick={stopRecording}>
+                                <Square className="mr-2 h-4 w-4" />
+                                Stop Recording
+                              </Button>
+                            ) : (
+                              <Button type="button" onClick={startRecording} disabled={preparingRecorder}>
+                                {preparingRecorder ? (
+                                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                ) : (
+                                  <Circle className="mr-2 h-4 w-4" />
+                                )}
+                                Record Video
+                              </Button>
+                            )}
+                            <Button
+                              type="button"
+                              variant="outline"
+                              onClick={() => fileInputRef.current?.click()}
+                              disabled={recording}
+                            >
+                              <Upload className="mr-2 h-4 w-4" />
+                              Upload Video
+                            </Button>
+                            {(videoFile || videoPreviewUrl) ? (
+                              <Button type="button" variant="ghost" onClick={clearVideoSelection}>
+                                <Trash2 className="mr-2 h-4 w-4" />
+                                Clear
+                              </Button>
+                            ) : null}
+                          </div>
+                          <input
+                            ref={fileInputRef}
+                            type="file"
+                            accept="video/*"
+                            className="hidden"
+                            onChange={handleVideoUploadChange}
+                          />
+                          {videoError ? <p className="order-4 text-sm text-destructive sm:order-3">{videoError}</p> : null}
+                          {videoPreviewUrl ? (
+                            <div className="order-5 space-y-2 sm:order-5">
+                              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                                <Video className="h-4 w-4" />
+                                <span className="truncate">{videoFile?.name}</span>
+                                {videoDurationSeconds ? <span>• {videoDurationSeconds}s</span> : null}
+                              </div>
+                              <video
+                                key={videoPreviewUrl}
+                                controls
+                                preload="metadata"
+                                src={videoPreviewUrl}
+                                className="aspect-[4/5] w-full rounded-lg bg-black object-cover sm:aspect-video"
+                              />
+                            </div>
+                          ) : null}
+                        </div>
+                      ) : (
+                        <>
+                          <Label htmlFor="justification" className="sr-only">Justification</Label>
+                          <Textarea
+                            id="justification"
+                            placeholder="Explain your reasoning before submitting..."
+                            value={justification}
+                            onChange={(e) => setJustification(e.target.value)}
+                            rows={3}
+                            className="resize-none bg-muted/30 border-border/60"
+                          />
+                        </>
+                      )}
                     </div>
-                  ) : (
-                    <>
-                      <Label htmlFor="justification" className="sr-only">Justification</Label>
-                      <Textarea
-                        id="justification"
-                        placeholder="Explain your reasoning before submitting..."
-                        value={justification}
-                        onChange={(e) => setJustification(e.target.value)}
-                        rows={3}
-                        className="resize-none bg-muted/30 border-border/60"
-                      />
-                    </>
-                  )}
-                </div>
-              </CollapsibleContent>
-            </Card>
-          </Collapsible>
+                  </CollapsibleContent>
+                </Card>
+              </Collapsible>
 
-          <div className="flex justify-end pt-2">
-            <Button
-              size="lg"
-              onClick={submitDecision}
-              disabled={
-                !selectedOption ||
-                (isVideoJustification ? !videoFile : !justification.trim()) ||
-                Boolean(session?.simulation.mode === "teams" && waitingForTeamChoice && !canSelectTeamChoice) ||
-                submitting
-              }
-              className="shadow-sm min-h-[48px] w-full sm:w-auto"
-            >
-              {submitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              {submitButtonLabel}
-            </Button>
+              <div className="flex justify-end pt-2">
+                <Button
+                  size="lg"
+                  onClick={submitDecision}
+                  disabled={
+                    !selectedOption ||
+                    (isVideoJustification ? !videoFile : !justification.trim()) ||
+                    Boolean(session?.simulation.mode === "teams" && waitingForTeamChoice && !canSelectTeamChoice) ||
+                    submitting
+                  }
+                  className="shadow-sm min-h-[48px] w-full sm:w-auto"
+                >
+                  {submitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  {submitButtonLabel}
+                </Button>
+              </div>
+            </div>
           </div>
         </div>
       </div>
+    );
+  }
+
+  // Class Votes screen (step 5 in teams mode)
+  if (currentStep === 5 && session?.simulation.mode === "teams") {
+    const decision = decisions[currentStep - 2];
+    const selectedOpt = decision?.options.find(o => o.id === selectedOption);
+    const totalVotes = teamDecisions.length;
+    const optionVotes = {
+      A: teamDecisions.filter(td => td.option_id === decision?.options.find(o => o.label === "A")?.id).length,
+      B: teamDecisions.filter(td => td.option_id === decision?.options.find(o => o.label === "B")?.id).length,
+      C: teamDecisions.filter(td => td.option_id === decision?.options.find(o => o.label === "C")?.id).length,
+    };
+    const optionPcts = {
+      A: totalVotes > 0 ? Math.round((optionVotes.A / totalVotes) * 100) : 0,
+      B: totalVotes > 0 ? Math.round((optionVotes.B / totalVotes) * 100) : 0,
+      C: totalVotes > 0 ? Math.round((optionVotes.C / totalVotes) * 100) : 0,
+    };
+
+    return (
+      <div className="flex min-h-dvh flex-col">
+        {previewBar}
+        <div className="flex min-h-0 flex-1 flex-col overflow-y-auto bg-muted/50">
+          <div className="px-3 py-4 sm:px-4 sm:py-8">
+            <div className="max-w-3xl mx-auto space-y-4">
+              <Card>
+                <CardHeader className="px-4 sm:px-6">
+                  <CardTitle className="text-lg sm:text-xl">Class Votes</CardTitle>
+                  <CardDescription>See how your class voted on this decision.</CardDescription>
+                </CardHeader>
+                <CardContent className="px-4 sm:px-6 space-y-4">
+                  <div className="flex items-center justify-between">
+                    <p className="text-sm text-muted-foreground">{totalVotes} of {totalVotes} submitted</p>
+                    <Badge variant="secondary">{totalVotes === 0 ? "0%" : "100%"} of your class</Badge>
+                  </div>
+                  <div className="space-y-3">
+                    {(["A", "B", "C"] as const).map((label) => {
+                      const count = optionVotes[label];
+                      const pct = optionPcts[label];
+                      const isChosen = selectedOpt?.label === label;
+                      return (
+                        <div key={label} className="space-y-1.5">
+                          <div className="flex items-center justify-between gap-3">
+                            <span className="text-sm font-medium text-zinc-800 dark:text-zinc-200">Option {label}</span>
+                            <span className="text-xs text-zinc-500 dark:text-zinc-400 tabular-nums">{pct}% · {count} vote{count === 1 ? "" : "s"}</span>
+                          </div>
+                          <div className="h-2.5 rounded-full bg-zinc-100 dark:bg-zinc-800 overflow-hidden">
+                            <div
+                              className={`h-full rounded-full transition-all duration-1000 ease-out ${isChosen ? "bg-amber-500 dark:bg-amber-400" : "bg-indigo-500 dark:bg-indigo-400"}`}
+                              style={{ width: `${(count / Math.max(totalVotes, 1)) * 100}%` }}
+                            />
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </CardContent>
+              </Card>
+
+              <div className="flex justify-between pt-2">
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setReturnToStep(currentStep);
+                    setReturnToConsequence(true);
+                    setCurrentStep(currentStep);
+                  }}
+                  className="min-h-[44px]"
+                >
+                  <ArrowLeft className="mr-2 h-4 w-4 shrink-0" />
+                  Back
+                </Button>
+                <Button onClick={continueToNext} className="min-h-[48px]">
+                  Continue to Reflection
+                  <ArrowRight className="ml-2 h-4 w-4 shrink-0" />
+                </Button>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     );
   }
 
   // Reflection screen
-  if (currentStep === 5) {
+  if (currentStep === 6) {
     return (
       <div className="flex min-h-dvh flex-col">
         {previewBar}
         <div className="flex min-h-0 flex-1 flex-col overflow-y-auto bg-muted/50">
-        <div className="px-3 py-4 sm:px-4 sm:py-8">
-        <div className="max-w-3xl mx-auto space-y-4">
-          <Button
-            variant="outline"
-            onClick={() => goToScenario(5, false)}
-            className="w-full sm:w-auto min-h-[44px]"
-          >
-            <BookOpen className="mr-2 h-4 w-4 shrink-0" />
-            View scenario
-          </Button>
+          <div className="px-3 py-4 sm:px-4 sm:py-8">
+            <div className="max-w-3xl mx-auto space-y-4">
+              <Button
+                variant="outline"
+                onClick={() => goToScenario(6, false)}
+                className="w-full sm:w-auto min-h-[44px]"
+              >
+                <BookOpen className="mr-2 h-4 w-4 shrink-0" />
+                View scenario
+              </Button>
 
-          <Card>
-            <CardHeader className="px-4 sm:px-6">
-              <Badge variant="secondary" className="w-fit mb-2">Reflection</Badge>
-              <CardTitle className="text-lg sm:text-xl">Reflect on Your Experience</CardTitle>
-              <CardDescription className="text-sm">Take a moment to think about what you learned</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-6 px-4 sm:px-6">
-              {reflectionQuestions.map((question) => (
-                <div key={question.id} className="space-y-2">
-                  <Label className="text-sm sm:text-base">{question.question}</Label>
-                  <Textarea
-                    placeholder="Your thoughts..."
-                    value={reflectionAnswers[question.id] || ""}
-                    onChange={(e) => setReflectionAnswers(prev => ({
-                      ...prev,
-                      [question.id]: e.target.value
-                    }))}
-                    rows={4}
-                    className="min-h-[100px] text-base"
-                  />
-                </div>
-              ))}
+              <Card>
+                <CardHeader className="px-4 sm:px-6">
+                  <Badge variant="secondary" className="w-fit mb-2">Reflection</Badge>
+                  <CardTitle className="text-lg sm:text-xl">Reflect on Your Experience</CardTitle>
+                  <CardDescription className="text-sm">Take a moment to think about what you learned</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-6 px-4 sm:px-6">
+                  {reflectionQuestions.map((question) => (
+                    <div key={question.id} className="space-y-2">
+                      <Label className="text-sm sm:text-base">{question.question}</Label>
+                      <Textarea
+                        placeholder="Your thoughts..."
+                        value={reflectionAnswers[question.id] || ""}
+                        onChange={(e) => setReflectionAnswers(prev => ({
+                          ...prev,
+                          [question.id]: e.target.value
+                        }))}
+                        rows={4}
+                        className="min-h-[100px] text-base"
+                      />
+                    </div>
+                  ))}
 
-              <div className="flex justify-end">
-                <Button onClick={submitReflection} disabled={submitting} className="min-h-[48px] w-full sm:w-auto">
-                  {submitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                  Complete Simulation
-                  <Check className="ml-2 h-4 w-4 shrink-0" />
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-      </div>
+                  <div className="flex justify-end">
+                    <Button onClick={submitReflection} disabled={submitting} className="min-h-[48px] w-full sm:w-auto">
+                      {submitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                      Complete Simulation
+                      <Check className="ml-2 h-4 w-4 shrink-0" />
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          </div>
         </div>
       </div>
     );
@@ -1613,94 +1755,94 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
     <div className="flex min-h-dvh flex-col">
       {previewBar}
       <div className="flex min-h-0 flex-1 flex-col overflow-y-auto bg-muted/50">
-      <div className="px-3 py-4 sm:px-4 sm:py-8">
-      <div className="max-w-3xl mx-auto">
-        <Card>
-          <CardHeader className="text-center px-4 sm:px-6">
-            <div className="flex justify-center mb-4">
-              <div className="h-14 w-14 sm:h-16 sm:w-16 rounded-full bg-primary/10 flex items-center justify-center">
-                <Trophy className="h-7 w-7 sm:h-8 sm:w-8 text-primary" />
-              </div>
-            </div>
-            <CardTitle className="text-xl sm:text-2xl">Simulation Complete!</CardTitle>
-            <CardDescription>Thank you for participating, {participantName}</CardDescription>
-          </CardHeader>
-          <CardContent className="px-4 sm:px-6">
-            <div className="text-center mb-4 sm:mb-6">
-              {studentAttemptId || completedReportId ? (
-                <>
-                  <div className="text-4xl sm:text-5xl font-bold text-primary mb-2">
-                    {displayScorePercent}%
+        <div className="px-3 py-4 sm:px-4 sm:py-8">
+          <div className="max-w-3xl mx-auto">
+            <Card>
+              <CardHeader className="text-center px-4 sm:px-6">
+                <div className="flex justify-center mb-4">
+                  <div className="h-14 w-14 sm:h-16 sm:w-16 rounded-full bg-primary/10 flex items-center justify-center">
+                    <Trophy className="h-7 w-7 sm:h-8 sm:w-8 text-primary" />
                   </div>
-                  <p className="text-muted-foreground text-sm">Your score</p>
-                </>
-              ) : (
-                <>
-                  <div className="text-4xl sm:text-5xl font-bold text-primary mb-2">
-                    {totalScore} / {maxScore}
-                  </div>
-                  <p className="text-muted-foreground text-sm">Total Score</p>
-                </>
-              )}
-            </div>
-
-            {(completedReportId || studentAttemptId) && (
-              <div className="mb-4 flex justify-center">
-                <Button asChild className="min-h-[44px]">
-                  <Link href={`/student/reports/${completedReportId ?? studentAttemptId}`}>
-                    View full report
-                  </Link>
-                </Button>
-              </div>
-            )}
-
-            <Separator className="my-4 sm:my-6" />
-
-            <div className="space-y-3">
-              <h4 className="font-medium text-sm sm:text-base">Your Decisions</h4>
-              {decisions.map((decision, index) => {
-                const response = myResponses.find(r => r.decision_id === decision.id);
-                const selectedOpt = decision.options.find(o => o.id === response?.option_id);
-                const quality = decisionQualityFromScore(response?.score);
-                const explanation =
-                  selectedOpt?.consequence?.trim() ||
-                  (quality === "strong"
-                    ? "Strong choice that aligns well with the scenario objectives."
-                    : quality === "partial"
-                      ? "This captures part of the answer but misses important tradeoffs."
-                      : "This choice overlooks key constraints in the scenario.");
-                return (
-                  <div key={decision.id} className="p-3 bg-muted rounded-lg min-h-[52px] space-y-2">
-                    <div className="flex items-center justify-between gap-3">
-                      <div className="min-w-0 flex-1">
-                        <p className="font-medium text-sm">Decision {index + 1}</p>
-                        <p className="text-xs sm:text-sm text-muted-foreground truncate">
-                          {selectedOpt ? `${selectedOpt.label}. ${selectedOpt.title}` : "No response"}
-                        </p>
+                </div>
+                <CardTitle className="text-xl sm:text-2xl">Simulation Complete!</CardTitle>
+                <CardDescription>Thank you for participating, {participantName}</CardDescription>
+              </CardHeader>
+              <CardContent className="px-4 sm:px-6">
+                <div className="text-center mb-4 sm:mb-6">
+                  {studentAttemptId || completedReportId ? (
+                    <>
+                      <div className="text-4xl sm:text-5xl font-bold text-primary mb-2">
+                        {displayScorePercent}%
                       </div>
-                      <Badge variant={response?.score === 3 ? "default" : "secondary"} className="shrink-0">
-                        {decisionQualityLabel(quality)}
-                      </Badge>
-                    </div>
-                    <p className="text-xs sm:text-sm text-ink leading-relaxed">{explanation}</p>
+                      <p className="text-muted-foreground text-sm">Your score</p>
+                    </>
+                  ) : (
+                    <>
+                      <div className="text-4xl sm:text-5xl font-bold text-primary mb-2">
+                        {totalScore} / {maxScore}
+                      </div>
+                      <p className="text-muted-foreground text-sm">Total Score</p>
+                    </>
+                  )}
+                </div>
+
+                {(completedReportId || studentAttemptId) && (
+                  <div className="mb-4 flex justify-center">
+                    <Button asChild className="min-h-[44px]">
+                      <Link href={`/student/reports/${completedReportId ?? studentAttemptId}`}>
+                        View full report
+                      </Link>
+                    </Button>
                   </div>
-                );
-              })}
-            </div>
+                )}
 
-            <Separator className="my-4 sm:my-6" />
+                <Separator className="my-4 sm:my-6" />
 
-            <FeedbackCard
-              simulationId={session?.simulation.id || ""}
-              sessionId={session?.id}
-              participantId={participantId || undefined}
-              feedbackType="post_session"
-              role="student"
-            />
-          </CardContent>
-        </Card>
-      </div>
-    </div>
+                <div className="space-y-3">
+                  <h4 className="font-medium text-sm sm:text-base">Your Decisions</h4>
+                  {decisions.map((decision, index) => {
+                    const response = myResponses.find(r => r.decision_id === decision.id);
+                    const selectedOpt = decision.options.find(o => o.id === response?.option_id);
+                    const quality = decisionQualityFromScore(response?.score);
+                    const explanation =
+                      selectedOpt?.consequence?.trim() ||
+                      (quality === "strong"
+                        ? "Strong choice that aligns well with the scenario objectives."
+                        : quality === "partial"
+                          ? "This captures part of the answer but misses important tradeoffs."
+                          : "This choice overlooks key constraints in the scenario.");
+                    return (
+                      <div key={decision.id} className="p-3 bg-muted rounded-lg min-h-[52px] space-y-2">
+                        <div className="flex items-center justify-between gap-3">
+                          <div className="min-w-0 flex-1">
+                            <p className="font-medium text-sm">Decision {index + 1}</p>
+                            <p className="text-xs sm:text-sm text-muted-foreground truncate">
+                              {selectedOpt ? `${selectedOpt.label}. ${selectedOpt.title}` : "No response"}
+                            </p>
+                          </div>
+                          <Badge variant={response?.score === 3 ? "default" : "secondary"} className="shrink-0">
+                            {decisionQualityLabel(quality)}
+                          </Badge>
+                        </div>
+                        <p className="text-xs sm:text-sm text-ink leading-relaxed">{explanation}</p>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                <Separator className="my-4 sm:my-6" />
+
+                <FeedbackCard
+                  simulationId={session?.simulation.id || ""}
+                  sessionId={session?.id}
+                  participantId={participantId || undefined}
+                  feedbackType="post_session"
+                  role="student"
+                />
+              </CardContent>
+            </Card>
+          </div>
+        </div>
       </div>
     </div>
   );

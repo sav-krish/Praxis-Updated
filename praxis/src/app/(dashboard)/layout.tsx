@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { LogOut, Plus, BookOpen, User, Mail, MessageSquareHeart, CreditCard, Home, BarChart3, Pin } from "lucide-react";
+import { ThemeToggle } from "@/components/theme-toggle";
 import { createServiceRoleClient } from "@/lib/supabase/server";
 import { CopilotLazy } from "@/components/copilot/copilot-lazy";
 import { ReplayTutorialMenuItem } from "@/components/tutorial/replay-tutorial-menu-item";
@@ -152,6 +153,7 @@ export default async function DashboardLayout({
               </Link>
             )}
             
+            <ThemeToggle />
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button
