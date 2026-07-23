@@ -105,7 +105,7 @@ export function StudentReportView({
           </CardHeader>
           <CardContent className="space-y-4">
             {reflectionResponses.map((ref, index) => (
-              <div key={index} className="rounded-2xl border border-border/80 bg-white/70 p-4 sm:p-5">
+              <div key={index} className="praxis-light-surface rounded-2xl border border-[#d97843]/70 bg-white/85 p-4 sm:p-5">
                 <p className="font-semibold text-ink mb-2">{ref.question}</p>
                 <p className="text-sm leading-relaxed text-ink whitespace-pre-wrap">{ref.response}</p>
               </div>
@@ -123,7 +123,7 @@ export function StudentReportView({
         </CardHeader>
         <CardContent className="space-y-4">
           {decisions.map((decision, index) => (
-            <div key={decision.decisionId} className="rounded-2xl border border-border/80 bg-white/70 p-4 sm:p-5">
+            <div key={decision.decisionId} className="praxis-light-surface rounded-2xl border border-[#d97843]/70 bg-white/85 p-4 sm:p-5">
               <div className="flex flex-wrap items-start justify-between gap-2 mb-2">
                 <p className="font-semibold text-ink">Decision {index + 1}</p>
                 <Badge className={qualityBadgeClass(decision.quality)}>

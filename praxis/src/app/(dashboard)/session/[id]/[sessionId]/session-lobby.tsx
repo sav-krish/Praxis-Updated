@@ -388,17 +388,29 @@ export function SessionLobby({
 
     void syncScheduledStatus();
 
+    // Set up a polling interval (every 30s) as a fallback in case setTimeout
+    // is delayed or skipped due to browser tab hibernation/sleep.
+    // This ensures scheduled sessions still start/end even if the professor's
+    // tab is inactive and the precise timeout misses its window.
+    const pollInterval = window.setInterval(() => {
+      void syncScheduledStatus();
+    }, 30_000);
+
+    // Also schedule a precise timeout for the next future event
     const futureEvents = [sessionSchedule.start_at, sessionSchedule.end_at]
       .map((value) => (value ? new Date(value).getTime() : null))
       .filter((value): value is number => value !== null && value > Date.now());
 
-    if (futureEvents.length === 0) return;
+    const timeout = futureEvents.length > 0
+      ? window.setTimeout(() => {
+          void syncScheduledStatus();
+        }, Math.max(250, Math.min(...futureEvents) - Date.now() + 250))
+      : null;
 
-    const timeout = window.setTimeout(() => {
-      void syncScheduledStatus();
-    }, Math.max(250, Math.min(...futureEvents) - Date.now() + 250));
-
-    return () => window.clearTimeout(timeout);
+    return () => {
+      window.clearInterval(pollInterval);
+      if (timeout !== null) window.clearTimeout(timeout);
+    };
   }, [endSimulation, session.status, sessionSchedule.end_at, sessionSchedule.start_at, startSimulation]);
 
   useEffect(() => {

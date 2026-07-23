@@ -210,7 +210,7 @@ function HowItWorksCard({
                 >
                   <div className="w-full max-w-[22rem] sm:max-w-[28rem] select-none mx-auto mt-auto">
                     <div className="flex min-w-0 flex-row gap-1.5 sm:gap-2.5">
-                      <div className="flex min-h-[36px] flex-1 items-center justify-center gap-1 rounded-md border-0 bg-[linear-gradient(to_right,#fd8c2e_0%,#f9792a_50%,#f76224_100%)] px-1.5 text-[10px] font-semibold leading-none tracking-tight text-white shadow-md whitespace-nowrap sm:min-h-[40px] sm:gap-1.5 sm:rounded-lg sm:px-2 sm:text-[11px] md:text-xs">
+                      <div className="flex min-h-[36px] flex-1 items-center justify-center gap-1 rounded-md border-0 bg-[linear-gradient(to_right,#fd8c2e_0%,#f9792a_50%,#f76224_100%)] px-1.5 text-[10px] font-semibold leading-none tracking-tight text-[#4a1f10] shadow-md whitespace-nowrap sm:min-h-[40px] sm:gap-1.5 sm:rounded-lg sm:px-2 sm:text-[11px] md:text-xs">
                         <Wand2 className="h-3 w-3 shrink-0 sm:h-3.5 sm:w-3.5" />
                         Generate with AI
                       </div>

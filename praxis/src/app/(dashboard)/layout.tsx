@@ -17,6 +17,7 @@ import { CopilotLazy } from "@/components/copilot/copilot-lazy";
 import { ReplayTutorialMenuItem } from "@/components/tutorial/replay-tutorial-menu-item";
 import { TourProvider } from "@/components/tutorial/tour-provider";
 import { LandingBackground } from "@/components/landing/landing-background";
+import { ThemeToggle } from "@/components/theme-toggle";
 
 export const dynamic = "force-dynamic";
 
@@ -112,10 +113,10 @@ export default async function DashboardLayout({
       <LandingBackground />
 
       {/* Header */}
-      <header className="bg-white border-b border-line/60 sticky top-0 z-50 safe-area-inset-top">
+      <header className="bg-white dark:bg-[#292724] border-b border-line/60 dark:border-[#44403b] sticky top-0 z-50 safe-area-inset-top">
         <div className="container mx-auto px-3 sm:px-4 min-h-16 sm:min-h-18 flex items-center justify-between gap-2 py-2">
           <Link href="/dashboard" className="flex items-center min-w-0">
-            <span className="inline-flex h-12 shrink-0 items-center justify-center rounded-sm bg-white p-0.5 sm:h-14">
+            <span className="inline-flex h-12 shrink-0 items-center justify-center rounded-sm bg-white dark:bg-transparent p-0.5 sm:h-14">
               <Image
                 src="/new_logo.png"
                 alt="Praxis"
@@ -127,7 +128,8 @@ export default async function DashboardLayout({
             </span>
           </Link>
           
-          <div className="flex items-center gap-2 sm:gap-4 shrink-0">
+          <div className="flex items-center gap-1 sm:gap-2 shrink-0">
+            <ThemeToggle />
             <Link href="/dashboard" title={isStudentMode ? "Student dashboard" : "Your simulations"}>
               <Button variant="ghost" className="min-h-[44px] px-3 text-sm">
                 <Home className="h-4 w-4 mr-1.5 shrink-0" />

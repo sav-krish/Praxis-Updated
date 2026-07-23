@@ -7,9 +7,9 @@
  *   [2] challenge (tangerine glow)
  */
 export const APP_TILE_BACKGROUNDS = [
-  "bg-[linear-gradient(160deg,#fff0e1_0%,#fff7ef_50%,#ffdabb_100%)]",
-  "bg-[linear-gradient(160deg,#fff4e8_0%,#fffaf4_50%,#ffe6d3_100%)]",
-  "bg-[linear-gradient(160deg,#ffe4ce_0%,#fff1e5_50%,#ffc795_100%)]",
+  "praxis-light-surface bg-[linear-gradient(160deg,#fff0e1_0%,#fff7ef_50%,#ffdabb_100%)]",
+  "praxis-light-surface bg-[linear-gradient(160deg,#fff4e8_0%,#fffaf4_50%,#ffe6d3_100%)]",
+  "praxis-light-surface bg-[linear-gradient(160deg,#ffe4ce_0%,#fff1e5_50%,#ffc795_100%)]",
 ] as const;
 
 export type AppTileBackground = (typeof APP_TILE_BACKGROUNDS)[number];

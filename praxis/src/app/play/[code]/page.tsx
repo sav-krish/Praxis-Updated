@@ -39,12 +39,16 @@ import {
 import { toast } from "sonner";
 import Link from "next/link";
 import { endPreviewSession } from "@/app/(dashboard)/session/[id]/actions";
+import { HelpButton } from "@/components/simulation/help-button";
+import { PrefaceModal } from "@/components/simulation/preface-modal";
 import { decisionQualityFromScore, decisionQualityLabel, scorePercent } from "@/lib/student/scoring";
 import { DataBlockRenderer } from "@/components/simulation/DataBlockRenderer";
 import { FeedbackCard } from "@/components/simulation/FeedbackCard";
 import { sourceTypeDisplayLabel } from "@/lib/source-display";
 import { publicScenarioImageUrl } from "@/lib/scenario-image-url";
 import { formatScheduleDateTime, getSimulationSessionSchedule } from "@/lib/session-schedule";
+import { DecisionPage } from "@/components/simulation/decision-page";
+import { ConsequenceFeedback } from "@/components/simulation/consequence-feedback";
 import type { Json } from "@/types/database";
 
 const MarkdownBody = dynamic(
@@ -164,6 +168,7 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
   const [justification, setJustification] = useState("");
   const [showConsequence, setShowConsequence] = useState(false);
   const [currentConsequence, setCurrentConsequence] = useState("");
+  const [currentDataImpact, setCurrentDataImpact] = useState<{ metric: string; change: string; direction: "up" | "down" | "neutral" }[] | undefined>(undefined);
   const [myResponses, setMyResponses] = useState<{ decision_id: string; option_id: string; score: number }[]>([]);
   const [reflectionAnswers, setReflectionAnswers] = useState<Record<string, string>>({});
   const [participantCount, setParticipantCount] = useState<number>(0);
@@ -185,6 +190,9 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
   const [responseInputMode, setResponseInputMode] = useState<"text" | "video">("text");
   const [studentAttemptId, setStudentAttemptId] = useState<string | null>(null);
   const [completedReportId, setCompletedReportId] = useState<string | null>(null);
+  const [showPreface, setShowPreface] = useState(false);
+  const [loadingConsequence, setLoadingConsequence] = useState(false);
+  const [aiJustificationFeedback, setAiJustificationFeedback] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const liveVideoPreviewRef = useRef<HTMLVideoElement>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
@@ -850,10 +858,71 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
       score: option?.score || 0 
     }]);
 
-    // Show consequence
-    setCurrentConsequence(option?.consequence || "");
-    setShowConsequence(true);
+    // Generate AI consequence if no pre-written one exists
+    if (!option?.consequence && session.simulation.mode === "individual") {
+      setLoadingConsequence(true);
+      void (async () => {
+        try {
+          const res = await fetch("/api/generate-consequence", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+              scenarioTitle: session.simulation.title,
+              scenarioContext: session.simulation.background_content,
+              decisionPrompt: decision.prompt,
+              optionLabel: option?.label,
+              optionTitle: option?.title,
+              optionDescription: option?.description,
+              justification: trimmedJustification,
+              roleLabel: playerProfile?.profile_name || null,
+            }),
+          });
+          const data = await res.json();
+          if (data.consequence) {
+            setCurrentConsequence(data.consequence);
+          } else {
+            setCurrentConsequence("Your choice has been recorded. The consequences of your decision are outlined below.");
+          }
+          if (data.dataImpact) {
+            setCurrentDataImpact(data.dataImpact);
+          }
+        } catch {
+          setCurrentConsequence("Your choice has been recorded. The consequences of your decision are outlined below.");
+        } finally {
+          setLoadingConsequence(false);
+          setShowConsequence(true);
+        }
+      })();
+    } else {
+      setCurrentConsequence(option?.consequence || "");
+      setShowConsequence(true);
+    }
     setSubmitting(false);
+
+    // If individual mode, fetch AI justification feedback in background
+    if (session.simulation.mode === "individual" && trimmedJustification && option) {
+      void (async () => {
+        try {
+          const feedbackRes = await fetch("/api/generate-justification-feedback", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              scenarioTitle: session.simulation.title,
+              decisionPrompt: decision.prompt,
+              optionTitle: option?.title,
+              justification: trimmedJustification,
+              roleLabel: playerProfile?.profile_name || null,
+            }),
+          });
+          const feedbackData = await feedbackRes.json();
+          if (feedbackData.feedback) {
+            setAiJustificationFeedback(feedbackData.feedback);
+          }
+        } catch {
+          // silently fail - justification feedback is optional enhancement
+        }
+      })();
+    }
   };
 
   const continueToNext = async () => {
@@ -1042,11 +1111,28 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
                   {isTeamVoter ? "You are the team voter." : "A teammate will make the team choice."}
                 </p>
               ) : null}
-              <p className="text-muted-foreground text-sm sm:text-base">
-                {participantCount <= 1
-                  ? "Waiting for the instructor to start."
-                  : `${participantCount} students joined. Waiting for the instructor to start.`}
-              </p>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setShowPreface(true)}
+            className="mt-1 text-xs"
+          >
+            <BookOpen className="mr-1.5 h-3.5 w-3.5" />
+            View simulation overview
+          </Button>
+          <PrefaceModal
+            open={showPreface}
+            onOpenChange={setShowPreface}
+            scenarioTitle={session?.simulation.title || "Simulation"}
+            estimatedMinutes={session?.simulation.estimated_minutes ?? 15}
+            decisionCount={decisions.length}
+            classCount={participantCount}
+          />
+          <p className="text-muted-foreground text-sm sm:text-base">
+            {participantCount <= 1
+              ? "Waiting for the instructor to start."
+              : `${participantCount} students joined. Waiting for the instructor to start.`}
+          </p>
               {(scheduledStartLabel || scheduledEndLabel) && (
                 <div className="space-y-1 text-xs text-muted-foreground">
                   {scheduledStartLabel ? <p>Scheduled start: {scheduledStartLabel}</p> : null}
@@ -1080,6 +1166,11 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
     return (
       <div className="flex min-h-dvh flex-col">
         {previewBar}
+        <HelpButton
+          simulationTitle={session?.simulation.title}
+          currentStep="briefing"
+          role={playerProfile?.profile_name}
+        />
         <div className="flex min-h-0 flex-1 flex-col overflow-y-auto bg-muted/50">
         <div className="px-3 py-4 sm:px-4 sm:py-8">
         <div className="max-w-3xl mx-auto">
@@ -1242,311 +1333,102 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
 
     // Show consequence after submission
     if (showConsequence) {
+      const selectedOpt = decision.options.find(o => o.id === selectedOption);
       return (
         <div className="flex min-h-dvh flex-col">
           {previewBar}
+          <HelpButton
+            simulationTitle={session?.simulation.title}
+            currentStep="consequence"
+            role={playerProfile?.profile_name}
+            decisionPrompt={decision.prompt}
+          />
           <div className="flex min-h-0 flex-1 flex-col overflow-y-auto bg-muted/50">
-          <div className="px-3 py-4 sm:px-4 sm:py-8">
-          <div className="max-w-3xl mx-auto space-y-4">
-            <Card>
-              <CardHeader className="px-4 sm:px-6">
-                <Badge variant="secondary" className="w-fit mb-2">Consequence</Badge>
-                <CardTitle className="text-lg sm:text-xl">Decision {decision.order_num} Result</CardTitle>
-              </CardHeader>
-              <CardContent className="px-4 sm:px-6 space-y-4">
-                <div className="p-4 sm:p-6 bg-muted rounded-lg">
-                  <p className="text-base sm:text-lg break-words">{currentConsequence || "Your choice has been recorded."}</p>
-                </div>
-                <Button
-                  variant="outline"
-                  onClick={() => goToScenario(currentStep, true)}
-                  className="w-full sm:w-auto min-h-[44px]"
-                >
-                  <BookOpen className="mr-2 h-4 w-4 shrink-0" />
-                  View scenario
-                </Button>
-                <div className="flex justify-end pt-2">
-                  <Button onClick={continueToNext} className="min-h-[48px] w-full sm:w-auto">
-                    {decisionIndex < 2 ? "Next Decision" : "Continue to Reflection"}
-                    <ArrowRight className="ml-2 h-4 w-4 shrink-0" />
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-        </div>
+            <div className="px-3 py-4 sm:px-4 sm:py-8">
+              <ConsequenceFeedback
+                decisionTitle={decision.prompt}
+                decisionNumber={decision.order_num}
+                selectedOptionLabel={selectedOpt?.label || ""}
+                selectedOptionTitle={selectedOpt?.title || ""}
+                consequence={currentConsequence}
+                reasoningAnalysis={aiJustificationFeedback || null}
+                dataImpact={currentDataImpact}
+                classVotes={{
+                  total: teamDecisions.length,
+                  optionA: teamDecisions.filter(td => td.option_id === decision.options.find(o => o.label === "A")?.id).length,
+                  optionB: teamDecisions.filter(td => td.option_id === decision.options.find(o => o.label === "B")?.id).length,
+                  optionC: teamDecisions.filter(td => td.option_id === decision.options.find(o => o.label === "C")?.id).length,
+                }}
+                roleVotes={playerProfile ? [{
+                  roleName: playerProfile.profile_name,
+                  optionA: teamDecisions.filter(td => td.option_id === decision.options.find(o => o.label === "A")?.id).length,
+                  optionB: teamDecisions.filter(td => td.option_id === decision.options.find(o => o.label === "B")?.id).length,
+                  optionC: teamDecisions.filter(td => td.option_id === decision.options.find(o => o.label === "C")?.id).length,
+                }] : []}
+                showVotingResults={session?.simulation.mode === "teams" && showConsequence}
+                showRoleBreakdown={session?.simulation.mode === "teams" && showConsequence}
+                showClassroomNotice={session?.simulation.mode === "teams"}
+                isIndividualMode={session?.simulation.mode === "individual"}
+                onNext={continueToNext}
+                onViewScenario={() => goToScenario(currentStep, true)}
+                isLastDecision={decisionIndex === decisions.length - 1}
+                loadingConsequence={loadingConsequence}
+              />
+            </div>
           </div>
         </div>
       );
     }
 
+    const roleAdvice = playerProfile?.private_briefing || null;
+
     return (
       <div className="flex min-h-dvh flex-col">
         {previewBar}
-        <div className="flex min-h-0 flex-1 flex-col overflow-y-auto bg-linear-to-b from-muted/30 to-muted/60">
-        <div className="px-3 py-4 sm:px-4 sm:py-8">
-        <div className="max-w-2xl mx-auto space-y-4">
-          <Button
-            variant="outline"
-            onClick={() => goToScenario(currentStep, false)}
-            className="w-full sm:w-auto min-h-[44px]"
-          >
-            <BookOpen className="mr-2 h-4 w-4 shrink-0" />
-            View scenario
-          </Button>
-
-
-          {/* Decision prompt – large, prominent question */}
-          <div className="space-y-2">
-            <Badge variant="secondary" className="w-fit">Decision {decision.order_num} of 3</Badge>
-            <h2 className="text-xl sm:text-2xl font-bold leading-snug text-foreground break-words">
-              {decision.prompt}
-            </h2>
-          </div>
-
-          {session?.simulation.mode === "teams" ? (
-            <Card className="border-muted/80 bg-card/95 shadow-sm">
-              <CardContent className="space-y-3 px-4 py-4 sm:px-6">
-                <div className="flex flex-wrap items-center gap-2">
-                  <Badge variant="outline">{activeTeamName}</Badge>
-                  <Badge variant={isTeamVoter ? "default" : "secondary"}>
-                    {isTeamVoter ? "You are the voter" : "Non-voter"}
-                  </Badge>
-                </div>
-                <p className="text-sm text-muted-foreground">
-                  {currentTeamDecision
-                    ? "Your team choice is locked in. Add your own justification to continue."
-                    : isTeamVoter
-                      ? "Choose the option for your team. Every teammate still submits their own justification."
-                      : "Waiting for your team voter to choose an option. Once they do, you will add your own justification."}
-                </p>
-                {teamMembers.length > 0 ? (
-                  <div className="flex flex-wrap gap-2">
-                    {teamMembers.map((member) => (
-                      <Badge key={member.id} variant={member.is_voter ? "default" : "secondary"}>
-                        {member.name}
-                        {member.is_voter ? " (Voter)" : ""}
-                      </Badge>
-                    ))}
-                  </div>
-                ) : null}
-              </CardContent>
-            </Card>
-          ) : null}
-
-          {/* Options */}
-          <Card className="border-muted/80 bg-card/95 shadow-sm">
-            <CardContent className="space-y-3 px-4 sm:px-6 pt-5">
-              <RadioGroup
-                value={selectedOption || ""}
-                onValueChange={(value) => {
-                  if (session?.simulation.mode === "teams" && !canSelectTeamChoice) return;
-                  setSelectedOption(value);
-                }}
-              >
-                {decision.options.map((option) => (
-                  <div
-                    key={option.id}
-                    className={`rounded-xl border-2 transition-all duration-200 ${
-                      selectedOption === option.id
-                        ? "border-primary/60 bg-primary/5 shadow-sm"
-                        : "border-border/60 bg-muted/30 hover:border-muted-foreground/40 hover:bg-muted/50"
-                    }`}
-                  >
-                    <div
-                      className={`flex items-start gap-3 p-3 sm:p-4 min-h-[48px] ${
-                        session?.simulation.mode === "teams" && !canSelectTeamChoice
-                          ? "cursor-not-allowed opacity-80"
-                          : "cursor-pointer"
-                      }`}
-                      onClick={() => {
-                        if (session?.simulation.mode === "teams" && !canSelectTeamChoice) return;
-                        setSelectedOption(option.id);
-                      }}
-                    >
-                      <RadioGroupItem
-                        value={option.id}
-                        id={option.id}
-                        disabled={Boolean(session?.simulation.mode === "teams" && !canSelectTeamChoice)}
-                        className="mt-0.5 shrink-0"
-                      />
-                      <div className="min-w-0 flex-1">
-                        <Label htmlFor={option.id} className="cursor-pointer break-words text-sm font-medium text-foreground/95 sm:text-[15px]">
-                          {option.label}. {option.title}
-                        </Label>
-                        {option.description ? (
-                          <p className="mt-1 text-xs leading-relaxed text-muted-foreground sm:text-sm">
-                            {option.description}
-                          </p>
-                        ) : null}
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </RadioGroup>
-            </CardContent>
-          </Card>
-
-          {/* Justification / video response */}
-          <Collapsible defaultOpen={isVideoJustification || Boolean(currentTeamDecision) || canSelectTeamChoice} className="group">
-            <Card className="border-muted/80 bg-card/95 shadow-sm overflow-hidden p-0 gap-0">
-              <CollapsibleTrigger asChild>
-                <button
-                  type="button"
-                  className="w-full text-left px-4 sm:px-6 py-4 min-h-[48px] flex items-center justify-between gap-3 bg-transparent hover:bg-muted/50 transition-colors duration-150 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-                >
-                  <span className="text-sm font-medium text-muted-foreground">
-                    {canChooseResponseInput
-                      ? "Add response"
-                      : isVideoJustification
-                        ? "Add video response"
-                        : "Add justification"}
-                  </span>
-                  <ChevronDown className="h-5 w-5 shrink-0 text-muted-foreground transition-transform group-data-[state=open]:rotate-180" />
-                </button>
-              </CollapsibleTrigger>
-              <CollapsibleContent>
-                <div className="px-6 pb-5 pt-0 border-t border-border/50">
-                  {session?.simulation.mode === "teams" && waitingForTeamChoice && !canSelectTeamChoice ? (
-                    <div className="pt-4 text-sm text-muted-foreground">
-                      Waiting for your team voter to choose an option before you can submit your own justification.
-                    </div>
-                  ) : canChooseResponseInput ? (
-                    <div className="mb-4 flex flex-wrap gap-2 pt-4">
-                      <Button
-                        type="button"
-                        variant={responseInputMode === "text" ? "default" : "outline"}
-                        onClick={() => {
-                          setResponseInputMode("text");
-                          clearVideoSelection();
-                        }}
-                      >
-                        Text response
-                      </Button>
-                      <Button
-                        type="button"
-                        variant={responseInputMode === "video" ? "default" : "outline"}
-                        onClick={() => {
-                          setResponseInputMode("video");
-                          setJustification("");
-                        }}
-                      >
-                        Video response
-                      </Button>
-                    </div>
-                  ) : null}
-                  {isVideoJustification ? (
-                    <div className="flex flex-col gap-4">
-                      {recording ? (
-                        <div className="order-1 space-y-3 sm:order-4">
-                          <div className="rounded-lg border border-primary/30 bg-primary/5 px-4 py-3 text-sm text-foreground">
-                            Recording in progress. Press stop when you finish your explanation.
-                          </div>
-                          <video
-                            ref={liveVideoPreviewRef}
-                            autoPlay
-                            muted
-                            playsInline
-                            className="aspect-[4/5] w-full rounded-lg bg-black object-cover sm:aspect-video"
-                          />
-                        </div>
-                      ) : null}
-                      <p className="order-2 text-sm text-muted-foreground sm:order-1">
-                        Record or upload a short video explaining your reasoning before continuing.
-                      </p>
-                      <div className="order-3 flex flex-wrap gap-2 sm:order-2">
-                        {recording ? (
-                          <Button type="button" variant="destructive" onClick={stopRecording}>
-                            <Square className="mr-2 h-4 w-4" />
-                            Stop Recording
-                          </Button>
-                        ) : (
-                          <Button type="button" onClick={startRecording} disabled={preparingRecorder}>
-                            {preparingRecorder ? (
-                              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                            ) : (
-                              <Circle className="mr-2 h-4 w-4" />
-                            )}
-                            Record Video
-                          </Button>
-                        )}
-                        <Button
-                          type="button"
-                          variant="outline"
-                          onClick={() => fileInputRef.current?.click()}
-                          disabled={recording}
-                        >
-                          <Upload className="mr-2 h-4 w-4" />
-                          Upload Video
-                        </Button>
-                        {(videoFile || videoPreviewUrl) ? (
-                          <Button type="button" variant="ghost" onClick={clearVideoSelection}>
-                            <Trash2 className="mr-2 h-4 w-4" />
-                            Clear
-                          </Button>
-                        ) : null}
-                      </div>
-                      <input
-                        ref={fileInputRef}
-                        type="file"
-                        accept="video/*"
-                        className="hidden"
-                        onChange={handleVideoUploadChange}
-                      />
-                      {videoError ? <p className="order-4 text-sm text-destructive sm:order-3">{videoError}</p> : null}
-                      {videoPreviewUrl ? (
-                        <div className="order-5 space-y-2 sm:order-5">
-                          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                            <Video className="h-4 w-4" />
-                            <span className="truncate">{videoFile?.name}</span>
-                            {videoDurationSeconds ? <span>• {videoDurationSeconds}s</span> : null}
-                          </div>
-                          <video
-                            key={videoPreviewUrl}
-                            controls
-                            preload="metadata"
-                            src={videoPreviewUrl}
-                            className="aspect-[4/5] w-full rounded-lg bg-black object-cover sm:aspect-video"
-                          />
-                        </div>
-                      ) : null}
-                    </div>
-                  ) : (
-                    <>
-                      <Label htmlFor="justification" className="sr-only">Justification</Label>
-                      <Textarea
-                        id="justification"
-                        placeholder="Explain your reasoning before submitting..."
-                        value={justification}
-                        onChange={(e) => setJustification(e.target.value)}
-                        rows={3}
-                        className="resize-none bg-muted/30 border-border/60"
-                      />
-                    </>
-                  )}
-                </div>
-              </CollapsibleContent>
-            </Card>
-          </Collapsible>
-
-          <div className="flex justify-end pt-2">
-            <Button
-              size="lg"
-              onClick={submitDecision}
-              disabled={
-                !selectedOption ||
-                (isVideoJustification ? !videoFile : !justification.trim()) ||
-                Boolean(session?.simulation.mode === "teams" && waitingForTeamChoice && !canSelectTeamChoice) ||
-                submitting
+        <HelpButton
+          simulationTitle={session?.simulation.title}
+          currentStep="decision"
+          role={playerProfile?.profile_name}
+          decisionPrompt={decision.prompt}
+        />
+        <div className="flex min-h-0 flex-1 flex-col overflow-y-auto bg-muted/50">
+          <div className="px-3 py-4 sm:px-4 sm:py-8">
+            <DecisionPage
+              decision={decision}
+              decisionIndex={decisionIndex}
+              totalDecisions={decisions.length}
+              selectedOption={selectedOption}
+              onSelectOption={setSelectedOption}
+              justification={justification}
+              onJustificationChange={setJustification}
+              onSubmit={submitDecision}
+              submitting={submitting}
+              roleAdvice={roleAdvice}
+              roleLabel={playerProfile?.profile_name || null}
+              voteCounts={
+                session?.simulation.mode === "teams"
+                  ? decision.options.map(o => ({
+                      optionId: o.id,
+                      count: teamDecisions.filter(td => td.option_id === o.id).length,
+                    }))
+                  : undefined
               }
-              className="shadow-sm min-h-[48px] w-full sm:w-auto"
-            >
-              {submitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              {submitButtonLabel}
-            </Button>
+              totalVotes={teamDecisions.length}
+              liveVotingEnabled={session?.simulation.mode === "teams"}
+              isClassroomMode={session?.simulation.mode === "teams"}
+              isIndividualMode={session?.simulation.mode === "individual"}
+              showLeaderboard={session?.simulation.mode === "teams"}
+              allDecisions={decisions}
+              participants={teamMembers.map(m => ({
+                id: m.id,
+                profile_id: (m as TeamMember & { profile_id?: string | null }).profile_id ?? null,
+                team_id: m.team_id,
+              }))}
+              profiles={playerProfile ? [{ id: playerProfile.profile_name, profile_name: playerProfile.profile_name }] : []}
+              teamDecisions={teamDecisions}
+              mode={session?.simulation.mode as "individual" | "teams"}
+            />
           </div>
-        </div>
-      </div>
         </div>
       </div>
     );

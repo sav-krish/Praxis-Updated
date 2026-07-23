@@ -19,7 +19,7 @@ export const SIMULATION_CARD_TILE_SURFACE_CLASS =
 
 /** Primary title line — dashboard + library tiled cards. */
 export const SIMULATION_CARD_TITLE_CLASS =
-  "line-clamp-2 text-base font-semibold leading-snug text-ink";
+  "line-clamp-2 text-base font-semibold leading-snug text-[#a93d07]";
 
 /** Padding below header row (title + meta). */
 export const SIMULATION_CARD_HEADER_CLASS = "pb-3";

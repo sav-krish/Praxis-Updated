@@ -89,7 +89,7 @@ export function LibrarySimulationCard({
     <Card
       className={
         isSpotlight
-          ? "group relative flex h-full min-h-0 w-full min-w-0 flex-col overflow-hidden border-white/50 bg-transparent! text-ink shadow-md transition-shadow hover:shadow-lg"
+          ? "praxis-light-surface group relative flex h-full min-h-0 w-full min-w-0 flex-col overflow-hidden border-white/50 bg-transparent! text-ink shadow-md transition-shadow hover:shadow-lg"
           : `${SIMULATION_CARD_TILE_SURFACE_CLASS} ${tile}`
       }
       style={isSpotlight ? { backgroundImage: SPOTLIGHT_GRADIENT } : undefined}
@@ -132,26 +132,18 @@ export function LibrarySimulationCard({
                 className={`h-4 w-4 transition-colors ${
                   isFavorite
                     ? "fill-red-500 text-red-500"
-                    : isSpotlight
-                      ? "text-ink/70"
-                      : "text-muted-text"
+                    : "text-[#a93d07]"
                 }`}
               />
             </button>
-            <span
-              className={
-                isSpotlight
-                  ? "text-xs tabular-nums text-ink/70"
-                  : "text-xs tabular-nums text-muted-text"
-              }
-            >
+            <span className="text-xs tabular-nums text-[#a93d07]">
               {sim.favorite_count}
             </span>
           </div>
         </div>
         {authorLine ? (
           <CardDescription
-            className={isSpotlight ? "text-xs text-ink/80" : "text-xs text-muted-text"}
+            className="text-xs text-[#a93d07]"
           >
             by {authorLine}
           </CardDescription>
@@ -163,8 +155,8 @@ export function LibrarySimulationCard({
             variant="secondary"
             className={
               isSpotlight
-                ? "border-0 bg-white/75 text-xs text-ink backdrop-blur-sm"
-                : "border-0 bg-white/70 text-xs font-medium text-ink backdrop-blur-sm"
+                ? "border-0 bg-white/75 text-xs text-[#a93d07] backdrop-blur-sm"
+                : "border-0 bg-white/70 text-xs font-medium text-[#a93d07] backdrop-blur-sm"
             }
           >
             {sim.course_topic}
@@ -174,8 +166,8 @@ export function LibrarySimulationCard({
               variant="outline"
               className={
                 isSpotlight
-                  ? "border-ink/20 bg-white/60 text-xs text-ink backdrop-blur-sm"
-                  : "border-ink/15 bg-white/55 text-xs font-medium text-ink backdrop-blur-sm"
+                  ? "border-[#a93d07]/30 bg-white/60 text-xs text-[#a93d07] backdrop-blur-sm"
+                  : "border-[#a93d07]/25 bg-white/55 text-xs font-medium text-[#a93d07] backdrop-blur-sm"
               }
             >
               {difficultyLabel(sim.difficulty)}
@@ -185,8 +177,8 @@ export function LibrarySimulationCard({
             <span
               className={
                 isSpotlight
-                  ? "inline-flex items-center gap-1 rounded-md border border-ink/15 bg-white/60 px-2 py-0.5 text-xs text-ink/90 backdrop-blur-sm"
-                  : "inline-flex items-center gap-1 rounded-md border border-ink/15 bg-white/55 px-2 py-0.5 text-xs font-medium text-ink backdrop-blur-sm"
+                  ? "inline-flex items-center gap-1 rounded-md border border-[#a93d07]/25 bg-white/60 px-2 py-0.5 text-xs text-[#a93d07] backdrop-blur-sm"
+                  : "inline-flex items-center gap-1 rounded-md border border-[#a93d07]/25 bg-white/55 px-2 py-0.5 text-xs font-medium text-[#a93d07] backdrop-blur-sm"
               }
             >
               <Clock className="h-3 w-3 shrink-0" aria-hidden />
@@ -196,7 +188,7 @@ export function LibrarySimulationCard({
         </div>
         <div className="flex gap-2">
           <Button
-            className={`flex-1 ${SIMULATION_CARD_ACTION_MIN_HEIGHT_CLASS} bg-ink text-white shadow-sm hover:bg-ink/90`}
+            className={`flex-1 ${SIMULATION_CARD_ACTION_MIN_HEIGHT_CLASS} border border-[#a93d07]/50 bg-[#fffaf4] text-[#a93d07] shadow-sm hover:bg-[#ffe6d3] hover:text-[#7d2d05]`}
             size="sm"
             onClick={handleUseSimulation}
             disabled={usingSim}
@@ -212,8 +204,8 @@ export function LibrarySimulationCard({
             asChild
             className={
               isSpotlight
-                ? `flex-1 ${SIMULATION_CARD_ACTION_MIN_HEIGHT_CLASS} border-ink/25 bg-white/80 text-ink hover:bg-white`
-                : `flex-1 ${SIMULATION_CARD_ACTION_MIN_HEIGHT_CLASS} border-ink/15 bg-white/75 text-ink backdrop-blur-sm hover:bg-white`
+                ? `flex-1 ${SIMULATION_CARD_ACTION_MIN_HEIGHT_CLASS} border-[#a93d07]/60 bg-white/85 text-[#a93d07] hover:bg-[#ffe6d3] hover:text-[#7d2d05]`
+                : `flex-1 ${SIMULATION_CARD_ACTION_MIN_HEIGHT_CLASS} border-[#a93d07]/50 bg-white/80 text-[#a93d07] backdrop-blur-sm hover:bg-[#ffe6d3] hover:text-[#7d2d05]`
             }
           >
             <Link href={`/edit/${sim.id}`}>

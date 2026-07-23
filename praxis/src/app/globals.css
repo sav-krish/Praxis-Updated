@@ -45,15 +45,15 @@
   --radius-2xl: calc(var(--radius) + 8px);
   --radius-3xl: calc(var(--radius) + 12px);
   --radius-4xl: calc(var(--radius) + 16px);
-  /* Landing / website palette (orange scheme) */
-  --color-canvas: #fff7ee;
-  --color-ink: #4a1f10;
-  --color-line: #f5d3bd;
-  --color-accentSoft: #ffe6d3;
+  /* Landing / website palette (orange scheme) — now driven by CSS vars */
+  --color-canvas: var(--canvas);
+  --color-ink: var(--ink);
+  --color-line: var(--line);
+  --color-accentSoft: var(--accentSoft);
   --color-sun: #fd8c2e;
-  --shadow-soft: 0 12px 30px rgba(128, 52, 20, 0.16);
-  --shadow-subtle: 0 6px 16px rgba(128, 52, 20, 0.12);
-  --color-muted-text: #91593a;
+  --shadow-soft: 0 12px 30px rgba(0, 0, 0, 0.16);
+  --shadow-subtle: 0 6px 16px rgba(0, 0, 0, 0.12);
+  --color-muted-text: var(--muted-text);
 }
 
 :root {
@@ -90,40 +90,52 @@
   --sidebar-accent-foreground: #4a1f10;
   --sidebar-border: #f5d3bd;
   --sidebar-ring: #f9792a;
+  /* Landing page custom tokens */
+  --canvas: #fff7ee;
+  --ink: #4a1f10;
+  --line: #f5d3bd;
+  --accentSoft: #ffe6d3;
+  --muted-text: #91593a;
 }
 
 .dark {
-  --background: #2c140d;
-  --foreground: #fff4ea;
-  --card: #3a1a10;
-  --card-foreground: #fff4ea;
-  --popover: #3a1a10;
-  --popover-foreground: #fff4ea;
+  --background: #292724;
+  --foreground: #f0eee6;
+  --card: #33302c;
+  --card-foreground: #f0eee6;
+  --popover: #33302c;
+  --popover-foreground: #f0eee6;
   --primary: #fd8c2e;
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: #4a2417;
-  --secondary-foreground: #fff4ea;
-  --muted: #432015;
-  --muted-foreground: #e6b89a;
-  --accent: #5a2817;
-  --accent-foreground: #fff4ea;
+  --primary-foreground: #1c1b19;
+  --secondary: #3d3935;
+  --secondary-foreground: #f0eee6;
+  --muted: #3d3935;
+  --muted-foreground: #b5b0a8;
+  --accent: #403b37;
+  --accent-foreground: #f0eee6;
   --destructive: oklch(0.704 0.191 22.216);
-  --border: #6f3520;
-  --input: #5a2817;
+  --border: #44403b;
+  --input: #3d3935;
   --ring: #fd8c2e;
   --chart-1: #fd8c2e;
   --chart-2: #f9792a;
   --chart-3: #f76224;
   --chart-4: #f9a25e;
   --chart-5: #ffd0a8;
-  --sidebar: #35170f;
-  --sidebar-foreground: #fff4ea;
+  --sidebar: #262422;
+  --sidebar-foreground: #f0eee6;
   --sidebar-primary: #fd8c2e;
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: #4a2417;
-  --sidebar-accent-foreground: #fff4ea;
-  --sidebar-border: #6f3520;
+  --sidebar-primary-foreground: #1c1b19;
+  --sidebar-accent: #3d3935;
+  --sidebar-accent-foreground: #f0eee6;
+  --sidebar-border: #44403b;
   --sidebar-ring: #fd8c2e;
+  /* Landing page dark tokens */
+  --canvas: #292724;
+  --ink: #f0eee6;
+  --line: #44403b;
+  --accentSoft: #33302c;
+  --muted-text: #b5b0a8;
 }
 
 @layer base {
@@ -161,6 +173,11 @@
   --primary: #f76224;
   --secondary: #ffe6d3;
   --border: #f5d3bd;
+  --canvas: #fff7ee;
+  --ink: #4a1f10;
+  --line: #f5d3bd;
+  --accentSoft: #ffe6d3;
+  --muted-text: #91593a;
 }
 
 /* Dashboard / app palette — mirrors landing tokens but tuned for app density.
@@ -195,6 +212,69 @@
   --chart-3: #f76224;
   --chart-4: #f9a25e;
   --chart-5: #ffd0a8;
+}
+
+/* ── Dark mode overrides for the app dashboard ───────────────────── */
+.dark [data-app="true"] {
+  --background: #292724;
+  --foreground: #f0eee6;
+  --primary: #fd8c2e;
+  --primary-foreground: #1c1b19;
+  --secondary: #3d3935;
+  --secondary-foreground: #f0eee6;
+  --accent: rgba(253, 140, 46, 0.12);
+  --accent-foreground: #f0eee6;
+  --border: #44403b;
+  --muted: #33302c;
+  --muted-foreground: #b5b0a8;
+  --card: #33302c;
+  --card-foreground: #f0eee6;
+  --popover: #33302c;
+  --popover-foreground: #f0eee6;
+  --input: #3d3935;
+  --ring: #fd8c2e;
+  --chart-1: #fd8c2e;
+  --chart-2: #f9792a;
+  --chart-3: #f76224;
+  --chart-4: #f9a25e;
+  --chart-5: #ffd0a8;
+}
+
+/* Dark mode landing page */
+.dark [data-landing="true"] {
+  --background: #292724;
+  --foreground: #f0eee6;
+  --accent: #fd8c2e;
+  --accent-foreground: #ffffff;
+  --muted: #b5b0a8;
+  --muted-foreground: #b5b0a8;
+  --primary: #fd8c2e;
+  --primary-foreground: #1c1b19;
+  --secondary: #3d3935;
+  --secondary-foreground: #f0eee6;
+  --border: #44403b;
+  --canvas: #292724;
+  --ink: #f0eee6;
+  --line: #44403b;
+  --accentSoft: #33302c;
+  --muted-text: #b5b0a8;
+}
+
+/* Pastel and white cards stay light in both themes. Keep their semantic
+   foreground tokens dark so dark mode can never turn card copy, badges, or
+   actions white-on-cream. This class is attached by the shared tile palette. */
+.praxis-light-surface {
+  --foreground: #a93d07;
+  --card-foreground: #a93d07;
+  --ink: #a93d07;
+  --muted: #a93d07;
+  --muted-foreground: #a93d07;
+  --muted-text: #a93d07;
+  --secondary-foreground: #a93d07;
+  --accent-foreground: #a93d07;
+  --line: #c95b20;
+  --border: #d97843;
+  color: #a93d07;
 }
 
 /* Landing: no horizontal page scroll / scrollbar (wide How it works strip, etc.) */
@@ -379,4 +459,20 @@ html:has([data-landing="true"]) {
 .markdown-body ol ul {
   margin-top: 0.35rem;
   margin-bottom: 0.35rem;
+}
+
+/* ── Dark mode background layer ─────────────────────────────────── */
+.dark [data-app="true"] header {
+  background-color: #292724 !important;
+  border-color: #44403b !important;
+}
+
+.dark [data-app="true"] header [class*="bg-white"] {
+  background-color: transparent !important;
+}
+
+/* Dark mode shadow overrides — softer on dark */
+.dark [data-landing="true"] {
+  --shadow-soft: 0 12px 30px rgba(0, 0, 0, 0.4);
+  --shadow-subtle: 0 6px 16px rgba(0, 0, 0, 0.3);
 }
