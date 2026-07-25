@@ -172,7 +172,11 @@ export function DataBlockChartRenderer({ block }: { block: SimulationDataBlock }
                   <Cell key={index} fill={colors[index % colors.length]} />
                 ))}
               </Pie>
-              <Tooltip formatter={(value: number | undefined) => [value ?? 0, ""]} />
+              <Tooltip
+                formatter={(
+                  value: string | number | readonly (string | number)[] | null | undefined,
+                ) => [Array.isArray(value) ? value.join(", ") : (value ?? 0), ""]}
+              />
             </PieChart>
           </ResponsiveContainer>
         </div>
