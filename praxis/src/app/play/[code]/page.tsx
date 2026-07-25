@@ -2186,7 +2186,6 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
     const completedReflections = reflectionQuestions.filter(
       (question) => reflectionAnswers[question.id]?.trim(),
     ).length;
-    const totalRequiredSteps = decisions.length + reflectionQuestions.length;
     const completedRequiredSteps = decisions.length + completedReflections;
     return (
       <div className="flex min-h-dvh flex-col">
@@ -2207,29 +2206,6 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
                 }
                 activeStage="reflection"
               />
-              <div className="rounded-2xl border bg-card p-4 shadow-sm">
-                <div className="mb-2 flex items-center justify-between gap-3 text-sm">
-                  <span className="font-semibold">Simulation progress</span>
-                  <span className="text-muted-foreground">
-                    {completedRequiredSteps} of {totalRequiredSteps} required steps
-                  </span>
-                </div>
-                <div className="flex gap-2">
-                  {Array.from({ length: totalRequiredSteps }, (_, index) => (
-                    <span
-                      key={index}
-                      className={`h-2 flex-1 rounded-full ${
-                        index < completedRequiredSteps
-                          ? "bg-[#bf6b3d]"
-                          : "bg-[#e8e2da] dark:bg-[#4a4741]"
-                      }`}
-                    />
-                  ))}
-                </div>
-                <p className="mt-2 text-xs text-muted-foreground">
-                  Decisions and every final reflection question count toward completion.
-                </p>
-              </div>
               <Button
                 variant="outline"
                 onClick={() => goToScenario(6, false)}
