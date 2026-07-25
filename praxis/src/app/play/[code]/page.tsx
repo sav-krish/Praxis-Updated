@@ -188,33 +188,43 @@ function SimulationFlowNavigation({
   activeStage: string;
 }) {
   const stages = [
-    { id: "background", label: "Background" },
-    ...Array.from({ length: decisionCount }, (_, index) => ({
-      id: `decision-${index + 1}`,
-      label: `Decision ${index + 1}`,
-    })),
-    { id: "consequence", label: "Consequence" },
-    ...(classVotesEnabled ? [{ id: "class-votes", label: "Class Votes" }] : []),
-    { id: "reflection", label: "Reflection" },
+    { id: "background", label: "Background", shortLabel: "BG" },
+    ...Array.from({ length: decisionCount }, (_, index) => [
+      {
+        id: `decision-${index + 1}`,
+        label: `Decision ${index + 1}`,
+        shortLabel: `D${index + 1}`,
+      },
+      {
+        id: `consequence-${index + 1}`,
+        label: `Consequence ${index + 1}`,
+        shortLabel: `C${index + 1}`,
+      },
+    ]).flat(),
+    ...(classVotesEnabled
+      ? [{ id: "class-votes", label: "Class Votes", shortLabel: "Votes" }]
+      : []),
+    { id: "reflection", label: "Reflection", shortLabel: "Reflect" },
   ];
 
   return (
     <nav
       aria-label="Simulation stages"
-      className="overflow-x-auto rounded-2xl border bg-card px-3 py-2 shadow-sm"
+      className="w-full overflow-x-auto rounded-xl border bg-card px-2 py-1.5 shadow-sm"
     >
-      <ol className="flex min-w-max items-center gap-1 text-xs sm:text-sm">
+      <ol className="flex min-w-max items-center justify-center text-[11px] sm:text-xs">
         {stages.map((stage, index) => (
           <li key={stage.id} className="flex items-center">
-            {index > 0 ? <span className="mx-1 text-muted-foreground">›</span> : null}
+            {index > 0 ? <span className="mx-0.5 text-muted-foreground">›</span> : null}
             <span
-              className={`rounded-lg px-2 py-1.5 ${
+              className={`rounded-md px-1.5 py-1 sm:px-2 ${
                 activeStage === stage.id
                   ? "bg-primary/10 font-semibold text-primary"
                   : "text-muted-foreground"
               }`}
             >
-              {stage.label}
+              <span className="sm:hidden">{stage.shortLabel}</span>
+              <span className="hidden sm:inline">{stage.label}</span>
             </span>
           </li>
         ))}
@@ -1488,10 +1498,8 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
           <div className="flex min-h-0 flex-1 flex-col overflow-y-auto bg-muted/50">
             <div className="px-3 py-4 sm:px-4 sm:py-8">
               <div className="max-w-5xl mx-auto space-y-4">
-                <div className="flex items-center justify-between rounded-2xl border bg-card px-4 py-3 shadow-sm">
-                  <div className="flex items-center gap-3">
-                    <Image src="/new_logo.png" alt="Praxis" width={300} height={73} className="h-11 w-auto" priority />
-                  </div>
+                <div className="flex items-center justify-between rounded-xl border bg-card px-3 py-2 shadow-sm">
+                  <Image src="/new_logo.png" alt="Praxis" width={300} height={73} className="h-9 w-auto" priority />
                   <div className="flex items-center gap-2">
                     <Badge className="bg-[#f3e3d9] text-[#8f4b2d] hover:bg-[#f3e3d9]">
                       {selectedRoleLabel}
@@ -1504,7 +1512,7 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
                   classVotesEnabled={
                     getSimulationFlowSettings(session?.simulation.preferences).classVotesEnabled
                   }
-                  activeStage="consequence"
+                  activeStage={`consequence-${decision.order_num}`}
                 />
                 <Card>
                   <CardHeader className="px-4 sm:px-6">
@@ -1657,23 +1665,8 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
         {previewBar}
         <div className="flex min-h-0 flex-1 flex-col overflow-y-auto bg-muted/50">
           <div className="px-3 py-4 sm:px-4 sm:py-6">
-            <div className="mx-auto mb-5 flex max-w-6xl items-center justify-between rounded-2xl border bg-card px-4 py-3 shadow-sm">
-              <div className="flex items-center gap-3">
-                <Image src="/new_logo.png" alt="Praxis" width={300} height={73} className="h-11 w-auto" priority />
-              </div>
-              <div className="hidden flex-1 items-center justify-center gap-2 sm:flex">
-                {Array.from(
-                  { length: decisions.length + reflectionQuestions.length },
-                  (_, index) => index + 1,
-                ).map((step) => (
-                  <span
-                    key={step}
-                    className={`h-1.5 min-w-5 flex-1 rounded-full ${
-                      step <= decision.order_num ? "bg-[#bf6b3d]" : "bg-[#e8e2da] dark:bg-[#4a4741]"
-                    }`}
-                  />
-                ))}
-              </div>
+            <div className="mx-auto mb-3 flex max-w-5xl items-center justify-between rounded-xl border bg-card px-3 py-2 shadow-sm">
+              <Image src="/new_logo.png" alt="Praxis" width={300} height={73} className="h-9 w-auto" priority />
               <div className="flex items-center gap-2">
                 <Badge className="bg-[#f3e3d9] text-[#8f4b2d] hover:bg-[#f3e3d9]">
                   {selectedRoleLabel}
@@ -1681,7 +1674,7 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
                 <ThemeToggle />
               </div>
             </div>
-            <div className="mx-auto mb-5 max-w-5xl">
+            <div className="mx-auto mb-3 max-w-5xl">
               <SimulationFlowNavigation
                 decisionCount={decisions.length}
                 classVotesEnabled={
