@@ -201,10 +201,6 @@ function SimulationFlowNavigation({
       label: `Decision ${index + 1}`,
       shortLabel: `D${index + 1}`,
     })),
-    { id: "consequence", label: "Consequence", shortLabel: "Result" },
-    ...(classVotesEnabled
-      ? [{ id: "class-votes", label: "Class Votes", shortLabel: "Votes" }]
-      : []),
     { id: "reflection", label: "Reflection", shortLabel: "Reflect" },
     { id: "complete", label: "Complete", shortLabel: "Done" },
   ];
@@ -1145,6 +1141,9 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
     ) {
       setClassVotesDecisionIndex(completedDecisionIndex);
       setShowConsequence(false);
+      // Set step to 5 immediately to avoid flashing the decision screen
+      // while the async fetch completes
+      setCurrentStep(5);
       if (participantId) {
         try {
           const payload = await fetchPlaySessionPayload(participantId);
@@ -1155,7 +1154,6 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
           /* the live poll will retry */
         }
       }
-      setCurrentStep(5);
       return;
     }
 
@@ -2117,17 +2115,20 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
                   <CardDescription>See how your class voted on this decision.</CardDescription>
                 </CardHeader>
                 <CardContent className="px-4 sm:px-6 space-y-4">
-                  <div className="rounded-xl border bg-muted/40 p-4">
-                    <p className="font-semibold">
-                      Total submitted: {totalSubmitted} vote{totalSubmitted === 1 ? "" : "s"}
-                    </p>
+                  <div className="inline-flex items-center gap-3 rounded-lg border bg-muted/40 px-3 py-2 text-sm">
+                    <span className="font-medium tabular-nums">
+                      {totalSubmitted} vote{totalSubmitted === 1 ? "" : "s"}
+                    </span>
                     {showSubmissionStatus ? (
-                      <div className="mt-2 flex flex-wrap items-center justify-between gap-2 text-sm">
-                        <span className="text-muted-foreground">
-                          {totalSubmitted} of {totalEligible} submitted
+                      <>
+                        <span className="text-muted-foreground">·</span>
+                        <span className="text-muted-foreground tabular-nums">
+                          {totalSubmitted}/{totalEligible}
                         </span>
-                        <Badge variant="secondary">{submittedPercentage}% of your class</Badge>
-                      </div>
+                        <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
+                          {submittedPercentage}%
+                        </Badge>
+                      </>
                     ) : null}
                   </div>
                   <div className="grid items-center gap-6 md:grid-cols-[220px_1fr]">
@@ -2175,34 +2176,14 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
                                   ) : null}
                                 </div>
                               </div>
-                              <span className="shrink-0 text-sm font-semibold tabular-nums">
-                                {count} vote{count === 1 ? "" : "s"} · {pct}%
+                              <span className="shrink-0 text-lg font-bold tabular-nums">
+                                {count} · {pct}%
                               </span>
                             </div>
                           </div>
                         );
                       })}
                     </div>
-                  </div>
-                  <div className="rounded-xl border-2 border-primary/30 bg-primary/5 p-4">
-                    <p className="text-xs font-semibold uppercase tracking-wide text-primary">
-                      You voted
-                    </p>
-                    <p className="mt-1 font-semibold">
-                      {selectedOpt
-                        ? `${selectedOpt.label}. ${selectedOpt.title}`
-                        : "No submitted choice found"}
-                    </p>
-                  </div>
-                  <div className="rounded-xl border bg-muted/30 p-4">
-                    <p className="font-semibold">Class Insight</p>
-                    <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
-                      {totalSubmitted === 0
-                        ? "Votes will appear here as classmates submit."
-                        : winningOption
-                          ? `${winningOption.label}. ${winningOption.title} currently leads. This shows which trade-off most of the class was willing to accept.`
-                          : "The class is divided between options, which shows that the trade-offs did not point to one clear choice."}
-                    </p>
                   </div>
                   {showAnonymousJustifications ? (
                     <div className="rounded-xl border bg-card p-4">
