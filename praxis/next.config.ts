@@ -3,8 +3,8 @@ import path from "path";
 import { fileURLToPath } from "url";
 
 const dir = path.dirname(fileURLToPath(import.meta.url));
-/** Monorepo root (parent of `praxis/`). Required so Next’s file tracing and Turbopack resolve packages from root `node_modules/.pnpm/` when invoked via workspace `pnpm`. */
-const root = path.resolve(dir, "..");
+/** Use the monorepo root locally for workspace packages; Vercel uploads `praxis/` as the project root. */
+const root = process.env.VERCEL ? dir : path.resolve(dir, "..");
 
 const nextConfig: NextConfig = {
   // Keep trace output consistent with cwd when the app folder is nested under a workspace root (Vercel/CI builds).
