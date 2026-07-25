@@ -2,6 +2,7 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { setSimulationSessionSchedule } from "@/lib/session-schedule";
+import { setLiveConsequenceSnapshot } from "@/lib/simulation-flow";
 
 function generateJoinCode(): string {
   const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
@@ -260,4 +261,55 @@ export async function clearSimulationScheduleForSession(
   }
 
   return { ok: true };
+}
+
+export async function pushConsequenceUpdatesToLiveSession(
+  sessionId: string,
+): Promise<{ ok: true } | { error: string }> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { error: "You must be logged in." };
+
+  const { data: session } = await supabase
+    .from("sessions")
+    .select("id, simulation_id, status")
+    .eq("id", sessionId)
+    .single();
+  if (!session || session.status === "complete") {
+    return { error: "The live session is no longer active." };
+  }
+
+  const { data: simulation } = await supabase
+    .from("simulations")
+    .select("id, professor_id, preferences")
+    .eq("id", session.simulation_id)
+    .single();
+  if (!simulation || simulation.professor_id !== user.id) {
+    return { error: "You do not own this simulation." };
+  }
+
+  const { data: decisions, error: decisionsError } = await supabase
+    .from("decisions")
+    .select("options(id, consequence)")
+    .eq("simulation_id", simulation.id);
+  if (decisionsError) return { error: decisionsError.message };
+
+  const snapshot = Object.fromEntries(
+    (decisions ?? []).flatMap((decision) =>
+      decision.options.map((option) => [option.id, option.consequence] as const),
+    ),
+  );
+  const preferences = setLiveConsequenceSnapshot(
+    simulation.preferences,
+    session.id,
+    snapshot,
+  );
+  const { error } = await supabase
+    .from("simulations")
+    .update({ preferences })
+    .eq("id", simulation.id);
+
+  return error ? { error: error.message } : { ok: true };
 }

@@ -34,6 +34,11 @@ import {
   Circle,
   Square,
   Trash2,
+  Star,
+  TrendingUp,
+  Minus,
+  TrendingDown,
+  DollarSign,
 } from "lucide-react";
 import { toast } from "sonner";
 import Link from "next/link";
@@ -48,10 +53,10 @@ import type { Json } from "@/types/database";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { SimulationAssistant } from "@/components/simulation/simulation-assistant";
 import {
-  accumulateImpacts,
   calculateDecisionImpact,
   type DecisionImpact,
 } from "@/lib/student/decision-impact";
+import { getSimulationFlowSettings } from "@/lib/simulation-flow";
 
 const MarkdownBody = dynamic(
   () =>
@@ -150,6 +155,12 @@ interface PlaySessionPayload {
   sources: Array<{ id: string; label: string; url?: string | null; source_type?: string | null }>;
   scenarioImages: Array<{ id: string; storage_path: string; alt_text: string | null; order_num: number }>;
   responses: Array<{ decision_id: string; option_id: string }>;
+  classVotes: {
+    decisionId: string;
+    totalSubmitted: number;
+    totalEligible: number;
+    optionIds: string[];
+  } | null;
 }
 
 function roundedPercentages(counts: number[]): number[] {
@@ -165,6 +176,51 @@ function roundedPercentages(counts: number[]): number[] {
     floors[order[index].index] += 1;
   }
   return floors;
+}
+
+function SimulationFlowNavigation({
+  decisionCount,
+  classVotesEnabled,
+  activeStage,
+}: {
+  decisionCount: number;
+  classVotesEnabled: boolean;
+  activeStage: string;
+}) {
+  const stages = [
+    { id: "background", label: "Background" },
+    ...Array.from({ length: decisionCount }, (_, index) => ({
+      id: `decision-${index + 1}`,
+      label: `Decision ${index + 1}`,
+    })),
+    { id: "consequence", label: "Consequence" },
+    ...(classVotesEnabled ? [{ id: "class-votes", label: "Class Votes" }] : []),
+    { id: "reflection", label: "Reflection" },
+  ];
+
+  return (
+    <nav
+      aria-label="Simulation stages"
+      className="overflow-x-auto rounded-2xl border bg-card px-3 py-2 shadow-sm"
+    >
+      <ol className="flex min-w-max items-center gap-1 text-xs sm:text-sm">
+        {stages.map((stage, index) => (
+          <li key={stage.id} className="flex items-center">
+            {index > 0 ? <span className="mx-1 text-muted-foreground">›</span> : null}
+            <span
+              className={`rounded-lg px-2 py-1.5 ${
+                activeStage === stage.id
+                  ? "bg-primary/10 font-semibold text-primary"
+                  : "text-muted-foreground"
+              }`}
+            >
+              {stage.label}
+            </span>
+          </li>
+        ))}
+      </ol>
+    </nav>
+  );
 }
 
 export default function PlayPage({ params }: { params: Promise<{ code: string }> }) {
@@ -185,14 +241,14 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
   const [participantName, setParticipantName] = useState<string>("");
   const [playerProfile, setPlayerProfile] = useState<PlayerProfile | null>(null);
   const [availableProfiles, setAvailableProfiles] = useState<AvailableProfile[]>([]);
+  const [classVotes, setClassVotes] = useState<PlaySessionPayload["classVotes"]>(null);
   
   const [currentStep, setCurrentStep] = useState(0); // 0 waiting, 1 background, 2-4 decisions, 5 class votes, 6 reflection, 7 results
   const [selectedOption, setSelectedOption] = useState<string | null>(null);
   const [justification, setJustification] = useState("");
   const [showConsequence, setShowConsequence] = useState(false);
   const [currentConsequence, setCurrentConsequence] = useState("");
-  const [currentDataImpact, setCurrentDataImpact] = useState<{ metric: string; change: string; direction: "up" | "down" | "neutral" }[] | undefined>(undefined);
-  const [cumulativeImpact, setCumulativeImpact] = useState<DecisionImpact[]>([]);
+  const [currentDataImpact, setCurrentDataImpact] = useState<DecisionImpact[] | undefined>(undefined);
   const [outcomeRating, setOutcomeRating] = useState<"strong" | "decent" | "mixed" | "poor" | null>(null);
   const [myResponses, setMyResponses] = useState<{ decision_id: string; option_id: string; score: number }[]>([]);
   const [reflectionAnswers, setReflectionAnswers] = useState<Record<string, string>>({});
@@ -410,23 +466,18 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
     if (payload.session.status === "lobby") return 0;
     if (payload.session.status === "complete") return 7;
 
-    if (payload.session.simulation.mode !== "teams") {
-      const answeredCount = payload.responses?.length || 0;
-      if (answeredCount === 0) return 1;
-      if (answeredCount < 3) return answeredCount + 2;
-      return 5; // reflection
+    const answeredCount = payload.responses?.length || 0;
+    if (answeredCount === 0) return 1;
+    if (answeredCount < payload.decisions.length) {
+      return answeredCount + 2;
     }
-
-    for (let index = 0; index < payload.decisions.length; index += 1) {
-      const decision = payload.decisions[index];
-      const hasTeamChoice = (payload.teamDecisions ?? []).some((item) => item.decision_id === decision.id);
-      const hasMyJustification = (payload.responses ?? []).some((item) => item.decision_id === decision.id);
-      if (!hasTeamChoice || !hasMyJustification) {
-        return index + 2;
-      }
-    }
-
-    return 5;
+    const votesEnabled = getSimulationFlowSettings(
+      payload.session.simulation.preferences,
+    ).classVotesEnabled;
+    const votesSeen =
+      typeof window !== "undefined" &&
+      sessionStorage.getItem(`class_votes_seen_${payload.session.id}`) === "1";
+    return votesEnabled && !votesSeen ? 5 : 6;
   }
 
   // Redirect to role selection
@@ -564,6 +615,7 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
     setIsTeamVoter(participantTeamState.isVoter);
     setPlayerProfile(payload.playerProfile);
     setAvailableProfiles(payload.availableProfiles ?? []);
+    setClassVotes(payload.classVotes ?? null);
     setDecisions(payload.decisions);
     setReflectionQuestions(payload.reflectionQuestions);
     setDataBlocks(payload.dataBlocks);
@@ -587,23 +639,14 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
   }, [code]);
 
   useEffect(() => {
-    if (decisions.length === 0) return;
-    const restoredImpact = myResponses.reduce<DecisionImpact[]>((total, response) => {
-      const decision = decisions.find((item) => item.id === response.decision_id);
-      const option = decision?.options.find((item) => item.id === response.option_id);
-      if (!decision || !option) return total;
-      return accumulateImpacts(total, calculateDecisionImpact(option, decision.order_num));
-    }, []);
-    setCumulativeImpact(restoredImpact);
-  }, [decisions, myResponses]);
-
-  useEffect(() => {
     if (!participantId || !session) return;
     const interval = window.setInterval(async () => {
       try {
         const payload = await fetchPlaySessionPayload(participantId);
         setSession(payload.session);
         setParticipantCount(payload.participantCount ?? 0);
+        setClassVotes(payload.classVotes ?? null);
+        setDecisions(payload.decisions);
         setCurrentStep(getStepForPayload(payload));
       } catch {
         /* keep current state */
@@ -612,6 +655,18 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
     return () => window.clearInterval(interval);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [participantId, session?.id]);
+
+  useEffect(() => {
+    if (!showConsequence || currentStep < 2 || currentStep > 4) return;
+    const decision = decisions[currentStep - 2];
+    const response = decision
+      ? myResponses.find((item) => item.decision_id === decision.id)
+      : null;
+    const liveOption = decision?.options.find((option) => option.id === response?.option_id);
+    if (liveOption?.consequence?.trim()) {
+      setCurrentConsequence(liveOption.consequence);
+    }
+  }, [currentStep, decisions, myResponses, showConsequence]);
 
   useEffect(() => {
     if (session?.simulation.mode !== "teams" || currentStep < 2 || currentStep > 4) return;
@@ -635,6 +690,7 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
         setTeamName(payload.team?.name ?? null);
         setTeamMembers(payload.team?.members ?? []);
         setTeamDecisions(payload.teamDecisions ?? []);
+        setClassVotes(payload.classVotes ?? null);
         setIsTeamVoter(participantTeamState.isVoter);
         setMyResponses(buildParticipantResponses(payload));
         const nextStep = getStepForPayload(payload);
@@ -938,10 +994,13 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
     }]);
 
     const calculatedImpact = option
-      ? calculateDecisionImpact(option, decision.order_num)
+      ? calculateDecisionImpact(
+          option,
+          decision.order_num,
+          `${session.simulation.title} ${session.simulation.background_content ?? ""} ${decision.prompt}`,
+        )
       : [];
     setCurrentDataImpact(calculatedImpact);
-    setCumulativeImpact((current) => accumulateImpacts(current, calculatedImpact));
 
     // Generate consequence if needed
     if (!option?.consequence && session.simulation.mode === "individual") {
@@ -974,6 +1033,9 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
           if (data.feedback) {
             setAiJustificationFeedback(data.feedback);
           }
+          if (Array.isArray(data.impacts) && data.impacts.length > 0) {
+            setCurrentDataImpact(data.impacts);
+          }
         } catch {
           setCurrentConsequence("Your choice has been recorded. The consequences of your decision are outlined below.");
         } finally {
@@ -1002,6 +1064,10 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
         .then((response) => response.json())
         .then((data) => {
           if (data.feedback) setAiJustificationFeedback(data.feedback);
+          if (data.outcomeRating) setOutcomeRating(data.outcomeRating);
+          if (Array.isArray(data.impacts) && data.impacts.length > 0) {
+            setCurrentDataImpact(data.impacts);
+          }
         })
         .catch(() => undefined);
     }
@@ -1019,7 +1085,7 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
     setOutcomeRating(null);
     setAiJustificationFeedback(null);
 
-    if (session?.simulation.mode === "teams" && participantId) {
+    if (participantId) {
       try {
         const payload = await fetchPlaySessionPayload(participantId);
         const participantTeamState = resolveParticipantTeamState(payload, participantId);
@@ -1028,6 +1094,7 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
         setTeamName(payload.team?.name ?? null);
         setTeamMembers(payload.team?.members ?? []);
         setTeamDecisions(payload.teamDecisions ?? []);
+        setClassVotes(payload.classVotes ?? null);
         setIsTeamVoter(participantTeamState.isVoter);
         setMyResponses(buildParticipantResponses(payload));
         setCurrentStep(getStepForPayload(payload));
@@ -1037,7 +1104,14 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
       }
     }
 
-    setCurrentStep(prev => prev === 4 ? 6 : prev + 1);
+    setCurrentStep((prev) =>
+      prev === 4 &&
+      getSimulationFlowSettings(session?.simulation.preferences).classVotesEnabled
+        ? 5
+        : prev === 4
+          ? 6
+          : prev + 1,
+    );
   };
 
   const submitReflection = async () => {
@@ -1141,7 +1215,14 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
   const maxScore = decisions.length * 3;
   const displayScorePercent = scorePercent(totalScore, maxScore);
 
-  const outcomeLabel = outcomeRating ? { strong: "Strong Outcome", decent: "Decent Outcome", mixed: "Mixed Outcome", poor: "Poor Outcome" }[outcomeRating] : null;
+  const outcomeLabel = outcomeRating
+    ? {
+        strong: "Excellent Outcome",
+        decent: "Decent Outcome",
+        mixed: "Decent Outcome",
+        poor: "Bad Outcome",
+      }[outcomeRating]
+    : null;
 
   if (loading) {
     return (
@@ -1418,76 +1499,103 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
                     <ThemeToggle />
                   </div>
                 </div>
+                <SimulationFlowNavigation
+                  decisionCount={decisions.length}
+                  classVotesEnabled={
+                    getSimulationFlowSettings(session?.simulation.preferences).classVotesEnabled
+                  }
+                  activeStage="consequence"
+                />
                 <Card>
                   <CardHeader className="px-4 sm:px-6">
-                    <div className="flex items-center justify-between gap-3">
-                      <div>
-                        <Badge variant="secondary" className="w-fit mb-2">Consequence</Badge>
-                        <CardTitle className="text-lg sm:text-xl">Decision {decision.order_num} Result</CardTitle>
-                      </div>
-                      {outcomeLabel && (
-                        <Badge className={
-                          outcomeRating === "strong" ? "bg-emerald-600 text-white" :
-                          outcomeRating === "decent" ? "bg-emerald-500 text-white" :
-                          outcomeRating === "mixed" ? "bg-amber-500 text-white" :
-                          "bg-red-500 text-white"
-                        }>
-                          {outcomeLabel}
-                        </Badge>
-                      )}
-                    </div>
+                    <Badge variant="secondary" className="mb-2 w-fit">Consequence</Badge>
+                    <CardTitle className="text-xl sm:text-2xl">
+                      Decision {decision.order_num} Result
+                    </CardTitle>
                   </CardHeader>
                   <CardContent className="px-4 sm:px-6 space-y-4">
-                    <div className="p-4 sm:p-6 bg-muted rounded-lg">
-                      <p className="text-base sm:text-lg break-words">{currentConsequence || "Your choice has been recorded."}</p>
+                    <div className="flex flex-col gap-4 rounded-2xl border border-[#f0d8c8] bg-[#fff8f1] p-5 dark:border-[#6b4938] dark:bg-[#2c241f] sm:flex-row sm:items-center">
+                      <div className="grid h-14 w-14 shrink-0 place-items-center rounded-full bg-[#f8dfcf] dark:bg-[#5a3828]">
+                        <Star className="h-7 w-7 fill-[#e75b0c] text-[#e75b0c]" />
+                      </div>
+                      <p className="min-w-0 flex-1 leading-relaxed text-foreground">
+                        <strong className="text-[#c95a22]">
+                          {outcomeLabel ?? "Decision outcome"}:
+                        </strong>{" "}
+                        {currentConsequence || "Your choice has been recorded."}
+                      </p>
+                      {outcomeLabel ? (
+                        <Badge className="shrink-0 bg-[#e8f3df] text-[#356b26] hover:bg-[#e8f3df] dark:bg-[#294322] dark:text-[#bde3a9]">
+                          {outcomeLabel}
+                        </Badge>
+                      ) : null}
                     </div>
-                    {currentDataImpact && currentDataImpact.length > 0 && (
-                      <div>
-                        <p className="mb-2 text-sm font-semibold">What happened as a result:</p>
-                        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-                        {currentDataImpact.map((impact) => (
-                          <div key={impact.metric} className="rounded-lg border bg-muted/60 p-3">
-                            <p className="text-sm font-semibold">
-                              {impact.metric} {impact.direction === "up" ? "Improved" : impact.direction === "down" ? "Declined" : "Held Steady"}
-                            </p>
-                            <p className={`text-lg font-bold ${impact.direction === "up" ? "text-emerald-600" : impact.direction === "down" ? "text-red-600" : "text-gray-600"}`}>
-                              {impact.change}
-                            </p>
-                            <p className="mt-1 text-xs text-muted-foreground">
-                              This decision changed {impact.metric.toLowerCase()} by {impact.change}.
-                            </p>
-                          </div>
-                        ))}
+                    {currentDataImpact && currentDataImpact.length > 0 ? (
+                      <div className="rounded-2xl border bg-card px-4 sm:px-6">
+                        <p className="py-4 font-bold">What happened as a result:</p>
+                        <div>
+                          {currentDataImpact.map((impact, index) => {
+                            const financial = impact.kind === "financial";
+                            const positive = impact.direction === "up";
+                            const neutral = impact.direction === "neutral";
+                            const Icon = financial
+                              ? DollarSign
+                              : positive
+                                ? TrendingUp
+                                : neutral
+                                  ? Minus
+                                  : TrendingDown;
+                            const iconClass = financial
+                              ? "bg-blue-100 text-blue-700 dark:bg-blue-950 dark:text-blue-300"
+                              : positive
+                                ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300"
+                                : neutral
+                                  ? "bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-300"
+                                  : "bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-300";
+                            const titleClass = financial
+                              ? "text-blue-700 dark:text-blue-300"
+                              : positive
+                                ? "text-emerald-700 dark:text-emerald-300"
+                                : neutral
+                                  ? "text-amber-700 dark:text-amber-300"
+                                  : "text-red-700 dark:text-red-300";
+                            const directionLabel = financial
+                              ? ""
+                              : positive
+                                ? " Increased"
+                                : neutral
+                                  ? " Held Steady"
+                                  : " Declined";
+                            return (
+                              <div
+                                key={`${impact.metric}-${index}`}
+                                className="flex gap-4 border-t py-4 first:border-t-0"
+                              >
+                                <div className={`grid h-11 w-11 shrink-0 place-items-center rounded-full ${iconClass}`}>
+                                  <Icon className="h-5 w-5" />
+                                </div>
+                                <div className="min-w-0 flex-1">
+                                  <div className="flex flex-wrap items-baseline justify-between gap-2">
+                                    <p className={`font-bold ${titleClass}`}>
+                                      {String.fromCharCode(65 + index)}. {impact.metric}
+                                      {directionLabel}
+                                    </p>
+                                    <span className={`text-sm font-bold ${titleClass}`}>
+                                      {impact.change}
+                                    </span>
+                                  </div>
+                                  <p className="mt-1 text-sm leading-relaxed text-foreground">
+                                    {impact.explanation ||
+                                      `This choice changed ${impact.metric.toLowerCase()} by ${impact.change}.`}
+                                  </p>
+                                </div>
+                              </div>
+                            );
+                          })}
                         </div>
                       </div>
-                    )}
-                    {cumulativeImpact.length > 0 && (
-                      <div className="rounded-xl border border-[#e4dcd2] bg-[#faf7f2] p-4 dark:border-zinc-700 dark:bg-zinc-900">
-                        <div className="mb-3 flex items-center justify-between">
-                          <div>
-                            <p className="text-sm font-semibold">Live dashboard</p>
-                            <p className="text-xs text-muted-foreground">Cumulative impact across your decisions</p>
-                          </div>
-                          <Badge variant="outline">{myResponses.length} locked in</Badge>
-                        </div>
-                        <div className="grid gap-3 sm:grid-cols-3">
-                          {cumulativeImpact.map((impact) => (
-                            <div key={impact.metric} className="rounded-lg bg-background p-3">
-                              <p className="text-xs text-muted-foreground">{impact.metric}</p>
-                              <p className={`text-lg font-bold ${
-                                impact.direction === "up"
-                                  ? "text-emerald-700 dark:text-emerald-400"
-                                  : impact.direction === "down"
-                                    ? "text-red-700 dark:text-red-400"
-                                    : ""
-                              }`}>
-                                {impact.change}
-                              </p>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
+                    ) : null}
+                    {/* Live dashboard intentionally hidden for now. */}
                     {aiJustificationFeedback && (
                       <div className="rounded-xl border-l-4 border-primary bg-muted p-4">
                         <p className="text-sm font-semibold">Feedback on your reasoning</p>
@@ -1523,7 +1631,8 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
                       <Button onClick={continueToNext} className="w-full sm:w-auto min-h-[48px]">
                         {decisionIndex < 2
                           ? "Proceed to Next Decision →"
-                          : session?.simulation.mode === "teams"
+                          : getSimulationFlowSettings(session?.simulation.preferences)
+                                .classVotesEnabled
                             ? "Proceed to Class Votes →"
                             : "Next: Reflection →"}
                         <ArrowRight className="ml-2 h-4 w-4 shrink-0" />
@@ -1553,10 +1662,15 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
                 <Image src="/new_logo.png" alt="Praxis" width={300} height={73} className="h-11 w-auto" priority />
               </div>
               <div className="hidden flex-1 items-center justify-center gap-2 sm:flex">
-                {[1, 2, 3].map((step) => (
+                {Array.from(
+                  { length: decisions.length + reflectionQuestions.length },
+                  (_, index) => index + 1,
+                ).map((step) => (
                   <span
                     key={step}
-                    className={`h-1.5 w-14 rounded-full ${step <= decision.order_num ? "bg-[#bf6b3d]" : "bg-[#e8e2da]"}`}
+                    className={`h-1.5 min-w-5 flex-1 rounded-full ${
+                      step <= decision.order_num ? "bg-[#bf6b3d]" : "bg-[#e8e2da] dark:bg-[#4a4741]"
+                    }`}
                   />
                 ))}
               </div>
@@ -1567,7 +1681,16 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
                 <ThemeToggle />
               </div>
             </div>
-            <div className="mx-auto grid max-w-6xl gap-5 lg:grid-cols-[minmax(0,1fr)_310px]">
+            <div className="mx-auto mb-5 max-w-5xl">
+              <SimulationFlowNavigation
+                decisionCount={decisions.length}
+                classVotesEnabled={
+                  getSimulationFlowSettings(session?.simulation.preferences).classVotesEnabled
+                }
+                activeStage={`decision-${decision.order_num}`}
+              />
+            </div>
+            <div className="mx-auto max-w-5xl">
             <div className="space-y-4 rounded-2xl border bg-[#fcfaf7] p-5 shadow-sm dark:bg-card sm:p-8">
               <Button
                 variant="outline"
@@ -1579,7 +1702,9 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
               </Button>
 
               <div className="space-y-2">
-                <Badge variant="secondary" className="w-fit">Decision {decision.order_num} of 3</Badge>
+                <Badge variant="secondary" className="w-fit">
+                  Decision {decision.order_num} of {decisions.length}
+                </Badge>
                 <h2 className="text-xl sm:text-2xl font-bold leading-snug text-foreground break-words">
                   {decision.prompt}
                 </h2>
@@ -1825,51 +1950,7 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
                 </Button>
               </div>
             </div>
-            <aside className="h-fit space-y-4 rounded-2xl border bg-card p-5 shadow-sm lg:sticky lg:top-5">
-              <div>
-                <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">Live dashboard</p>
-                <h3 className="mt-1 font-semibold">{session?.simulation.title || "Simulation impact"}</h3>
-              </div>
-              <div className="space-y-4">
-                {(cumulativeImpact.length > 0
-                  ? cumulativeImpact
-                  : [
-                      { metric: "Revenue", change: "$0", direction: "neutral" as const },
-                      { metric: "NPS", change: "0 pts", direction: "neutral" as const },
-                      { metric: "Retention", change: "0%", direction: "neutral" as const },
-                    ]
-                ).map((impact) => (
-                  <div key={impact.metric}>
-                    <div className="mb-1.5 flex items-center justify-between text-sm">
-                      <span className="text-muted-foreground">{impact.metric}</span>
-                      <strong className={
-                        impact.direction === "up"
-                          ? "text-emerald-700 dark:text-emerald-400"
-                          : impact.direction === "down"
-                            ? "text-red-700 dark:text-red-400"
-                            : ""
-                      }>
-                        {impact.change}
-                      </strong>
-                    </div>
-                    <div className="h-1.5 overflow-hidden rounded-full bg-muted">
-                      <div
-                        className={`h-full rounded-full ${
-                          impact.direction === "down" ? "bg-red-600" : "bg-[#4c7a20]"
-                        }`}
-                        style={{ width: impact.direction === "neutral" ? "4%" : "68%" }}
-                      />
-                    </div>
-                  </div>
-                ))}
-              </div>
-              <div className="rounded-xl bg-[#f5eee8] p-3 text-sm dark:bg-zinc-800">
-                <p className="font-medium">{myResponses.length} of 3 decisions complete</p>
-                <p className="mt-1 text-xs text-muted-foreground">
-                  Each choice updates these totals using its quality, tradeoffs, and decision stage.
-                </p>
-              </div>
-            </aside>
+            {/* Live dashboard intentionally hidden for now. */}
             <SimulationAssistant
               role={selectedRoleLabel}
               scenario={session?.simulation.background_content || ""}
@@ -1882,28 +1963,27 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
     );
   }
 
-  // Class Votes screen (step 5 in teams mode)
-  if (currentStep === 5 && session?.simulation.mode === "teams") {
+  // Class Votes screen (optional step after the final consequence)
+  if (
+    currentStep === 5 &&
+    getSimulationFlowSettings(session?.simulation.preferences).classVotesEnabled
+  ) {
     const decision = decisions.at(-1);
     const myLastResponse = decision
       ? myResponses.find((response) => response.decision_id === decision.id)
       : null;
     const selectedOpt = decision?.options.find(o => o.id === myLastResponse?.option_id);
-    const decisionVotes = decision
-      ? teamDecisions.filter((item) => item.decision_id === decision.id)
-      : [];
-    const totalVotes = decisionVotes.length;
-    const optionVotes = {
-      A: decisionVotes.filter(td => td.option_id === decision?.options.find(o => o.label === "A")?.id).length,
-      B: decisionVotes.filter(td => td.option_id === decision?.options.find(o => o.label === "B")?.id).length,
-      C: decisionVotes.filter(td => td.option_id === decision?.options.find(o => o.label === "C")?.id).length,
-    };
-    const [pctA, pctB, pctC] = roundedPercentages([optionVotes.A, optionVotes.B, optionVotes.C]);
-    const optionPcts = {
-      A: pctA,
-      B: pctB,
-      C: pctC,
-    };
+    const optionCounts = (decision?.options ?? []).map(
+      (option) => classVotes?.optionIds.filter((id) => id === option.id).length ?? 0,
+    );
+    const optionPercentages = roundedPercentages(optionCounts);
+    const totalSubmitted = classVotes?.totalSubmitted ?? 0;
+    const totalEligible = classVotes?.totalEligible ?? 0;
+    const submittedPercentage =
+      totalEligible > 0 ? Math.min(100, Math.round((totalSubmitted / totalEligible) * 100)) : 0;
+    const showSubmissionStatus = getSimulationFlowSettings(
+      session?.simulation.preferences,
+    ).showVoteSubmissionStatus;
 
     return (
       <div className="flex min-h-dvh flex-col">
@@ -1911,40 +1991,76 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
         <div className="flex min-h-0 flex-1 flex-col overflow-y-auto bg-muted/50">
           <div className="px-3 py-4 sm:px-4 sm:py-8">
             <div className="max-w-3xl mx-auto space-y-4">
+              <SimulationFlowNavigation
+                decisionCount={decisions.length}
+                classVotesEnabled
+                activeStage="class-votes"
+              />
               <Card>
                 <CardHeader className="px-4 sm:px-6">
                   <CardTitle className="text-lg sm:text-xl">Class Votes</CardTitle>
                   <CardDescription>See how your class voted on this decision.</CardDescription>
                 </CardHeader>
                 <CardContent className="px-4 sm:px-6 space-y-4">
-                  <div className="flex items-center justify-between">
-                    <p className="text-sm text-muted-foreground">{totalVotes} of {totalVotes} submitted</p>
-                    <Badge variant="secondary">{totalVotes === 0 ? "0%" : "100%"} of your class</Badge>
+                  <div className="rounded-xl border bg-muted/40 p-4">
+                    <p className="font-semibold">
+                      Total submitted: {totalSubmitted} vote{totalSubmitted === 1 ? "" : "s"}
+                    </p>
+                    {showSubmissionStatus ? (
+                      <div className="mt-2 flex flex-wrap items-center justify-between gap-2 text-sm">
+                        <span className="text-muted-foreground">
+                          {totalSubmitted} of {totalEligible} submitted
+                        </span>
+                        <Badge variant="secondary">{submittedPercentage}% of your class</Badge>
+                      </div>
+                    ) : null}
                   </div>
                   <div className="space-y-3">
-                    {(["A", "B", "C"] as const).map((label) => {
-                      const count = optionVotes[label];
-                      const pct = optionPcts[label];
-                      const isChosen = selectedOpt?.label === label;
+                    {(decision?.options ?? []).map((option, index) => {
+                      const count = optionCounts[index] ?? 0;
+                      const pct = optionPercentages[index] ?? 0;
+                      const isChosen = selectedOpt?.id === option.id;
                       return (
-                        <div key={label} className="space-y-1.5">
-                          <div className="flex items-center justify-between gap-3">
-                            <span className="text-sm font-medium text-zinc-800 dark:text-zinc-200">Option {label}</span>
-                            <span className="text-xs text-zinc-500 dark:text-zinc-400 tabular-nums">{pct}% · {count} vote{count === 1 ? "" : "s"}</span>
+                        <div
+                          key={option.id}
+                          className={`space-y-2 rounded-xl border p-4 ${
+                            isChosen ? "border-primary/50 bg-primary/5" : "bg-card"
+                          }`}
+                        >
+                          <div className="flex items-start justify-between gap-4">
+                            <div className="min-w-0">
+                              <p className="font-semibold">
+                                {option.label}. {option.title}
+                              </p>
+                              {isChosen ? (
+                                <Badge className="mt-1" variant="secondary">Your vote</Badge>
+                              ) : null}
+                            </div>
+                            <span className="shrink-0 text-sm tabular-nums text-muted-foreground">
+                              {count} vote{count === 1 ? "" : "s"} · {pct}%
+                            </span>
                           </div>
-                          <div className="h-2.5 rounded-full bg-zinc-100 dark:bg-zinc-800 overflow-hidden">
+                          <div className="h-2.5 overflow-hidden rounded-full bg-muted">
                             <div
-                              className={`h-full rounded-full transition-all duration-1000 ease-out ${isChosen ? "bg-amber-500 dark:bg-amber-400" : "bg-indigo-500 dark:bg-indigo-400"}`}
-                              style={{ width: `${(count / Math.max(totalVotes, 1)) * 100}%` }}
+                              className={`h-full rounded-full transition-all duration-1000 ease-out ${
+                                isChosen ? "bg-primary" : "bg-[#86827b]"
+                              }`}
+                              style={{ width: `${pct}%` }}
                             />
                           </div>
                         </div>
                       );
                     })}
                   </div>
-                  <div className="rounded-lg border bg-muted/50 p-3 text-sm">
-                    <span className="text-muted-foreground">You voted: </span>
-                    <strong>{selectedOpt ? `${selectedOpt.label}. ${selectedOpt.title}` : "No submitted choice found"}</strong>
+                  <div className="rounded-xl border-2 border-primary/30 bg-primary/5 p-4">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-primary">
+                      You voted
+                    </p>
+                    <p className="mt-1 font-semibold">
+                      {selectedOpt
+                        ? `${selectedOpt.label}. ${selectedOpt.title}`
+                        : "No submitted choice found"}
+                    </p>
                   </div>
                 </CardContent>
               </Card>
@@ -1964,7 +2080,15 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
                   <ArrowLeft className="mr-2 h-4 w-4 shrink-0" />
                   Back to Consequence
                 </Button>
-                <Button onClick={continueToNext} className="min-h-[48px]">
+                <Button
+                  onClick={() => {
+                    if (session) {
+                      sessionStorage.setItem(`class_votes_seen_${session.id}`, "1");
+                    }
+                    setCurrentStep(6);
+                  }}
+                  className="min-h-[48px]"
+                >
                   Continue to Reflection
                   <ArrowRight className="ml-2 h-4 w-4 shrink-0" />
                 </Button>
@@ -1978,12 +2102,47 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
 
   // Reflection screen
   if (currentStep === 6) {
+    const completedReflections = reflectionQuestions.filter(
+      (question) => reflectionAnswers[question.id]?.trim(),
+    ).length;
+    const totalRequiredSteps = decisions.length + reflectionQuestions.length;
+    const completedRequiredSteps = decisions.length + completedReflections;
     return (
       <div className="flex min-h-dvh flex-col">
         {previewBar}
         <div className="flex min-h-0 flex-1 flex-col overflow-y-auto bg-muted/50">
           <div className="px-3 py-4 sm:px-4 sm:py-8">
             <div className="max-w-3xl mx-auto space-y-4">
+              <SimulationFlowNavigation
+                decisionCount={decisions.length}
+                classVotesEnabled={
+                  getSimulationFlowSettings(session?.simulation.preferences).classVotesEnabled
+                }
+                activeStage="reflection"
+              />
+              <div className="rounded-2xl border bg-card p-4 shadow-sm">
+                <div className="mb-2 flex items-center justify-between gap-3 text-sm">
+                  <span className="font-semibold">Simulation progress</span>
+                  <span className="text-muted-foreground">
+                    {completedRequiredSteps} of {totalRequiredSteps} required steps
+                  </span>
+                </div>
+                <div className="flex gap-2">
+                  {Array.from({ length: totalRequiredSteps }, (_, index) => (
+                    <span
+                      key={index}
+                      className={`h-2 flex-1 rounded-full ${
+                        index < completedRequiredSteps
+                          ? "bg-[#bf6b3d]"
+                          : "bg-[#e8e2da] dark:bg-[#4a4741]"
+                      }`}
+                    />
+                  ))}
+                </div>
+                <p className="mt-2 text-xs text-muted-foreground">
+                  Decisions and every final reflection question count toward completion.
+                </p>
+              </div>
               <Button
                 variant="outline"
                 onClick={() => goToScenario(6, false)}
@@ -2017,7 +2176,16 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
                   ))}
 
                   <div className="flex justify-end">
-                    <Button onClick={submitReflection} disabled={submitting} className="min-h-[48px] w-full sm:w-auto">
+                    <Button
+                      onClick={submitReflection}
+                      disabled={
+                        submitting ||
+                        reflectionQuestions.some(
+                          (question) => !reflectionAnswers[question.id]?.trim(),
+                        )
+                      }
+                      className="min-h-[48px] w-full sm:w-auto"
+                    >
                       {submitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                       Complete Simulation
                       <Check className="ml-2 h-4 w-4 shrink-0" />

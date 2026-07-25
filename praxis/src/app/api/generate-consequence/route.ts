@@ -20,6 +20,15 @@ const ConsequenceSchema = z.object({
   consequence: z.string(),
   outcomeRating: z.enum(["strong", "decent", "mixed", "poor"]),
   feedback: z.string(),
+  impacts: z.array(
+    z.object({
+      metric: z.string(),
+      change: z.string(),
+      direction: z.enum(["up", "down", "neutral"]),
+      explanation: z.string(),
+      kind: z.enum(["performance", "financial"]),
+    }),
+  ).length(4),
 });
 
 export async function POST(request: NextRequest) {
@@ -27,7 +36,7 @@ export async function POST(request: NextRequest) {
     const input = RequestSchema.parse(await request.json());
     const result = await generateStructured({
       system:
-        "You evaluate student decisions in a classroom simulation. Produce a realistic short-term consequence and concise feedback on the student's reasoning. Respect tradeoffs and the student's role. Never claim certainty beyond the scenario.",
+        "You evaluate student decisions in a classroom simulation. Produce a specific 1-2 sentence outcome summary, concise reasoning feedback, and exactly four case-specific impact rows. Derive metrics from this scenario—history cases might use evidence quality, public understanding, preservation, or resources; healthcare, policy, education, and business cases need their own relevant measures. Never default every case to revenue, NPS, and retention. Include realistic tradeoffs, make one row financial/resource-related when appropriate, and never claim certainty beyond the scenario.",
       user: `Scenario: ${input.scenarioTitle}
 Context: ${(input.scenarioContext || "").slice(0, 5000)}
 Role: ${input.roleLabel || "Decision maker"}

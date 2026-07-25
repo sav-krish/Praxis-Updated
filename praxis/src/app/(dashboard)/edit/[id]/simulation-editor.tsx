@@ -56,6 +56,7 @@ import { DataBlockEditor } from "@/components/simulation/DataBlockEditor";
 import { DataBlockRenderer } from "@/components/simulation/DataBlockRenderer";
 import { FeedbackCard } from "@/components/simulation/FeedbackCard";
 import { copySimulationToAccount } from "@/app/(dashboard)/share/[id]/actions";
+import { pushConsequenceUpdatesToLiveSession } from "@/app/(dashboard)/session/[id]/actions";
 import { PreviewSimulationButton } from "@/components/simulation/PreviewSimulationButton";
 import type {
   Simulation,
@@ -81,6 +82,11 @@ import {
   setSimulationSessionSchedule,
   toDatetimeLocalValue,
 } from "@/lib/session-schedule";
+import {
+  getSimulationFlowSettings,
+  preserveLiveConsequenceSnapshots,
+  setSimulationFlowSettings,
+} from "@/lib/simulation-flow";
 
 interface DecisionWithOptions extends Decision {
   options: Option[];
@@ -215,6 +221,11 @@ export function SimulationEditor({
   const [copilotOpen, setCopilotOpen] = useState(false);
   const [focusedSection, setFocusedSection] = useState<FocusedSection | null>(null);
   const [activeSession, setActiveSession] = useState(initialActiveSession);
+  const [pushingLiveConsequences, setPushingLiveConsequences] = useState(false);
+  const flowSettings = useMemo(
+    () => getSimulationFlowSettings(simulation.preferences),
+    [simulation.preferences],
+  );
   const sessionSchedule = useMemo(
     () => getSimulationSessionSchedule(simulation.preferences),
     [simulation.preferences]
@@ -404,6 +415,15 @@ export function SimulationEditor({
     const supabase = createClient();
 
     try {
+      const { data: storedSimulation } = await supabase
+        .from("simulations")
+        .select("preferences")
+        .eq("id", simulation.id)
+        .single();
+      const preferences = preserveLiveConsequenceSnapshots(
+        simulation.preferences,
+        storedSimulation?.preferences,
+      );
       const simulationUpdate = {
         title: simulation.title,
         course_topic: simulation.course_topic,
@@ -415,7 +435,7 @@ export function SimulationEditor({
         team_assignment: simulation.team_assignment,
         difficulty: simulation.difficulty ?? null,
         estimated_minutes: simulation.estimated_minutes ?? null,
-        preferences: simulation.preferences,
+        preferences,
         is_public: simulation.is_public,
         hidden_profiles_enabled: simulation.hidden_profiles_enabled,
         updated_at: new Date().toISOString(),
@@ -657,6 +677,23 @@ export function SimulationEditor({
 
   // Manual save button
   const handleSave = () => performSave({ silent: false });
+
+  const handlePushLiveConsequences = async () => {
+    if (!activeSession || activeSession.status === "complete") return;
+    setPushingLiveConsequences(true);
+    const saved = await performSave({ silent: true });
+    if (!saved) {
+      setPushingLiveConsequences(false);
+      return;
+    }
+    const result = await pushConsequenceUpdatesToLiveSession(activeSession.id);
+    setPushingLiveConsequences(false);
+    if ("error" in result) {
+      toast.error(result.error);
+      return;
+    }
+    toast.success("Consequence updates pushed to the live session");
+  };
 
   const updateDecision = useCallback((index: number, field: string, value: string) => {
     setDecisions(prev => {
@@ -1351,6 +1388,33 @@ export function SimulationEditor({
           transition={{ type: "tween", duration: 0.2 }}
           className="space-y-4"
         >
+          {activeSession && activeSession.status !== "complete" ? (
+            <Card className="border-amber-300/70 bg-amber-50/70 dark:border-amber-900 dark:bg-amber-950/20">
+              <CardContent className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <p className="font-semibold">Editing while a session is active</p>
+                  <p className="text-sm text-muted-foreground">
+                    Saved consequence edits apply to future sessions. Students in the current
+                    session keep the stored live version until you explicitly push updates.
+                  </p>
+                </div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="shrink-0"
+                  disabled={pushingLiveConsequences || saveInFlight}
+                  onClick={() => void handlePushLiveConsequences()}
+                >
+                  {pushingLiveConsequences ? (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  ) : (
+                    <ArrowUp className="mr-2 h-4 w-4" />
+                  )}
+                  Push Updates to Live Session
+                </Button>
+              </CardContent>
+            </Card>
+          ) : null}
           {decisions.map((decision, dIndex) => (
             <AiSectionTrigger
               key={decision.id}
@@ -1453,6 +1517,10 @@ export function SimulationEditor({
                                   rows={2}
                                   disabled={!isOwner}
                                 />
+                                <p className="text-xs text-muted-foreground">
+                                  Saved edits are used in future sessions. Active sessions change
+                                  only after “Push Updates to Live Session.”
+                                </p>
                               </div>
                             </div>
                           ))}
@@ -1597,6 +1665,80 @@ export function SimulationEditor({
                     <SelectItem value="teams">Teams - Students work in groups, one submission per team</SelectItem>
                   </SelectContent>
                 </Select>
+              </div>
+
+              <div className="space-y-3 rounded-xl border p-4">
+                <div className="flex items-center justify-between gap-4">
+                  <div>
+                    <Label>Class Votes stage</Label>
+                    <p className="text-sm text-muted-foreground">
+                      Show class vote results after the final consequence and before reflection.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    role="switch"
+                    aria-checked={flowSettings.classVotesEnabled}
+                    disabled={!isOwner}
+                    onClick={() =>
+                      setSimulation((prev) => ({
+                        ...prev,
+                        preferences: setSimulationFlowSettings(prev.preferences, {
+                          ...getSimulationFlowSettings(prev.preferences),
+                          classVotesEnabled:
+                            !getSimulationFlowSettings(prev.preferences).classVotesEnabled,
+                        }),
+                      }))
+                    }
+                    className={`relative h-6 w-11 shrink-0 rounded-full transition-colors ${
+                      flowSettings.classVotesEnabled ? "bg-primary" : "bg-input"
+                    }`}
+                  >
+                    <span
+                      className={`absolute left-1 top-1 h-4 w-4 rounded-full bg-background shadow transition-transform ${
+                        flowSettings.classVotesEnabled ? "translate-x-5" : "translate-x-0"
+                      }`}
+                    />
+                  </button>
+                </div>
+                {flowSettings.classVotesEnabled ? (
+                  <div className="flex items-center justify-between gap-4 border-t pt-3">
+                    <div>
+                      <Label>Show submission status</Label>
+                      <p className="text-sm text-muted-foreground">
+                        Allow students to see submitted count and class percentage.
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      role="switch"
+                      aria-checked={flowSettings.showVoteSubmissionStatus}
+                      disabled={!isOwner}
+                      onClick={() =>
+                        setSimulation((prev) => ({
+                          ...prev,
+                          preferences: setSimulationFlowSettings(prev.preferences, {
+                            ...getSimulationFlowSettings(prev.preferences),
+                            showVoteSubmissionStatus:
+                              !getSimulationFlowSettings(prev.preferences)
+                                .showVoteSubmissionStatus,
+                          }),
+                        }))
+                      }
+                      className={`relative h-6 w-11 shrink-0 rounded-full transition-colors ${
+                        flowSettings.showVoteSubmissionStatus ? "bg-primary" : "bg-input"
+                      }`}
+                    >
+                      <span
+                        className={`absolute left-1 top-1 h-4 w-4 rounded-full bg-background shadow transition-transform ${
+                          flowSettings.showVoteSubmissionStatus
+                            ? "translate-x-5"
+                            : "translate-x-0"
+                        }`}
+                      />
+                    </button>
+                  </div>
+                ) : null}
               </div>
 
               {simulation.mode === "individual" && (

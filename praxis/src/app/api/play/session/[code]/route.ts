@@ -2,6 +2,11 @@ import { NextRequest, NextResponse } from "next/server";
 import { createServiceRoleClient } from "@/lib/supabase/server";
 import type { Json } from "@/types/database";
 import { maybeRebalanceSessionTeams } from "@/lib/team-assignment";
+import {
+  getLiveConsequenceSnapshot,
+  getSimulationFlowSettings,
+  setLiveConsequenceSnapshot,
+} from "@/lib/simulation-flow";
 
 const SESSION_SIMULATION_SELECT =
   `
@@ -222,6 +227,67 @@ export async function GET(request: NextRequest, { params }: RouteContext) {
       : Promise.resolve({ data: [], error: null }),
   ]);
 
+  let liveConsequenceSnapshot = getLiveConsequenceSnapshot(
+    simulationData.preferences,
+    sessionData.id,
+  );
+  if (!liveConsequenceSnapshot && sessionData.status === "running") {
+    liveConsequenceSnapshot = Object.fromEntries(
+      (decisionsData ?? []).flatMap((decision) =>
+        decision.options.map((option) => [option.id, option.consequence] as const),
+      ),
+    );
+    simulationData.preferences = setLiveConsequenceSnapshot(
+      simulationData.preferences,
+      sessionData.id,
+      liveConsequenceSnapshot,
+    );
+    await supabase
+      .from("simulations")
+      .update({ preferences: simulationData.preferences })
+      .eq("id", simulationData.id);
+  }
+
+  const flowSettings = getSimulationFlowSettings(simulationData.preferences);
+  const finalDecision = decisionsData?.at(-1);
+  const participantFinished =
+    (responsesData?.length ?? 0) >= (decisionsData?.length ?? 0);
+  let classVotes: {
+    decisionId: string;
+    totalSubmitted: number;
+    totalEligible: number;
+    optionIds: string[];
+  } | null = null;
+
+  if (flowSettings.classVotesEnabled && participantFinished && finalDecision) {
+    const [voteResult, eligibilityResult] = await Promise.all([
+      simulationData.mode === "teams"
+        ? supabase
+            .from("team_decision_submissions")
+            .select("option_id")
+            .eq("session_id", sessionData.id)
+            .eq("decision_id", finalDecision.id)
+        : supabase
+            .from("responses")
+            .select("option_id")
+            .eq("session_id", sessionData.id)
+            .eq("decision_id", finalDecision.id),
+      simulationData.mode === "teams"
+        ? supabase
+            .from("teams")
+            .select("*", { count: "exact", head: true })
+            .eq("session_id", sessionData.id)
+        : Promise.resolve({ count: count ?? 0 }),
+    ]);
+    const optionIds = (voteResult.data ?? []).map((vote) => vote.option_id);
+    classVotes = {
+      decisionId: finalDecision.id,
+      totalSubmitted: optionIds.length,
+      totalEligible: eligibilityResult.count ?? 0,
+      optionIds,
+    };
+  }
+
   return NextResponse.json({
     session: sessionPayload,
     participantCount: count ?? 0,
@@ -246,8 +312,18 @@ export async function GET(request: NextRequest, { params }: RouteContext) {
     availableProfiles: availableProfilesResult.data ?? [],
     decisions: (decisionsData ?? []).map((decision) => ({
       ...decision,
-      options: [...decision.options].sort((a, b) => a.label.localeCompare(b.label)),
+      options: [...decision.options]
+        .map((option) => ({
+          ...option,
+          consequence:
+            liveConsequenceSnapshot &&
+            Object.prototype.hasOwnProperty.call(liveConsequenceSnapshot, option.id)
+              ? liveConsequenceSnapshot[option.id]
+              : option.consequence,
+        }))
+        .sort((a, b) => a.label.localeCompare(b.label)),
     })),
+    classVotes,
     reflectionQuestions: questionsData ?? [],
     dataBlocks: blocksData ?? [],
     sources: sourcesData ?? [],

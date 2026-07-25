@@ -6,6 +6,8 @@ export interface DecisionImpact {
   unit: "currency" | "points" | "percent";
   direction: ImpactDirection;
   change: string;
+  explanation: string;
+  kind: "performance" | "financial";
 }
 
 interface ImpactOption {
@@ -34,7 +36,13 @@ function formatImpact(metric: string, value: number, unit: DecisionImpact["unit"
   return `${signed(value)}%`;
 }
 
-function impact(metric: string, value: number, unit: DecisionImpact["unit"]): DecisionImpact {
+function impact(
+  metric: string,
+  value: number,
+  unit: DecisionImpact["unit"],
+  explanation: string,
+  kind: DecisionImpact["kind"] = "performance",
+): DecisionImpact {
   const rounded = Math.round(value * 10) / 10;
   return {
     metric,
@@ -42,6 +50,8 @@ function impact(metric: string, value: number, unit: DecisionImpact["unit"]): De
     unit,
     direction: rounded > 0 ? "up" : rounded < 0 ? "down" : "neutral",
     change: formatImpact(metric, rounded, unit),
+    explanation,
+    kind,
   };
 }
 
@@ -54,19 +64,72 @@ function stableVariant(option: ImpactOption, decisionNumber: number) {
   return Math.abs(hash % 7) - 3;
 }
 
-export function calculateDecisionImpact(option: ImpactOption, decisionNumber: number): DecisionImpact[] {
+function scenarioMetrics(context: string): [string, string, string, string] {
+  const normalized = context.toLowerCase();
+  if (/(history|historical|archive|primary source|museum|heritage)/.test(normalized)) {
+    return ["Historical Evidence", "Public Understanding", "Preservation Feasibility", "Resource Impact"];
+  }
+  if (/(patient|hospital|health|clinical|medical|care)/.test(normalized)) {
+    return ["Patient Outcomes", "Access to Care", "Operational Capacity", "Cost Impact"];
+  }
+  if (/(student|school|education|learning|classroom|university)/.test(normalized)) {
+    return ["Learner Engagement", "Equitable Access", "Program Scalability", "Resource Impact"];
+  }
+  if (/(campaign|marketing|customer|brand|audience|advertis)/.test(normalized)) {
+    return ["Audience Engagement", "Market Reach", "Scalability", "Cost Impact"];
+  }
+  if (/(finance|revenue|investment|bank|budget|profit|pricing)/.test(normalized)) {
+    return ["Financial Performance", "Stakeholder Confidence", "Risk Resilience", "Cost Impact"];
+  }
+  if (/(policy|government|public|community|civic)/.test(normalized)) {
+    return ["Community Benefit", "Public Trust", "Implementation Feasibility", "Resource Impact"];
+  }
+  return ["Decision Effectiveness", "Stakeholder Support", "Implementation Feasibility", "Resource Impact"];
+}
+
+export function calculateDecisionImpact(
+  option: ImpactOption,
+  decisionNumber: number,
+  scenarioContext = "",
+): DecisionImpact[] {
   const quality = Math.max(0, Math.min(4, option.score));
   const variant = stableVariant(option, decisionNumber);
-  const position = Math.max(1, decisionNumber);
-
-  const revenue = (quality - 1.7) * 540_000 + variant * 42_000 + position * 65_000;
-  const nps = Math.round((quality - 1.8) * 5 + variant * 0.7);
-  const retention = Math.round(((quality - 2) * 2.4 - variant * 0.35) * 10) / 10;
+  const [primary, secondary, tradeoff, financial] = scenarioMetrics(
+    `${scenarioContext} ${option.title} ${option.description ?? ""}`,
+  );
+  const primaryValue = Math.round((quality - 1.6) * 11 + variant * 0.8);
+  const secondaryValue = Math.round((quality - 1.9) * 7 + variant * 0.5);
+  const tradeoffValue = Math.round((quality - 2.35) * 6 - Math.abs(variant) * 0.5);
+  const resourceValue =
+    -Math.round((1100 + decisionNumber * 450 + Math.abs(variant) * 175) / 50) * 50;
+  const choice = option.title.trim() || `Option ${option.label}`;
 
   return [
-    impact("Revenue", Math.round(revenue / 10_000) * 10_000, "currency"),
-    impact("NPS", nps, "points"),
-    impact("Retention", retention, "percent"),
+    impact(
+      primary,
+      primaryValue,
+      "percent",
+      `${choice} most directly changed ${primary.toLowerCase()} by ${formatImpact(primary, primaryValue, "percent")}.`,
+    ),
+    impact(
+      secondary,
+      secondaryValue,
+      "points",
+      `The approach shifted ${secondary.toLowerCase()} as stakeholders responded to the selected strategy.`,
+    ),
+    impact(
+      tradeoff,
+      tradeoffValue,
+      "percent",
+      `The main trade-off appeared in ${tradeoff.toLowerCase()}, reflecting the constraints described in this case.`,
+    ),
+    impact(
+      financial,
+      resourceValue,
+      "currency",
+      `Estimated resources committed to this choice were ${formatImpact(financial, Math.abs(resourceValue), "currency").replace("+", "")}.`,
+      "financial",
+    ),
   ];
 }
 
@@ -76,6 +139,12 @@ export function accumulateImpacts(
 ): DecisionImpact[] {
   return delta.map((item) => {
     const previous = totals.find((total) => total.metric === item.metric);
-    return impact(item.metric, (previous?.value ?? 0) + item.value, item.unit);
+    return impact(
+      item.metric,
+      (previous?.value ?? 0) + item.value,
+      item.unit,
+      item.explanation,
+      item.kind,
+    );
   });
 }
