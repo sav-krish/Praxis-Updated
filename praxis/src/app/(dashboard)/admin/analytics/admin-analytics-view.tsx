@@ -148,7 +148,6 @@ function AdminTrendAreaBlock({
             fill={`url(#${gradientId})`}
             stroke="var(--color-count)"
             strokeWidth={2}
-            baseLine={0}
           />
         </AreaChart>
       </ChartContainer>
