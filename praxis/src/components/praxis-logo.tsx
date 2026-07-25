@@ -9,13 +9,18 @@ export function PraxisLogo({
   priority?: boolean;
 }) {
   return (
-    <span className="inline-grid shrink-0 place-items-center">
+    <span
+      className={cn(
+        "inline-grid shrink-0 place-items-center overflow-hidden",
+        className,
+      )}
+    >
       <Image
         src="/new_logo.png"
         alt="Praxis"
         width={300}
         height={73}
-        className={cn("col-start-1 row-start-1 dark:hidden", className)}
+        className="col-start-1 row-start-1 h-full max-h-full w-auto object-contain dark:hidden"
         priority={priority}
       />
       <Image
@@ -23,10 +28,7 @@ export function PraxisLogo({
         alt="Praxis"
         width={666}
         height={375}
-        className={cn(
-          "col-start-1 row-start-1 hidden object-contain mix-blend-screen dark:block",
-          className,
-        )}
+        className="col-start-1 row-start-1 hidden h-full max-h-full w-auto object-contain mix-blend-screen dark:block"
         priority={priority}
       />
     </span>
