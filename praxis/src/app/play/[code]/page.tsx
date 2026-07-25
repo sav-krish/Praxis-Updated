@@ -53,9 +53,9 @@ import type { Json } from "@/types/database";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { SimulationAssistant } from "@/components/simulation/simulation-assistant";
 import {
-  calculateDecisionImpact,
-  type DecisionImpact,
-} from "@/lib/student/decision-impact";
+  calculateQualitativeImpact,
+  type QualitativeImpact,
+} from "@/lib/student/qualitative-impact";
 import { getSimulationFlowSettings } from "@/lib/simulation-flow";
 import { PraxisLogo } from "@/components/praxis-logo";
 
@@ -306,8 +306,9 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
   const [justification, setJustification] = useState("");
   const [showConsequence, setShowConsequence] = useState(false);
   const [currentConsequence, setCurrentConsequence] = useState("");
-  const [currentDataImpact, setCurrentDataImpact] = useState<DecisionImpact[] | undefined>(undefined);
-  const [outcomeRating, setOutcomeRating] = useState<"strong" | "decent" | "mixed" | "poor" | null>(null);
+  const [currentDataImpact, setCurrentDataImpact] = useState<QualitativeImpact[] | undefined>(undefined);
+  const [outcomeRating, setOutcomeRating] = useState<"excellent" | "decent" | "poor" | null>(null);
+  const [outcomeReasoning, setOutcomeReasoning] = useState("");
   const [myResponses, setMyResponses] = useState<{ decision_id: string; option_id: string; score: number }[]>([]);
   const [reflectionAnswers, setReflectionAnswers] = useState<Record<string, string>>({});
   const [participantCount, setParticipantCount] = useState<number>(0);
@@ -1052,9 +1053,8 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
     }]);
 
     const calculatedImpact = option
-      ? calculateDecisionImpact(
+      ? calculateQualitativeImpact(
           option,
-          decision.order_num,
           `${session.simulation.title} ${session.simulation.background_content ?? ""} ${decision.prompt}`,
         )
       : [];
@@ -1088,6 +1088,12 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
           if (data.outcomeRating) {
             setOutcomeRating(data.outcomeRating);
           }
+          if (data.outcomeReasoning) {
+            setOutcomeReasoning(data.outcomeReasoning);
+          }
+          if (Array.isArray(data.impacts) && data.impacts.length === 4) {
+            setCurrentDataImpact(data.impacts);
+          }
           if (data.feedback) {
             setAiJustificationFeedback(data.feedback);
           }
@@ -1100,7 +1106,7 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
       })();
     } else {
       setCurrentConsequence(option?.consequence || "");
-      setOutcomeRating(option?.score && option.score >= 3 ? "strong" : option?.score && option.score >= 2 ? "decent" : option?.score && option.score >= 1 ? "mixed" : "poor");
+      setOutcomeRating(option?.score && option.score >= 3 ? "excellent" : option?.score && option.score >= 2 ? "decent" : "poor");
       setShowConsequence(true);
       void fetch("/api/generate-consequence", {
         method: "POST",
@@ -1120,6 +1126,10 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
         .then((data) => {
           if (data.feedback) setAiJustificationFeedback(data.feedback);
           if (data.outcomeRating) setOutcomeRating(data.outcomeRating);
+          if (data.outcomeReasoning) setOutcomeReasoning(data.outcomeReasoning);
+          if (Array.isArray(data.impacts) && data.impacts.length === 4) {
+            setCurrentDataImpact(data.impacts);
+          }
         })
         .catch(() => undefined);
     }
@@ -1135,6 +1145,7 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
     setCurrentConsequence("");
     setCurrentDataImpact(undefined);
     setOutcomeRating(null);
+    setOutcomeReasoning("");
     setAiJustificationFeedback(null);
 
     if (participantId) {
@@ -1269,10 +1280,9 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
 
   const outcomeLabel = outcomeRating
     ? {
-        strong: "Excellent Outcome",
+        excellent: "Excellent Outcome",
         decent: "Decent Outcome",
-        mixed: "Decent Outcome",
-        poor: "Bad Outcome",
+        poor: "Poor Outcome",
       }[outcomeRating]
     : null;
 
@@ -1583,6 +1593,7 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
                           {outcomeLabel ?? "Decision outcome"}:
                         </strong>{" "}
                         {currentConsequence || "Your choice has been recorded."}
+                        {outcomeReasoning ? ` ${outcomeReasoning}` : ""}
                       </p>
                       {outcomeLabel ? (
                         <Badge className="shrink-0 bg-[#e8f3df] text-[#356b26] hover:bg-[#e8f3df] dark:bg-[#294322] dark:text-[#bde3a9]">
@@ -1595,7 +1606,7 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
                         <p className="py-4 font-bold">What happened as a result:</p>
                         <div>
                           {currentDataImpact.map((impact, index) => {
-                            const financial = impact.kind === "financial";
+                            const financial = impact.direction === "cost";
                             const positive = impact.direction === "up";
                             const neutral = impact.direction === "neutral";
                             const Icon = financial
@@ -1620,15 +1631,15 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
                                   ? "text-amber-700 dark:text-amber-300"
                                   : "text-red-700 dark:text-red-300";
                             const directionLabel = financial
-                              ? ""
+                              ? "More Effort"
                               : positive
-                                ? " Increased"
+                                ? "Increased"
                                 : neutral
-                                  ? " Held Steady"
-                                  : " Declined";
+                                  ? "Moderate"
+                                  : "Decreased";
                             return (
                               <div
-                                key={`${impact.metric}-${index}`}
+                                key={`${impact.label}-${index}`}
                                 className="flex gap-4 border-t py-4 first:border-t-0"
                               >
                                 <div className={`grid h-11 w-11 shrink-0 place-items-center rounded-full ${iconClass}`}>
@@ -1636,17 +1647,18 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
                                 </div>
                                 <div className="min-w-0 flex-1">
                                   <div className="flex flex-wrap items-baseline justify-between gap-2">
-                                    <p className={`font-bold ${titleClass}`}>
-                                      {String.fromCharCode(65 + index)}. {impact.metric}
-                                      {directionLabel}
+                                    <p className={`font-bold capitalize ${titleClass}`}>
+                                      {String.fromCharCode(65 + index)}. {impact.label}
                                     </p>
                                     <span className={`text-sm font-bold ${titleClass}`}>
-                                      {impact.change}
+                                      {directionLabel}
                                     </span>
                                   </div>
                                   <p className="mt-1 text-sm leading-relaxed text-foreground">
-                                    {impact.explanation ||
-                                      `This choice changed ${impact.metric.toLowerCase()} by ${impact.change}.`}
+                                    {impact.description}
+                                  </p>
+                                  <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
+                                    {impact.reason}
                                   </p>
                                 </div>
                               </div>
