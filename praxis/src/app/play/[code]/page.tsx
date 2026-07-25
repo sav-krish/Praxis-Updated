@@ -196,18 +196,12 @@ function SimulationFlowNavigation({
 }) {
   const stages = [
     { id: "background", label: "Background", shortLabel: "BG" },
-    ...Array.from({ length: decisionCount }, (_, index) => [
-      {
-        id: `decision-${index + 1}`,
-        label: `Decision ${index + 1}`,
-        shortLabel: `D${index + 1}`,
-      },
-      {
-        id: `consequence-${index + 1}`,
-        label: `Consequence ${index + 1}`,
-        shortLabel: `C${index + 1}`,
-      },
-    ]).flat(),
+    ...Array.from({ length: decisionCount }, (_, index) => ({
+      id: `decision-${index + 1}`,
+      label: `Decision ${index + 1}`,
+      shortLabel: `D${index + 1}`,
+    })),
+    { id: "consequence", label: "Consequence", shortLabel: "Result" },
     ...(classVotesEnabled
       ? [{ id: "class-votes", label: "Class Votes", shortLabel: "Votes" }]
       : []),
@@ -300,6 +294,7 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
   const [playerProfile, setPlayerProfile] = useState<PlayerProfile | null>(null);
   const [availableProfiles, setAvailableProfiles] = useState<AvailableProfile[]>([]);
   const [classVotes, setClassVotes] = useState<PlaySessionPayload["classVotes"]>(null);
+  const [classVotesDecisionIndex, setClassVotesDecisionIndex] = useState<number | null>(null);
   const [submissionStatus, setSubmissionStatus] =
     useState<PlaySessionPayload["submissionStatus"]>(null);
   const [justificationVoteTab, setJustificationVoteTab] = useState("A");
@@ -531,16 +526,34 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
 
     const answeredCount = payload.responses?.length || 0;
     if (answeredCount === 0) return 1;
-    if (answeredCount < payload.decisions.length) {
-      return answeredCount + 2;
-    }
     const votesEnabled = getSimulationFlowSettings(
       payload.session.simulation.preferences,
     ).classVotesEnabled;
+    const lastAnsweredDecision = payload.decisions[answeredCount - 1];
     const votesSeen =
-      typeof window !== "undefined" &&
-      sessionStorage.getItem(`class_votes_seen_${payload.session.id}`) === "1";
-    return votesEnabled && !votesSeen ? 5 : 6;
+      !lastAnsweredDecision ||
+      (typeof window !== "undefined" &&
+        sessionStorage.getItem(
+          `class_votes_seen_${payload.session.id}_${lastAnsweredDecision.id}`,
+        ) === "1");
+    if (votesEnabled && !votesSeen) return 5;
+    if (answeredCount < payload.decisions.length) return answeredCount + 2;
+    return 6;
+  }
+
+  function getPendingClassVotesDecisionIndex(payload: PlaySessionPayload) {
+    if (
+      !getSimulationFlowSettings(payload.session.simulation.preferences).classVotesEnabled ||
+      payload.responses.length === 0
+    ) {
+      return null;
+    }
+    const index = Math.min(payload.responses.length - 1, payload.decisions.length - 1);
+    const decision = payload.decisions[index];
+    if (!decision || typeof window === "undefined") return null;
+    return sessionStorage.getItem(`class_votes_seen_${payload.session.id}_${decision.id}`) === "1"
+      ? null
+      : index;
   }
 
   // Redirect to role selection
@@ -687,7 +700,9 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
     setScenarioImages(payload.scenarioImages);
 
     setMyResponses(buildParticipantResponses(payload));
-    setCurrentStep(getStepForPayload(payload));
+    const pendingVoteIndex = getPendingClassVotesDecisionIndex(payload);
+    setClassVotesDecisionIndex(pendingVoteIndex);
+    setCurrentStep(pendingVoteIndex === null ? getStepForPayload(payload) : 5);
 
     const storedAttemptId = sessionStorage.getItem(`student_attempt_${initialSession.id}`);
     if (storedAttemptId) {
@@ -712,9 +727,8 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
         setClassVotes(payload.classVotes ?? null);
         setSubmissionStatus(payload.submissionStatus ?? null);
         setDecisions(payload.decisions);
-        if (!showConsequence) {
-          setCurrentStep(getStepForPayload(payload));
-        }
+        if (payload.session.status === "lobby") setCurrentStep(0);
+        if (payload.session.status === "complete") setCurrentStep(7);
       } catch {
         /* keep current state */
       }
@@ -761,10 +775,8 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
         setSubmissionStatus(payload.submissionStatus ?? null);
         setIsTeamVoter(participantTeamState.isVoter);
         setMyResponses(buildParticipantResponses(payload));
-        const nextStep = getStepForPayload(payload);
-        if (currentStepRef.current !== nextStep && currentStepRef.current !== 7) {
-          setCurrentStep(nextStep);
-        }
+        if (payload.session.status === "lobby") setCurrentStep(0);
+        if (payload.session.status === "complete") setCurrentStep(7);
       } catch {
         /* keep current UI if refresh fails */
       }
@@ -1069,55 +1081,11 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
       : [];
     setCurrentDataImpact(calculatedImpact);
 
-    // Generate consequence if needed
-    if (!option?.consequence && session.simulation.mode === "individual") {
-      setLoadingConsequence(true);
-      void (async () => {
-        try {
-          const res = await fetch("/api/generate-consequence", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              scenarioTitle: session.simulation.title,
-              scenarioContext: session.simulation.background_content,
-              decisionPrompt: decision.prompt,
-              optionLabel: option?.label,
-              optionTitle: option?.title,
-              optionDescription: option?.description,
-              justification: trimmedJustification,
-              roleLabel: playerProfile?.profile_name || null,
-            }),
-          });
-          const data = await res.json();
-          if (data.consequence) {
-            setCurrentConsequence(data.consequence);
-          } else {
-            setCurrentConsequence("Your choice has been recorded. The consequences of your decision are outlined below.");
-          }
-          if (data.outcomeRating) {
-            setOutcomeRating(data.outcomeRating);
-          }
-          if (data.outcomeReasoning) {
-            setOutcomeReasoning(data.outcomeReasoning);
-          }
-          if (Array.isArray(data.impacts) && data.impacts.length === 4) {
-            setCurrentDataImpact(data.impacts);
-          }
-          if (data.feedback) {
-            setAiJustificationFeedback(data.feedback);
-          }
-        } catch {
-          setCurrentConsequence("Your choice has been recorded. The consequences of your decision are outlined below.");
-        } finally {
-          setLoadingConsequence(false);
-          setShowConsequence(true);
-        }
-      })();
-    } else {
-      setCurrentConsequence(option?.consequence || "");
-      setOutcomeRating(option?.score && option.score >= 3 ? "excellent" : option?.score && option.score >= 2 ? "decent" : "poor");
-      setShowConsequence(true);
-      void fetch("/api/generate-consequence", {
+    // Wait for the scenario-specific result before showing the consequence.
+    // This avoids briefly rendering a generic result and replacing it seconds later.
+    setLoadingConsequence(true);
+    try {
+      const response = await fetch("/api/generate-consequence", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -1130,22 +1098,67 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
           justification: trimmedJustification,
           roleLabel: selectedRoleLabel,
         }),
-      })
-        .then((response) => response.json())
-        .then((data) => {
-          if (data.feedback) setAiJustificationFeedback(data.feedback);
-          if (data.outcomeRating) setOutcomeRating(data.outcomeRating);
-          if (data.outcomeReasoning) setOutcomeReasoning(data.outcomeReasoning);
-          if (Array.isArray(data.impacts) && data.impacts.length === 4) {
-            setCurrentDataImpact(data.impacts);
-          }
-        })
-        .catch(() => undefined);
+      });
+      const data = await response.json();
+      setCurrentConsequence(
+        option?.consequence?.trim() ||
+          data.consequence ||
+          "Your choice has been recorded. The consequences of your decision are outlined below.",
+      );
+      setOutcomeRating(
+        data.outcomeRating ||
+          (option?.score && option.score >= 3
+            ? "excellent"
+            : option?.score && option.score >= 2
+              ? "decent"
+              : "poor"),
+      );
+      setOutcomeReasoning(data.outcomeReasoning || "");
+      if (Array.isArray(data.impacts) && data.impacts.length === 4) {
+        setCurrentDataImpact(data.impacts);
+      }
+      if (data.feedback) setAiJustificationFeedback(data.feedback);
+    } catch {
+      setCurrentConsequence(
+        option?.consequence?.trim() ||
+          "Your choice has been recorded. The consequences of your decision are outlined below.",
+      );
+      setOutcomeRating(
+        option?.score && option.score >= 3
+          ? "excellent"
+          : option?.score && option.score >= 2
+            ? "decent"
+            : "poor",
+      );
+    } finally {
+      setLoadingConsequence(false);
+      setShowConsequence(true);
+      setSubmitting(false);
     }
-    setSubmitting(false);
   };
 
   const continueToNext = async () => {
+    const completedDecisionIndex = currentStep - 2;
+    if (
+      completedDecisionIndex >= 0 &&
+      getSimulationFlowSettings(session?.simulation.preferences).classVotesEnabled
+    ) {
+      setClassVotesDecisionIndex(completedDecisionIndex);
+      setShowConsequence(false);
+      if (participantId) {
+        try {
+          const payload = await fetchPlaySessionPayload(participantId);
+          setClassVotes(payload.classVotes ?? null);
+          setSubmissionStatus(payload.submissionStatus ?? null);
+          setMyResponses(buildParticipantResponses(payload));
+        } catch {
+          /* the live poll will retry */
+        }
+      }
+      setCurrentStep(5);
+      return;
+    }
+
     setShowConsequence(false);
     setSelectedOption(null);
     setJustification("");
@@ -1170,21 +1183,14 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
         setSubmissionStatus(payload.submissionStatus ?? null);
         setIsTeamVoter(participantTeamState.isVoter);
         setMyResponses(buildParticipantResponses(payload));
-        setCurrentStep(getStepForPayload(payload));
+        setCurrentStep(completedDecisionIndex >= decisions.length - 1 ? 6 : currentStep + 1);
         return;
       } catch {
         /* fall back to local step advance below */
       }
     }
 
-    setCurrentStep((prev) =>
-      prev === 4 &&
-      getSimulationFlowSettings(session?.simulation.preferences).classVotesEnabled
-        ? 5
-        : prev === 4
-          ? 6
-          : prev + 1,
-    );
+    setCurrentStep((prev) => (completedDecisionIndex >= decisions.length - 1 ? 6 : prev + 1));
   };
 
   const submitReflection = async () => {
@@ -1584,7 +1590,7 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
                   classVotesEnabled={
                     getSimulationFlowSettings(session?.simulation.preferences).classVotesEnabled
                   }
-                  activeStage={`consequence-${decision.order_num}`}
+                  activeStage="consequence"
                 />
                 <Card>
                   <CardHeader className="px-4 sm:px-6">
@@ -1685,14 +1691,9 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
                       </div>
                     )}
                     <div className="flex flex-col sm:flex-row gap-2 justify-between pt-2">
-                      <Button
-                        variant="outline"
-                        onClick={() => setShowConsequence(false)}
-                        className="w-full sm:w-auto min-h-[44px]"
-                      >
-                        <ArrowLeft className="mr-2 h-4 w-4" />
-                        Back to Decision
-                      </Button>
+                      <Badge variant="secondary" className="min-h-[44px] px-4">
+                        Decision submitted
+                      </Badge>
                       <Button
                         variant="outline"
                         onClick={() => goToScenario(currentStep, true)}
@@ -1711,11 +1712,11 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
                         </Button>
                       )}
                       <Button onClick={continueToNext} className="w-full sm:w-auto min-h-[48px]">
-                        {decisionIndex < 2
-                          ? "Proceed to Next Decision →"
-                          : getSimulationFlowSettings(session?.simulation.preferences)
-                                .classVotesEnabled
-                            ? "Proceed to Class Votes →"
+                        {getSimulationFlowSettings(session?.simulation.preferences)
+                          .classVotesEnabled
+                          ? "Proceed to Class Votes →"
+                          : decisionIndex < decisions.length - 1
+                            ? "Proceed to Next Decision →"
                             : "Next: Reflection →"}
                         <ArrowRight className="ml-2 h-4 w-4 shrink-0" />
                       </Button>
@@ -2045,22 +2046,33 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
     );
   }
 
-  // Class Votes screen (optional step after the final consequence)
+  // Class Votes screen (optional step after every consequence)
   if (
     currentStep === 5 &&
     getSimulationFlowSettings(session?.simulation.preferences).classVotesEnabled
   ) {
-    const decision = decisions.at(-1);
+    const decisionIndex = classVotesDecisionIndex ?? Math.max(0, myResponses.length - 1);
+    const decision = decisions[decisionIndex];
+    const voteData = classVotes?.decisionId === decision?.id ? classVotes : null;
     const myLastResponse = decision
       ? myResponses.find((response) => response.decision_id === decision.id)
       : null;
     const selectedOpt = decision?.options.find(o => o.id === myLastResponse?.option_id);
     const optionCounts = (decision?.options ?? []).map(
-      (option) => classVotes?.optionIds.filter((id) => id === option.id).length ?? 0,
+      (option) => voteData?.optionIds.filter((id) => id === option.id).length ?? 0,
     );
     const optionPercentages = roundedPercentages(optionCounts);
-    const totalSubmitted = classVotes?.totalSubmitted ?? 0;
-    const totalEligible = classVotes?.totalEligible ?? 0;
+    const voteColors = ["#f45b0b", "#f5a623", "#ef5b6a", "#3b82f6"];
+    let voteCursor = 0;
+    const voteGradient = optionPercentages
+      .map((percentage, index) => {
+        const start = voteCursor;
+        voteCursor += percentage;
+        return `${voteColors[index % voteColors.length]} ${start}% ${voteCursor}%`;
+      })
+      .join(", ");
+    const totalSubmitted = voteData?.totalSubmitted ?? 0;
+    const totalEligible = voteData?.totalEligible ?? 0;
     const submittedPercentage =
       totalEligible > 0 ? Math.min(100, Math.round((totalSubmitted / totalEligible) * 100)) : 0;
     const showSubmissionStatus = getSimulationFlowSettings(
@@ -2078,7 +2090,7 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
     const activeJustificationOption =
       decision?.options.find((option) => option.label === justificationVoteTab) ??
       decision?.options[0];
-    const visibleJustifications = (classVotes?.justifications ?? []).filter(
+    const visibleJustifications = (voteData?.justifications ?? []).filter(
       (item) => item.optionId === activeJustificationOption?.id,
     );
 
@@ -2091,7 +2103,7 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
               <SimulationTopHeader
                 decisionCount={decisions.length}
                 reflectionCount={reflectionQuestions.length}
-                completedSteps={decisions.length}
+                completedSteps={decisionIndex + 1}
                 roleLabel={selectedRoleLabel}
               />
               <SimulationFlowNavigation
@@ -2118,42 +2130,59 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
                       </div>
                     ) : null}
                   </div>
-                  <div className="space-y-3">
-                    {(decision?.options ?? []).map((option, index) => {
-                      const count = optionCounts[index] ?? 0;
-                      const pct = optionPercentages[index] ?? 0;
-                      const isChosen = selectedOpt?.id === option.id;
-                      return (
-                        <div
-                          key={option.id}
-                          className={`space-y-2 rounded-xl border p-4 ${
-                            isChosen ? "border-primary/50 bg-primary/5" : "bg-card"
-                          }`}
-                        >
-                          <div className="flex items-start justify-between gap-4">
-                            <div className="min-w-0">
-                              <p className="font-semibold">
-                                {option.label}. {option.title}
-                              </p>
-                              {isChosen ? (
-                                <Badge className="mt-1" variant="secondary">Your vote</Badge>
-                              ) : null}
-                            </div>
-                            <span className="shrink-0 text-sm tabular-nums text-muted-foreground">
-                              {count} vote{count === 1 ? "" : "s"} · {pct}%
-                            </span>
-                          </div>
-                          <div className="h-2.5 overflow-hidden rounded-full bg-muted">
-                            <div
-                              className={`h-full rounded-full transition-all duration-1000 ease-out ${
-                                isChosen ? "bg-primary" : "bg-[#86827b]"
-                              }`}
-                              style={{ width: `${pct}%` }}
-                            />
-                          </div>
+                  <div className="grid items-center gap-6 md:grid-cols-[220px_1fr]">
+                    <div className="mx-auto grid h-48 w-48 place-items-center rounded-full p-7"
+                      style={{
+                        background:
+                          totalSubmitted > 0
+                            ? `conic-gradient(${voteGradient})`
+                            : "#86827b",
+                      }}
+                    >
+                      <div className="grid h-full w-full place-items-center rounded-full bg-card text-center shadow-inner">
+                        <div>
+                          <p className="text-3xl font-bold tabular-nums">{totalSubmitted}</p>
+                          <p className="text-xs text-muted-foreground">Total votes</p>
                         </div>
-                      );
-                    })}
+                      </div>
+                    </div>
+                    <div className="space-y-3">
+                      {(decision?.options ?? []).map((option, index) => {
+                        const count = optionCounts[index] ?? 0;
+                        const pct = optionPercentages[index] ?? 0;
+                        const isChosen = selectedOpt?.id === option.id;
+                        return (
+                          <div
+                            key={option.id}
+                            className={`space-y-2 rounded-xl border p-4 ${
+                              isChosen ? "border-primary/50 bg-primary/5" : "bg-card"
+                            }`}
+                          >
+                            <div className="flex items-start justify-between gap-4">
+                              <div className="flex min-w-0 items-start gap-3">
+                                <span
+                                  className="grid h-8 w-8 shrink-0 place-items-center rounded-full font-bold text-white"
+                                  style={{ backgroundColor: voteColors[index % voteColors.length] }}
+                                >
+                                  {option.label}
+                                </span>
+                                <div>
+                                  <p className="font-semibold">
+                                    {option.label}. {option.title}
+                                  </p>
+                                  {isChosen ? (
+                                    <Badge className="mt-1" variant="secondary">Your vote</Badge>
+                                  ) : null}
+                                </div>
+                              </div>
+                              <span className="shrink-0 text-sm font-semibold tabular-nums">
+                                {count} vote{count === 1 ? "" : "s"} · {pct}%
+                              </span>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
                   </div>
                   <div className="rounded-xl border-2 border-primary/30 bg-primary/5 p-4">
                     <p className="text-xs font-semibold uppercase tracking-wide text-primary">
@@ -2238,9 +2267,8 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
                   variant="outline"
                   onClick={() => {
                     if (!decision || !selectedOpt) return;
-                    setCurrentStep(4);
+                    setCurrentStep(decisionIndex + 2);
                     setSelectedOption(selectedOpt.id);
-                    setCurrentConsequence(selectedOpt.consequence || "Your choice has been recorded.");
                     setShowConsequence(true);
                   }}
                   className="min-h-[44px]"
@@ -2258,14 +2286,32 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
                 </Button>
                 <Button
                   onClick={() => {
-                    if (session) {
-                      sessionStorage.setItem(`class_votes_seen_${session.id}`, "1");
+                    if (session && decision) {
+                      sessionStorage.setItem(
+                        `class_votes_seen_${session.id}_${decision.id}`,
+                        "1",
+                      );
                     }
-                    setCurrentStep(6);
+                    setShowConsequence(false);
+                    setSelectedOption(null);
+                    setJustification("");
+                    setResponseInputMode("text");
+                    clearVideoSelection();
+                    setCurrentConsequence("");
+                    setCurrentDataImpact(undefined);
+                    setOutcomeRating(null);
+                    setOutcomeReasoning("");
+                    setAiJustificationFeedback(null);
+                    setClassVotesDecisionIndex(null);
+                    setCurrentStep(
+                      decisionIndex < decisions.length - 1 ? decisionIndex + 3 : 6,
+                    );
                   }}
                   className="min-h-[48px]"
                 >
-                  Continue to Reflection
+                  {decisionIndex < decisions.length - 1
+                    ? `Continue to Decision ${decisionIndex + 2}`
+                    : "Continue to Reflection"}
                   <ArrowRight className="ml-2 h-4 w-4 shrink-0" />
                 </Button>
               </div>

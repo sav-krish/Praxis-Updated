@@ -250,9 +250,12 @@ export async function GET(request: NextRequest, { params }: RouteContext) {
   }
 
   const flowSettings = getSimulationFlowSettings(simulationData.preferences);
-  const finalDecision = decisionsData?.at(-1);
-  const participantFinished =
-    (responsesData?.length ?? 0) >= (decisionsData?.length ?? 0);
+  const answeredDecisionIds = new Set(
+    (responsesData ?? []).map((response) => response.decision_id),
+  );
+  const voteDecision = [...(decisionsData ?? [])]
+    .reverse()
+    .find((decision) => answeredDecisionIds.has(decision.id));
   const activeDecision =
     (decisionsData ?? [])[
       Math.min(responsesData?.length ?? 0, Math.max(0, (decisionsData?.length ?? 1) - 1))
@@ -287,19 +290,19 @@ export async function GET(request: NextRequest, { params }: RouteContext) {
     };
   }
 
-  if (flowSettings.classVotesEnabled && participantFinished && finalDecision) {
+  if (flowSettings.classVotesEnabled && voteDecision) {
     const [voteResult, eligibilityResult, justificationResult] = await Promise.all([
       simulationData.mode === "teams"
         ? supabase
             .from("team_decision_submissions")
             .select("option_id")
             .eq("session_id", sessionData.id)
-            .eq("decision_id", finalDecision.id)
+            .eq("decision_id", voteDecision.id)
         : supabase
             .from("responses")
             .select("option_id")
             .eq("session_id", sessionData.id)
-            .eq("decision_id", finalDecision.id),
+            .eq("decision_id", voteDecision.id),
       simulationData.mode === "teams"
         ? supabase
             .from("teams")
@@ -311,12 +314,12 @@ export async function GET(request: NextRequest, { params }: RouteContext) {
             .from("responses")
             .select("option_id, justification")
             .eq("session_id", sessionData.id)
-            .eq("decision_id", finalDecision.id)
+            .eq("decision_id", voteDecision.id)
         : Promise.resolve({ data: [] }),
     ]);
     const optionIds = (voteResult.data ?? []).map((vote) => vote.option_id);
     classVotes = {
-      decisionId: finalDecision.id,
+      decisionId: voteDecision.id,
       totalSubmitted: optionIds.length,
       totalEligible: eligibilityResult.count ?? 0,
       optionIds,

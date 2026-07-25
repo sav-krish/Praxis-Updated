@@ -30,6 +30,7 @@ import {
 import type { Session, Simulation, Participant, Team, SimulationProfile } from "@/types/database";
 import { formatScheduleDateTime, getSimulationSessionSchedule } from "@/lib/session-schedule";
 import { clearSimulationScheduleForSession } from "@/app/(dashboard)/session/[id]/actions";
+import { getSimulationFlowSettings } from "@/lib/simulation-flow";
 
 type LobbySimulation = Pick<
   Simulation,
@@ -420,6 +421,7 @@ export function SessionLobby({
   };
 
   const totalGroups = simulation.mode === "teams" ? teams.length : participants.length;
+  const flowSettings = getSimulationFlowSettings(simulation.preferences);
   const hasFutureScheduledStart =
     session.status === "lobby" &&
     !!sessionSchedule.start_at &&
@@ -591,7 +593,12 @@ export function SessionLobby({
                     <div key={decision.id}>
                       <div className="flex justify-between text-sm mb-1">
                         <span>Decision {index + 1}</span>
-                        <span>{count} of {totalGroups} submitted</span>
+                        <span>
+                          {count} of {totalGroups} submitted
+                          {flowSettings.showVoteSubmissionStatus && totalGroups > 0
+                            ? ` · ${Math.min(100, Math.round((count / totalGroups) * 100))}%`
+                            : ""}
+                        </span>
                       </div>
                       <div className="h-2 bg-muted rounded-full overflow-hidden">
                         <div 

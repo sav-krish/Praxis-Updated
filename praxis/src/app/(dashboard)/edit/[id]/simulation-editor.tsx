@@ -1677,7 +1677,8 @@ export function SimulationEditor({
                       </Badge>
                     </div>
                     <p className="text-sm text-muted-foreground">
-                      Adds a Class Votes tab after the final consequence and before reflection.
+                      Shows Class Votes after each consequence. Students continue to reflection after
+                      the final vote.
                     </p>
                   </div>
                   <button
