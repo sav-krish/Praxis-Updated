@@ -3,6 +3,7 @@ import type { Json } from "@/types/database";
 export type SimulationFlowSettings = {
   classVotesEnabled: boolean;
   showVoteSubmissionStatus: boolean;
+  showAnonymousJustifications: boolean;
 };
 
 export type ConsequenceSnapshot = Record<string, string | null>;
@@ -18,8 +19,9 @@ export function getSimulationFlowSettings(
 ): SimulationFlowSettings {
   const flow = asRecord(asRecord(preferences).simulation_flow);
   return {
-    classVotesEnabled: flow.class_votes_enabled === true,
-    showVoteSubmissionStatus: flow.show_vote_submission_status === true,
+    classVotesEnabled: flow.class_votes_enabled !== false,
+    showVoteSubmissionStatus: flow.show_vote_submission_status !== false,
+    showAnonymousJustifications: flow.show_anonymous_justifications === true,
   };
 }
 
@@ -32,6 +34,8 @@ export function setSimulationFlowSettings(
     class_votes_enabled: settings.classVotesEnabled,
     show_vote_submission_status:
       settings.classVotesEnabled && settings.showVoteSubmissionStatus,
+    show_anonymous_justifications:
+      settings.classVotesEnabled && settings.showAnonymousJustifications,
   };
   return base;
 }

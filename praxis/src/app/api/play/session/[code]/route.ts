@@ -31,6 +31,7 @@ interface RouteContext {
 }
 
 type TeamRow = { id: string; name: string };
+const UNSAFE_JUSTIFICATION = /\b(fuck|shit|bitch|asshole|slut|whore)\b/i;
 
 export async function GET(request: NextRequest, { params }: RouteContext) {
   const { code } = await params;
@@ -252,21 +253,42 @@ export async function GET(request: NextRequest, { params }: RouteContext) {
   const finalDecision = decisionsData?.at(-1);
   const participantFinished =
     (responsesData?.length ?? 0) >= (decisionsData?.length ?? 0);
+  const activeDecision =
+    (decisionsData ?? [])[
+      Math.min(responsesData?.length ?? 0, Math.max(0, (decisionsData?.length ?? 1) - 1))
+    ];
+  let submissionStatus: {
+    decisionId: string;
+    submitted: number;
+    eligible: number;
+  } | null = null;
   let classVotes: {
     decisionId: string;
     totalSubmitted: number;
     totalEligible: number;
     optionIds: string[];
-    leaderboard: Array<{
-      id: string;
-      name: string;
-      score: number;
-      isCurrent: boolean;
-    }>;
+    justifications: Array<{ optionId: string; text: string }>;
   } | null = null;
 
+  if (
+    flowSettings.classVotesEnabled &&
+    flowSettings.showVoteSubmissionStatus &&
+    activeDecision
+  ) {
+    const { count: submittedCount } = await supabase
+      .from("responses")
+      .select("*", { count: "exact", head: true })
+      .eq("session_id", sessionData.id)
+      .eq("decision_id", activeDecision.id);
+    submissionStatus = {
+      decisionId: activeDecision.id,
+      submitted: submittedCount ?? 0,
+      eligible: count ?? 0,
+    };
+  }
+
   if (flowSettings.classVotesEnabled && participantFinished && finalDecision) {
-    const [voteResult, eligibilityResult] = await Promise.all([
+    const [voteResult, eligibilityResult, justificationResult] = await Promise.all([
       simulationData.mode === "teams"
         ? supabase
             .from("team_decision_submissions")
@@ -284,76 +306,26 @@ export async function GET(request: NextRequest, { params }: RouteContext) {
             .select("*", { count: "exact", head: true })
             .eq("session_id", sessionData.id)
         : Promise.resolve({ count: count ?? 0 }),
+      flowSettings.showAnonymousJustifications
+        ? supabase
+            .from("responses")
+            .select("option_id, justification")
+            .eq("session_id", sessionData.id)
+            .eq("decision_id", finalDecision.id)
+        : Promise.resolve({ data: [] }),
     ]);
     const optionIds = (voteResult.data ?? []).map((vote) => vote.option_id);
-    const optionScore = new Map(
-      (decisionsData ?? []).flatMap((decision) =>
-        decision.options.map((option) => [option.id, option.score ?? 0] as const),
-      ),
-    );
-    const leaderboard =
-      simulationData.mode === "teams"
-        ? await (async () => {
-            const [{ data: submissions }, { data: teams }] = await Promise.all([
-              supabase
-                .from("team_decision_submissions")
-                .select("team_id, option_id")
-                .eq("session_id", sessionData.id),
-              supabase
-                .from("teams")
-                .select("id, name")
-                .eq("session_id", sessionData.id),
-            ]);
-            const scores = new Map<string, number>();
-            for (const submission of submissions ?? []) {
-              scores.set(
-                submission.team_id,
-                (scores.get(submission.team_id) ?? 0) +
-                  (optionScore.get(submission.option_id) ?? 0),
-              );
-            }
-            return (teams ?? []).map((team) => ({
-              id: team.id,
-              name: team.name,
-              score: scores.get(team.id) ?? 0,
-              isCurrent: team.id === participantTeamId,
-            }));
-          })()
-        : await (async () => {
-            const [{ data: responses }, { data: participants }] = await Promise.all([
-              supabase
-                .from("responses")
-                .select("participant_id, option_id")
-                .eq("session_id", sessionData.id),
-              supabase
-                .from("participants")
-                .select("id, name")
-                .eq("session_id", sessionData.id),
-            ]);
-            const scores = new Map<string, number>();
-            for (const response of responses ?? []) {
-              if (!response.participant_id) continue;
-              scores.set(
-                response.participant_id,
-                (scores.get(response.participant_id) ?? 0) +
-                  (optionScore.get(response.option_id) ?? 0),
-              );
-            }
-            return (participants ?? []).map((participant) => ({
-              id: participant.id,
-              name: participant.name,
-              score: scores.get(participant.id) ?? 0,
-              isCurrent: participant.id === participantId,
-            }));
-          })();
     classVotes = {
       decisionId: finalDecision.id,
       totalSubmitted: optionIds.length,
       totalEligible: eligibilityResult.count ?? 0,
       optionIds,
-      leaderboard: leaderboard
-        .sort((a, b) => b.score - a.score || a.name.localeCompare(b.name))
-        .slice(0, 10),
+      justifications: (justificationResult.data ?? []).flatMap((response) => {
+        const text = response.justification?.trim();
+        return text && !UNSAFE_JUSTIFICATION.test(text)
+          ? [{ optionId: response.option_id, text: text.slice(0, 500) }]
+          : [];
+      }),
     };
   }
 
@@ -392,6 +364,7 @@ export async function GET(request: NextRequest, { params }: RouteContext) {
         }))
         .sort((a, b) => a.label.localeCompare(b.label)),
     })),
+    submissionStatus,
     classVotes,
     reflectionQuestions: questionsData ?? [],
     dataBlocks: blocksData ?? [],

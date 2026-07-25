@@ -156,17 +156,17 @@ interface PlaySessionPayload {
   sources: Array<{ id: string; label: string; url?: string | null; source_type?: string | null }>;
   scenarioImages: Array<{ id: string; storage_path: string; alt_text: string | null; order_num: number }>;
   responses: Array<{ decision_id: string; option_id: string }>;
+  submissionStatus: {
+    decisionId: string;
+    submitted: number;
+    eligible: number;
+  } | null;
   classVotes: {
     decisionId: string;
     totalSubmitted: number;
     totalEligible: number;
     optionIds: string[];
-    leaderboard?: Array<{
-      id: string;
-      name: string;
-      score: number;
-      isCurrent: boolean;
-    }>;
+    justifications: Array<{ optionId: string; text: string }>;
   } | null;
 }
 
@@ -300,6 +300,10 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
   const [playerProfile, setPlayerProfile] = useState<PlayerProfile | null>(null);
   const [availableProfiles, setAvailableProfiles] = useState<AvailableProfile[]>([]);
   const [classVotes, setClassVotes] = useState<PlaySessionPayload["classVotes"]>(null);
+  const [submissionStatus, setSubmissionStatus] =
+    useState<PlaySessionPayload["submissionStatus"]>(null);
+  const [justificationVoteTab, setJustificationVoteTab] = useState("A");
+  const [showAllJustifications, setShowAllJustifications] = useState(false);
   
   const [currentStep, setCurrentStep] = useState(0); // 0 waiting, 1 background, 2-4 decisions, 5 class votes, 6 reflection, 7 results
   const [selectedOption, setSelectedOption] = useState<string | null>(null);
@@ -675,6 +679,7 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
     setPlayerProfile(payload.playerProfile);
     setAvailableProfiles(payload.availableProfiles ?? []);
     setClassVotes(payload.classVotes ?? null);
+    setSubmissionStatus(payload.submissionStatus ?? null);
     setDecisions(payload.decisions);
     setReflectionQuestions(payload.reflectionQuestions);
     setDataBlocks(payload.dataBlocks);
@@ -705,15 +710,18 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
         setSession(payload.session);
         setParticipantCount(payload.participantCount ?? 0);
         setClassVotes(payload.classVotes ?? null);
+        setSubmissionStatus(payload.submissionStatus ?? null);
         setDecisions(payload.decisions);
-        setCurrentStep(getStepForPayload(payload));
+        if (!showConsequence) {
+          setCurrentStep(getStepForPayload(payload));
+        }
       } catch {
         /* keep current state */
       }
-    }, 30_000);
+    }, getSimulationFlowSettings(session.simulation.preferences).classVotesEnabled ? 5_000 : 30_000);
     return () => window.clearInterval(interval);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [participantId, session?.id]);
+  }, [participantId, session?.id, showConsequence]);
 
   useEffect(() => {
     if (!showConsequence || currentStep < 2 || currentStep > 4) return;
@@ -750,6 +758,7 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
         setTeamMembers(payload.team?.members ?? []);
         setTeamDecisions(payload.teamDecisions ?? []);
         setClassVotes(payload.classVotes ?? null);
+        setSubmissionStatus(payload.submissionStatus ?? null);
         setIsTeamVoter(participantTeamState.isVoter);
         setMyResponses(buildParticipantResponses(payload));
         const nextStep = getStepForPayload(payload);
@@ -1158,6 +1167,7 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
         setTeamMembers(payload.team?.members ?? []);
         setTeamDecisions(payload.teamDecisions ?? []);
         setClassVotes(payload.classVotes ?? null);
+        setSubmissionStatus(payload.submissionStatus ?? null);
         setIsTeamVoter(participantTeamState.isVoter);
         setMyResponses(buildParticipantResponses(payload));
         setCurrentStep(getStepForPayload(payload));
@@ -1989,6 +1999,22 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
                 </Card>
               </Collapsible>
 
+              {getSimulationFlowSettings(session?.simulation.preferences).classVotesEnabled &&
+              getSimulationFlowSettings(session?.simulation.preferences).showVoteSubmissionStatus &&
+              submissionStatus?.decisionId === decision.id ? (
+                <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border bg-muted/40 px-4 py-3 text-sm">
+                  <span className="font-semibold">Live submission counter</span>
+                  <span className="tabular-nums text-muted-foreground">
+                    {submissionStatus.submitted} of {submissionStatus.eligible} students submitted
+                  </span>
+                </div>
+              ) : null}
+              {getSimulationFlowSettings(session?.simulation.preferences)
+                .showAnonymousJustifications ? (
+                <p className="text-xs text-muted-foreground">
+                  Your response is anonymous to classmates, but your instructor can see it.
+                </p>
+              ) : null}
               <div className="flex justify-end pt-2">
                 <Button
                   size="lg"
@@ -2040,6 +2066,21 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
     const showSubmissionStatus = getSimulationFlowSettings(
       session?.simulation.preferences,
     ).showVoteSubmissionStatus;
+    const showAnonymousJustifications = getSimulationFlowSettings(
+      session?.simulation.preferences,
+    ).showAnonymousJustifications;
+    const highestVoteCount = Math.max(0, ...optionCounts);
+    const winningIndexes = optionCounts.flatMap((count, index) =>
+      count === highestVoteCount && count > 0 ? [index] : [],
+    );
+    const winningOption =
+      winningIndexes.length === 1 ? decision?.options[winningIndexes[0]] : null;
+    const activeJustificationOption =
+      decision?.options.find((option) => option.label === justificationVoteTab) ??
+      decision?.options[0];
+    const visibleJustifications = (classVotes?.justifications ?? []).filter(
+      (item) => item.optionId === activeJustificationOption?.id,
+    );
 
     return (
       <div className="flex min-h-dvh flex-col">
@@ -2124,41 +2165,75 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
                         : "No submitted choice found"}
                     </p>
                   </div>
-                  {(classVotes?.leaderboard?.length ?? 0) > 0 ? (
-                    <div className="overflow-hidden rounded-xl border bg-card">
-                      <div className="flex items-center gap-2 border-b px-4 py-3">
-                        <Trophy className="h-4 w-4 text-primary" />
-                        <h3 className="font-semibold">Class Leaderboard</h3>
-                      </div>
-                      <div className="divide-y">
-                        {classVotes?.leaderboard?.map((entry, index) => (
-                          <div
-                            key={entry.id}
-                            className={`flex items-center gap-3 px-4 py-3 ${
-                              entry.isCurrent ? "bg-primary/10" : ""
-                            }`}
+                  <div className="rounded-xl border bg-muted/30 p-4">
+                    <p className="font-semibold">Class Insight</p>
+                    <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
+                      {totalSubmitted === 0
+                        ? "Votes will appear here as classmates submit."
+                        : winningOption
+                          ? `${winningOption.label}. ${winningOption.title} currently leads. This shows which trade-off most of the class was willing to accept.`
+                          : "The class is divided between options, which shows that the trade-offs did not point to one clear choice."}
+                    </p>
+                  </div>
+                  {showAnonymousJustifications ? (
+                    <div className="rounded-xl border bg-card p-4">
+                      <h3 className="font-semibold">Top Justifications from Your Class</h3>
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        Shared anonymously. Your instructor can still see each response.
+                      </p>
+                      <div className="mt-3 flex flex-wrap gap-2">
+                        {(decision?.options ?? []).map((option) => (
+                          <Button
+                            key={option.id}
+                            type="button"
+                            size="sm"
+                            variant={
+                              activeJustificationOption?.id === option.id ? "default" : "outline"
+                            }
+                            onClick={() => {
+                              setJustificationVoteTab(option.label);
+                              setShowAllJustifications(false);
+                            }}
                           >
-                            <span className="w-6 text-sm font-semibold tabular-nums text-muted-foreground">
-                              {index + 1}
-                            </span>
-                            <span className="min-w-0 flex-1 truncate font-medium">
-                              {entry.name}
-                            </span>
-                            {entry.isCurrent ? (
-                              <Badge variant="secondary">You</Badge>
-                            ) : null}
-                            <span className="shrink-0 font-semibold tabular-nums">
-                              {entry.score} pts
-                            </span>
-                          </div>
+                            {option.label}
+                          </Button>
                         ))}
                       </div>
+                      <div className="mt-3 space-y-2">
+                        {visibleJustifications.length === 0 ? (
+                          <p className="rounded-lg bg-muted/40 p-3 text-sm text-muted-foreground">
+                            No shared justifications for this option yet.
+                          </p>
+                        ) : (
+                          visibleJustifications
+                            .slice(0, showAllJustifications ? undefined : 3)
+                            .map((item, index) => (
+                              <p
+                                key={`${item.optionId}-${index}`}
+                                className="rounded-lg bg-muted/40 p-3 text-sm leading-relaxed"
+                              >
+                                &ldquo;{item.text}&rdquo;
+                              </p>
+                            ))
+                        )}
+                      </div>
+                      {visibleJustifications.length > 3 ? (
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          className="mt-2"
+                          onClick={() => setShowAllJustifications((value) => !value)}
+                        >
+                          {showAllJustifications ? "Show Fewer" : "See More Justifications"}
+                        </Button>
+                      ) : null}
                     </div>
                   ) : null}
                 </CardContent>
               </Card>
 
-              <div className="flex justify-between pt-2">
+              <div className="flex flex-wrap justify-between gap-2 pt-2">
                 <Button
                   variant="outline"
                   onClick={() => {
@@ -2172,6 +2247,14 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
                 >
                   <ArrowLeft className="mr-2 h-4 w-4 shrink-0" />
                   Back to Consequence
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => goToScenario(5, false)}
+                  className="min-h-[44px]"
+                >
+                  <BookOpen className="mr-2 h-4 w-4 shrink-0" />
+                  View Full Scenario
                 </Button>
                 <Button
                   onClick={() => {

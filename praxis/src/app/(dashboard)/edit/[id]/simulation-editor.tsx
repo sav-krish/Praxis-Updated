@@ -1667,12 +1667,17 @@ export function SimulationEditor({
                 </Select>
               </div>
 
-              <div className="space-y-3 rounded-xl border p-4">
+              <div className="space-y-3 rounded-xl border-2 border-primary/30 bg-primary/5 p-4">
                 <div className="flex items-center justify-between gap-4">
                   <div>
-                    <Label>Class Votes stage</Label>
+                    <div className="flex items-center gap-2">
+                      <Label className="text-base">Class Votes</Label>
+                      <Badge variant={flowSettings.classVotesEnabled ? "default" : "secondary"}>
+                        {flowSettings.classVotesEnabled ? "Visible to students" : "Hidden"}
+                      </Badge>
+                    </div>
                     <p className="text-sm text-muted-foreground">
-                      Show class vote results after the final consequence and before reflection.
+                      Adds a Class Votes tab after the final consequence and before reflection.
                     </p>
                   </div>
                   <button
@@ -1702,7 +1707,8 @@ export function SimulationEditor({
                   </button>
                 </div>
                 {flowSettings.classVotesEnabled ? (
-                  <div className="flex items-center justify-between gap-4 border-t pt-3">
+                  <div className="space-y-3 border-t pt-3">
+                  <div className="flex items-center justify-between gap-4">
                     <div>
                       <Label>Show submission status</Label>
                       <p className="text-sm text-muted-foreground">
@@ -1737,6 +1743,43 @@ export function SimulationEditor({
                         }`}
                       />
                     </button>
+                  </div>
+                  <div className="flex items-center justify-between gap-4 border-t pt-3">
+                    <div>
+                      <Label>Share anonymous justifications</Label>
+                      <p className="text-sm text-muted-foreground">
+                        Show class reasoning grouped by answer without student names.
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      role="switch"
+                      aria-checked={flowSettings.showAnonymousJustifications}
+                      disabled={!isOwner}
+                      onClick={() =>
+                        setSimulation((prev) => ({
+                          ...prev,
+                          preferences: setSimulationFlowSettings(prev.preferences, {
+                            ...getSimulationFlowSettings(prev.preferences),
+                            showAnonymousJustifications:
+                              !getSimulationFlowSettings(prev.preferences)
+                                .showAnonymousJustifications,
+                          }),
+                        }))
+                      }
+                      className={`relative h-6 w-11 shrink-0 rounded-full transition-colors ${
+                        flowSettings.showAnonymousJustifications ? "bg-primary" : "bg-input"
+                      }`}
+                    >
+                      <span
+                        className={`absolute left-1 top-1 h-4 w-4 rounded-full bg-background shadow transition-transform ${
+                          flowSettings.showAnonymousJustifications
+                            ? "translate-x-5"
+                            : "translate-x-0"
+                        }`}
+                      />
+                    </button>
+                  </div>
                   </div>
                 ) : null}
               </div>
