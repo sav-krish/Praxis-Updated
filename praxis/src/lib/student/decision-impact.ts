@@ -67,10 +67,17 @@ function stableVariant(option: ImpactOption, decisionNumber: number) {
 function scenarioMetrics(context: string): [string, string, string, string] {
   const normalized = context.toLowerCase();
   if (/(history|historical|archive|primary source|museum|heritage)/.test(normalized)) {
-    return ["Historical Evidence", "Public Understanding", "Preservation Feasibility", "Resource Impact"];
+    return ["Evidence Quality", "Public Understanding", "Preservation Feasibility", "Preservation Resources"];
   }
-  if (/(patient|hospital|health|clinical|medical|care)/.test(normalized)) {
+  if (/\b(patient|hospital|health|healthcare|clinical|medical)\b|care delivery/.test(normalized)) {
     return ["Patient Outcomes", "Access to Care", "Operational Capacity", "Cost Impact"];
+  }
+  if (
+    /\b(engineer|engineering|organization|workforce|employee|talent|hiring|hr|restructuring|mobility)\b|role clarity/.test(
+      normalized,
+    )
+  ) {
+    return ["Role Clarity", "Transition Readiness", "Skill Alignment", "Implementation Cost"];
   }
   if (/(student|school|education|learning|classroom|university)/.test(normalized)) {
     return ["Learner Engagement", "Equitable Access", "Program Scalability", "Resource Impact"];

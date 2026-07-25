@@ -212,6 +212,7 @@ function SimulationFlowNavigation({
       ? [{ id: "class-votes", label: "Class Votes", shortLabel: "Votes" }]
       : []),
     { id: "reflection", label: "Reflection", shortLabel: "Reflect" },
+    { id: "complete", label: "Complete", shortLabel: "Done" },
   ];
 
   return (
@@ -237,6 +238,46 @@ function SimulationFlowNavigation({
         ))}
       </ol>
     </nav>
+  );
+}
+
+function SimulationTopHeader({
+  decisionCount,
+  reflectionCount,
+  completedSteps,
+  roleLabel,
+}: {
+  decisionCount: number;
+  reflectionCount: number;
+  completedSteps: number;
+  roleLabel: string;
+}) {
+  const totalSteps = Math.max(1, decisionCount + reflectionCount);
+  return (
+    <div className="flex w-full items-center justify-between gap-3 rounded-xl border bg-card px-3 py-2 shadow-sm">
+      <PraxisLogo className="h-9 w-auto" priority />
+      <div
+        className="hidden flex-1 items-center justify-center gap-1.5 sm:flex"
+        aria-label={`${Math.min(completedSteps, totalSteps)} of ${totalSteps} required steps completed`}
+      >
+        {Array.from({ length: totalSteps }, (_, index) => (
+          <span
+            key={index}
+            className={`h-1 w-7 rounded-full lg:w-10 ${
+              index < completedSteps
+                ? "bg-[#bf6b3d]"
+                : "bg-[#e8e2da] dark:bg-[#4a4741]"
+            }`}
+          />
+        ))}
+      </div>
+      <div className="flex shrink-0 items-center gap-2">
+        <Badge className="max-w-40 truncate bg-[#f3e3d9] text-[#8f4b2d] hover:bg-[#f3e3d9]">
+          {roleLabel}
+        </Badge>
+        <ThemeToggle />
+      </div>
+    </div>
   );
 }
 
@@ -1050,9 +1091,6 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
           if (data.feedback) {
             setAiJustificationFeedback(data.feedback);
           }
-          if (Array.isArray(data.impacts) && data.impacts.length > 0) {
-            setCurrentDataImpact(data.impacts);
-          }
         } catch {
           setCurrentConsequence("Your choice has been recorded. The consequences of your decision are outlined below.");
         } finally {
@@ -1082,9 +1120,6 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
         .then((data) => {
           if (data.feedback) setAiJustificationFeedback(data.feedback);
           if (data.outcomeRating) setOutcomeRating(data.outcomeRating);
-          if (Array.isArray(data.impacts) && data.impacts.length > 0) {
-            setCurrentDataImpact(data.impacts);
-          }
         })
         .catch(() => undefined);
     }
@@ -1335,7 +1370,20 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
         {previewBar}
         <div className="flex min-h-0 flex-1 flex-col overflow-y-auto bg-muted/50">
           <div className="px-3 py-4 sm:px-4 sm:py-8">
-            <div className="max-w-3xl mx-auto">
+            <div className="max-w-5xl mx-auto space-y-4">
+              <SimulationTopHeader
+                decisionCount={decisions.length}
+                reflectionCount={reflectionQuestions.length}
+                completedSteps={0}
+                roleLabel={selectedRoleLabel}
+              />
+              <SimulationFlowNavigation
+                decisionCount={decisions.length}
+                classVotesEnabled={
+                  getSimulationFlowSettings(session?.simulation.preferences).classVotesEnabled
+                }
+                activeStage="background"
+              />
               <Card>
                 <CardHeader className="px-4 sm:px-6">
                   <Badge className="w-fit mb-2">Background</Badge>
@@ -1505,30 +1553,12 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
           <div className="flex min-h-0 flex-1 flex-col overflow-y-auto bg-muted/50">
             <div className="px-3 py-4 sm:px-4 sm:py-8">
               <div className="max-w-5xl mx-auto space-y-4">
-                <div className="flex items-center justify-between rounded-xl border bg-card px-3 py-2 shadow-sm">
-                  <PraxisLogo className="h-9 w-auto" priority />
-                  <div className="hidden flex-1 items-center justify-center gap-1.5 sm:flex">
-                    {Array.from(
-                      { length: decisions.length + reflectionQuestions.length },
-                      (_, index) => index + 1,
-                    ).map((step) => (
-                      <span
-                        key={step}
-                        className={`h-1 w-8 rounded-full lg:w-12 ${
-                          step <= decision.order_num
-                            ? "bg-[#bf6b3d]"
-                            : "bg-[#e8e2da] dark:bg-[#4a4741]"
-                        }`}
-                      />
-                    ))}
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Badge className="bg-[#f3e3d9] text-[#8f4b2d] hover:bg-[#f3e3d9]">
-                      {selectedRoleLabel}
-                    </Badge>
-                    <ThemeToggle />
-                  </div>
-                </div>
+                <SimulationTopHeader
+                  decisionCount={decisions.length}
+                  reflectionCount={reflectionQuestions.length}
+                  completedSteps={decision.order_num}
+                  roleLabel={selectedRoleLabel}
+                />
                 <SimulationFlowNavigation
                   decisionCount={decisions.length}
                   classVotesEnabled={
@@ -1687,29 +1717,13 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
         {previewBar}
         <div className="flex min-h-0 flex-1 flex-col overflow-y-auto bg-muted/50">
           <div className="px-3 py-4 sm:px-4 sm:py-6">
-            <div className="mx-auto mb-3 flex max-w-5xl items-center justify-between rounded-xl border bg-card px-3 py-2 shadow-sm">
-              <PraxisLogo className="h-9 w-auto" priority />
-              <div className="hidden flex-1 items-center justify-center gap-1.5 sm:flex">
-                {Array.from(
-                  { length: decisions.length + reflectionQuestions.length },
-                  (_, index) => index + 1,
-                ).map((step) => (
-                  <span
-                    key={step}
-                    className={`h-1 w-8 rounded-full lg:w-12 ${
-                      step <= decision.order_num
-                        ? "bg-[#bf6b3d]"
-                        : "bg-[#e8e2da] dark:bg-[#4a4741]"
-                    }`}
-                  />
-                ))}
-              </div>
-              <div className="flex items-center gap-2">
-                <Badge className="bg-[#f3e3d9] text-[#8f4b2d] hover:bg-[#f3e3d9]">
-                  {selectedRoleLabel}
-                </Badge>
-                <ThemeToggle />
-              </div>
+            <div className="mx-auto mb-3 max-w-5xl">
+              <SimulationTopHeader
+                decisionCount={decisions.length}
+                reflectionCount={reflectionQuestions.length}
+                completedSteps={decision.order_num - 1}
+                roleLabel={selectedRoleLabel}
+              />
             </div>
             <div className="mx-auto mb-3 max-w-5xl">
               <SimulationFlowNavigation
@@ -2020,7 +2034,13 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
         {previewBar}
         <div className="flex min-h-0 flex-1 flex-col overflow-y-auto bg-muted/50">
           <div className="px-3 py-4 sm:px-4 sm:py-8">
-            <div className="max-w-3xl mx-auto space-y-4">
+            <div className="max-w-5xl mx-auto space-y-4">
+              <SimulationTopHeader
+                decisionCount={decisions.length}
+                reflectionCount={reflectionQuestions.length}
+                completedSteps={decisions.length}
+                roleLabel={selectedRoleLabel}
+              />
               <SimulationFlowNavigation
                 decisionCount={decisions.length}
                 classVotesEnabled
@@ -2173,7 +2193,13 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
         {previewBar}
         <div className="flex min-h-0 flex-1 flex-col overflow-y-auto bg-muted/50">
           <div className="px-3 py-4 sm:px-4 sm:py-8">
-            <div className="max-w-3xl mx-auto space-y-4">
+            <div className="max-w-5xl mx-auto space-y-4">
+              <SimulationTopHeader
+                decisionCount={decisions.length}
+                reflectionCount={reflectionQuestions.length}
+                completedSteps={completedRequiredSteps}
+                roleLabel={selectedRoleLabel}
+              />
               <SimulationFlowNavigation
                 decisionCount={decisions.length}
                 classVotesEnabled={
@@ -2267,7 +2293,20 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
       {previewBar}
       <div className="flex min-h-0 flex-1 flex-col overflow-y-auto bg-muted/50">
         <div className="px-3 py-4 sm:px-4 sm:py-8">
-          <div className="max-w-3xl mx-auto">
+          <div className="max-w-5xl mx-auto space-y-4">
+            <SimulationTopHeader
+              decisionCount={decisions.length}
+              reflectionCount={reflectionQuestions.length}
+              completedSteps={decisions.length + reflectionQuestions.length}
+              roleLabel={selectedRoleLabel}
+            />
+            <SimulationFlowNavigation
+              decisionCount={decisions.length}
+              classVotesEnabled={
+                getSimulationFlowSettings(session?.simulation.preferences).classVotesEnabled
+              }
+              activeStage="complete"
+            />
             <Card>
               <CardHeader className="text-center px-4 sm:px-6">
                 <div className="flex justify-center mb-4">
