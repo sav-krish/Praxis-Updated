@@ -257,6 +257,12 @@ export async function GET(request: NextRequest, { params }: RouteContext) {
     totalSubmitted: number;
     totalEligible: number;
     optionIds: string[];
+    leaderboard: Array<{
+      id: string;
+      name: string;
+      score: number;
+      isCurrent: boolean;
+    }>;
   } | null = null;
 
   if (flowSettings.classVotesEnabled && participantFinished && finalDecision) {
@@ -280,11 +286,74 @@ export async function GET(request: NextRequest, { params }: RouteContext) {
         : Promise.resolve({ count: count ?? 0 }),
     ]);
     const optionIds = (voteResult.data ?? []).map((vote) => vote.option_id);
+    const optionScore = new Map(
+      (decisionsData ?? []).flatMap((decision) =>
+        decision.options.map((option) => [option.id, option.score ?? 0] as const),
+      ),
+    );
+    const leaderboard =
+      simulationData.mode === "teams"
+        ? await (async () => {
+            const [{ data: submissions }, { data: teams }] = await Promise.all([
+              supabase
+                .from("team_decision_submissions")
+                .select("team_id, option_id")
+                .eq("session_id", sessionData.id),
+              supabase
+                .from("teams")
+                .select("id, name")
+                .eq("session_id", sessionData.id),
+            ]);
+            const scores = new Map<string, number>();
+            for (const submission of submissions ?? []) {
+              scores.set(
+                submission.team_id,
+                (scores.get(submission.team_id) ?? 0) +
+                  (optionScore.get(submission.option_id) ?? 0),
+              );
+            }
+            return (teams ?? []).map((team) => ({
+              id: team.id,
+              name: team.name,
+              score: scores.get(team.id) ?? 0,
+              isCurrent: team.id === participantTeamId,
+            }));
+          })()
+        : await (async () => {
+            const [{ data: responses }, { data: participants }] = await Promise.all([
+              supabase
+                .from("responses")
+                .select("participant_id, option_id")
+                .eq("session_id", sessionData.id),
+              supabase
+                .from("participants")
+                .select("id, name")
+                .eq("session_id", sessionData.id),
+            ]);
+            const scores = new Map<string, number>();
+            for (const response of responses ?? []) {
+              if (!response.participant_id) continue;
+              scores.set(
+                response.participant_id,
+                (scores.get(response.participant_id) ?? 0) +
+                  (optionScore.get(response.option_id) ?? 0),
+              );
+            }
+            return (participants ?? []).map((participant) => ({
+              id: participant.id,
+              name: participant.name,
+              score: scores.get(participant.id) ?? 0,
+              isCurrent: participant.id === participantId,
+            }));
+          })();
     classVotes = {
       decisionId: finalDecision.id,
       totalSubmitted: optionIds.length,
       totalEligible: eligibilityResult.count ?? 0,
       optionIds,
+      leaderboard: leaderboard
+        .sort((a, b) => b.score - a.score || a.name.localeCompare(b.name))
+        .slice(0, 10),
     };
   }
 

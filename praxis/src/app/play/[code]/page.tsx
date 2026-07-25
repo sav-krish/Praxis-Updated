@@ -161,6 +161,12 @@ interface PlaySessionPayload {
     totalSubmitted: number;
     totalEligible: number;
     optionIds: string[];
+    leaderboard?: Array<{
+      id: string;
+      name: string;
+      score: number;
+      isCurrent: boolean;
+    }>;
   } | null;
 }
 
@@ -2086,6 +2092,37 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
                         : "No submitted choice found"}
                     </p>
                   </div>
+                  {(classVotes?.leaderboard?.length ?? 0) > 0 ? (
+                    <div className="overflow-hidden rounded-xl border bg-card">
+                      <div className="flex items-center gap-2 border-b px-4 py-3">
+                        <Trophy className="h-4 w-4 text-primary" />
+                        <h3 className="font-semibold">Class Leaderboard</h3>
+                      </div>
+                      <div className="divide-y">
+                        {classVotes?.leaderboard?.map((entry, index) => (
+                          <div
+                            key={entry.id}
+                            className={`flex items-center gap-3 px-4 py-3 ${
+                              entry.isCurrent ? "bg-primary/10" : ""
+                            }`}
+                          >
+                            <span className="w-6 text-sm font-semibold tabular-nums text-muted-foreground">
+                              {index + 1}
+                            </span>
+                            <span className="min-w-0 flex-1 truncate font-medium">
+                              {entry.name}
+                            </span>
+                            {entry.isCurrent ? (
+                              <Badge variant="secondary">You</Badge>
+                            ) : null}
+                            <span className="shrink-0 font-semibold tabular-nums">
+                              {entry.score} pts
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ) : null}
                 </CardContent>
               </Card>
 
