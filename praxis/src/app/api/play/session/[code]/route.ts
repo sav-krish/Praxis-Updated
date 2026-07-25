@@ -151,7 +151,7 @@ export async function GET(request: NextRequest, { params }: RouteContext) {
 
   const playerProfileId = participantData?.profile_id ?? null;
   const participantTeamId = participantData?.team_id ?? null;
-  const [{ data: decisionsData }, { data: questionsData }, { data: blocksData }, { data: sourcesData }, { data: scenarioImgData }, { data: responsesData }, { data: teamDecisionData }, { data: teamMembersData }, { data: teamData }, profileResult] = await Promise.all([
+  const [{ data: decisionsData }, { data: questionsData }, { data: blocksData }, { data: sourcesData }, { data: scenarioImgData }, { data: responsesData }, { data: teamDecisionData }, { data: teamMembersData }, { data: teamData }, profileResult, availableProfilesResult] = await Promise.all([
     supabase
       .from("decisions")
       .select("id, order_num, prompt, options(id, label, title, description, consequence, score)")
@@ -213,6 +213,13 @@ export async function GET(request: NextRequest, { params }: RouteContext) {
           .eq("id", playerProfileId)
           .single()
       : Promise.resolve({ data: null, error: null }),
+    simulationData.hidden_profiles_enabled
+      ? supabase
+          .from("simulation_profiles")
+          .select("id, profile_name")
+          .eq("simulation_id", simulationData.id)
+          .order("order_num", { ascending: true })
+      : Promise.resolve({ data: [], error: null }),
   ]);
 
   return NextResponse.json({
@@ -236,6 +243,7 @@ export async function GET(request: NextRequest, { params }: RouteContext) {
       : null,
     teamDecisions: teamDecisionData ?? [],
     playerProfile: profileResult.data ?? null,
+    availableProfiles: availableProfilesResult.data ?? [],
     decisions: (decisionsData ?? []).map((decision) => ({
       ...decision,
       options: [...decision.options].sort((a, b) => a.label.localeCompare(b.label)),
@@ -246,4 +254,59 @@ export async function GET(request: NextRequest, { params }: RouteContext) {
     scenarioImages: scenarioImgData ?? [],
     responses: responsesData ?? [],
   });
+}
+
+export async function PATCH(request: NextRequest, { params }: RouteContext) {
+  const { code } = await params;
+  const body = (await request.json().catch(() => null)) as
+    | { participantId?: string; profileId?: string }
+    | null;
+  const participantId = body?.participantId?.trim();
+  const profileId = body?.profileId?.trim();
+
+  if (!participantId || !profileId) {
+    return NextResponse.json({ error: "Participant and role are required" }, { status: 400 });
+  }
+
+  const supabase = createServiceRoleClient();
+  const { data: session } = await supabase
+    .from("sessions")
+    .select("id, simulation_id, simulation:simulations(hidden_profiles_enabled)")
+    .eq("join_code", code.toUpperCase())
+    .single();
+
+  const simulation = session?.simulation as { hidden_profiles_enabled?: boolean } | null;
+  if (!session || !simulation?.hidden_profiles_enabled) {
+    return NextResponse.json({ error: "Roles are not enabled for this simulation" }, { status: 404 });
+  }
+
+  const [{ data: participant }, { data: profile }] = await Promise.all([
+    supabase
+      .from("participants")
+      .select("id")
+      .eq("id", participantId)
+      .eq("session_id", session.id)
+      .single(),
+    supabase
+      .from("simulation_profiles")
+      .select("id")
+      .eq("id", profileId)
+      .eq("simulation_id", session.simulation_id)
+      .single(),
+  ]);
+
+  if (!participant || !profile) {
+    return NextResponse.json({ error: "Participant or role not found" }, { status: 404 });
+  }
+
+  const { error } = await supabase
+    .from("participants")
+    .update({ profile_id: profile.id })
+    .eq("id", participant.id);
+
+  if (error) {
+    return NextResponse.json({ error: "Could not assign role" }, { status: 500 });
+  }
+
+  return NextResponse.json({ ok: true });
 }

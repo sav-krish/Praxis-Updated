@@ -119,6 +119,11 @@ interface PlayerProfile {
   private_briefing: string;
 }
 
+interface AvailableProfile {
+  id: string;
+  profile_name: string;
+}
+
 interface ReflectionQuestion {
   id: string;
   order_num: number;
@@ -138,6 +143,7 @@ interface PlaySessionPayload {
   team: { id: string; name: string; members: TeamMember[] } | null;
   teamDecisions: TeamDecisionSubmission[];
   playerProfile: PlayerProfile | null;
+  availableProfiles: AvailableProfile[];
   decisions: Decision[];
   reflectionQuestions: ReflectionQuestion[];
   dataBlocks: Array<{ id: string; block_type: string; title: string | null; data: unknown }>;
@@ -178,6 +184,7 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
   const [participantId, setParticipantId] = useState<string | null>(null);
   const [participantName, setParticipantName] = useState<string>("");
   const [playerProfile, setPlayerProfile] = useState<PlayerProfile | null>(null);
+  const [availableProfiles, setAvailableProfiles] = useState<AvailableProfile[]>([]);
   
   const [currentStep, setCurrentStep] = useState(0); // 0 waiting, 1 background, 2-4 decisions, 5 class votes, 6 reflection, 7 results
   const [selectedOption, setSelectedOption] = useState<string | null>(null);
@@ -424,22 +431,25 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
 
   // Redirect to role selection
   useEffect(() => {
-    if (!session || currentStep !== 1 || !participantId) return;
+    if (!session || currentStep !== 1 || !participantId || availableProfiles.length === 0) return;
     const roleSelected = searchParams.get("roleSelected") === "1";
     const storedRole = sessionStorage.getItem(`role_${code.toUpperCase()}`);
     if (!roleSelected && !storedRole && !playerProfile) {
       router.replace(`/play/${code}/role-select`);
     }
-  }, [session, currentStep, participantId, playerProfile, code, router, searchParams]);
+  }, [session, currentStep, participantId, playerProfile, availableProfiles.length, code, router, searchParams]);
 
   useEffect(() => {
     const role = sessionStorage.getItem(`role_${code.toUpperCase()}`);
+    const storedRoleLabel = sessionStorage.getItem(`role_label_${code.toUpperCase()}`);
     const labels: Record<string, string> = {
       marketing_lead: "Marketing Lead",
       cfo: "CFO",
       customer_rep: "Customer Rep",
     };
-    setSelectedRoleLabel(playerProfile?.profile_name || (role ? labels[role] : null) || "Decision maker");
+    setSelectedRoleLabel(
+      playerProfile?.profile_name || storedRoleLabel || (role ? labels[role] : null) || "Decision maker",
+    );
   }, [code, playerProfile]);
 
   // Fetch hidden profile when transitioning to background
@@ -553,6 +563,7 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
     setTeamDecisions(payload.teamDecisions ?? []);
     setIsTeamVoter(participantTeamState.isVoter);
     setPlayerProfile(payload.playerProfile);
+    setAvailableProfiles(payload.availableProfiles ?? []);
     setDecisions(payload.decisions);
     setReflectionQuestions(payload.reflectionQuestions);
     setDataBlocks(payload.dataBlocks);

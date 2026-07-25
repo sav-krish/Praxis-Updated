@@ -1,22 +1,20 @@
 "use client";
 
-import { useState } from "react";
-import { use } from "react";
+import { use, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
-import { RolePicker } from "@/components/simulation/role-picker";
+import { RolePicker, type SimulationRoleOption } from "@/components/simulation/role-picker";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Building2, Clock, ListChecks, Users } from "lucide-react";
 import { ThemeToggle } from "@/components/theme-toggle";
 
-type RoleKey = "marketing_lead" | "cfo" | "customer_rep";
-
 export default function RoleSelectPage({ params }: { params: Promise<{ code: string }> }) {
   const { code } = use(params);
   const router = useRouter();
-  const [selectedRole, setSelectedRole] = useState<RoleKey | null>(null);
+  const [roles, setRoles] = useState<SimulationRoleOption[]>([]);
+  const [selectedRole, setSelectedRole] = useState<string | null>(null);
   const [participantId] = useState<string | null>(() => {
     if (typeof window === "undefined") return null;
     return (
@@ -25,11 +23,43 @@ export default function RoleSelectPage({ params }: { params: Promise<{ code: str
     );
   });
   const [showPreface, setShowPreface] = useState(true);
+  const [loadingRoles, setLoadingRoles] = useState(true);
+
+  useEffect(() => {
+    if (!participantId) {
+      setLoadingRoles(false);
+      return;
+    }
+
+    void (async () => {
+      try {
+        const response = await fetch(
+          `/api/play/session/${code.toUpperCase()}?participantId=${encodeURIComponent(participantId)}`,
+        );
+        const payload = (await response.json().catch(() => null)) as
+          | { availableProfiles?: Array<{ id: string; profile_name: string }> }
+          | null;
+        if (!response.ok) throw new Error("Could not load simulation roles");
+
+        const availableRoles = (payload?.availableProfiles ?? []).map((profile) => ({
+          id: profile.id,
+          title: profile.profile_name,
+        }));
+        setRoles(availableRoles);
+        if (availableRoles.length === 0) {
+          router.replace(`/play/${code.toUpperCase()}?roleSelected=1`);
+        }
+      } catch {
+        toast.error("Could not load this simulation's roles");
+      } finally {
+        setLoadingRoles(false);
+      }
+    })();
+  }, [code, participantId, router]);
 
   const handleRandomAssign = () => {
-    const roles: RoleKey[] = ["marketing_lead", "cfo", "customer_rep"];
     const random = roles[Math.floor(Math.random() * roles.length)];
-    setSelectedRole(random);
+    setSelectedRole(random?.id ?? null);
   };
 
   const handleEnterBriefing = async () => {
@@ -37,8 +67,22 @@ export default function RoleSelectPage({ params }: { params: Promise<{ code: str
       toast.error("Please select a role first");
       return;
     }
-    sessionStorage.setItem(`role_${code.toUpperCase()}`, selectedRole);
-    router.push(`/play/${code.toUpperCase()}?roleSelected=1`);
+    const selectedProfile = roles.find((role) => role.id === selectedRole);
+    try {
+      const response = await fetch(`/api/play/session/${code.toUpperCase()}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ participantId, profileId: selectedRole }),
+      });
+      if (!response.ok) throw new Error("Could not save role");
+      sessionStorage.setItem(`role_${code.toUpperCase()}`, selectedRole);
+      if (selectedProfile) {
+        sessionStorage.setItem(`role_label_${code.toUpperCase()}`, selectedProfile.title);
+      }
+      router.push(`/play/${code.toUpperCase()}?roleSelected=1`);
+    } catch {
+      toast.error("Could not assign that role. Please try again.");
+    }
   };
 
   return (
@@ -90,12 +134,17 @@ export default function RoleSelectPage({ params }: { params: Promise<{ code: str
                 </Button>
               </section>
             ) : (
-              <RolePicker
-                selectedRole={selectedRole}
-                onSelectRole={setSelectedRole}
-                onRandomAssign={handleRandomAssign}
-                onEnterBriefing={handleEnterBriefing}
-              />
+              loadingRoles ? (
+                <div className="py-16 text-center text-sm text-muted-foreground">Loading scenario roles…</div>
+              ) : (
+                <RolePicker
+                  roles={roles}
+                  selectedRole={selectedRole}
+                  onSelectRole={setSelectedRole}
+                  onRandomAssign={handleRandomAssign}
+                  onEnterBriefing={handleEnterBriefing}
+                />
+              )
             )}
           </div>
         </div>
