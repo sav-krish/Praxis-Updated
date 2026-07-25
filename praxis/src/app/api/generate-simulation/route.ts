@@ -63,6 +63,20 @@ export async function POST(request: NextRequest) {
   if (!user) {
     return new Response(sseDataString({ type: "error", error: "Unauthorized" }), { status: 401 });
   }
+  const { data: profile } = await supabaseAuth
+    .from("professors")
+    .select("active_role")
+    .eq("id", user.id)
+    .maybeSingle();
+  if (profile?.active_role === "student") {
+    return new Response(
+      sseDataString({
+        type: "error",
+        error: "Student accounts cannot create simulations.",
+      }),
+      { status: 403 },
+    );
+  }
 
   let formData: FormData;
   try {

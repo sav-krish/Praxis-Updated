@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect, Suspense, useCallback } from "react";
-import Image from "next/image";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
@@ -13,6 +12,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Loader2, ArrowRight, UserPlus, SkipForward } from "lucide-react";
 import { toast } from "sonner";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { PraxisLogo } from "@/components/praxis-logo";
 
 function JoinForm() {
   const router = useRouter();
@@ -154,15 +154,8 @@ function JoinForm() {
       <Card className="w-full max-w-md max-h-[calc(100dvh-3rem)] overflow-auto">
         <CardHeader className="text-center">
           <Link href="/" className="flex items-center justify-center gap-2 mb-4">
-            <span className="inline-flex shrink-0 items-center justify-center rounded-sm bg-white p-0.5">
-              <Image
-                src="/new_logo.png"
-                alt="Praxis"
-                width={280}
-                height={73}
-                className="h-14 w-auto sm:h-16"
-                priority
-              />
+            <span className="inline-flex shrink-0 items-center justify-center rounded-sm bg-white p-0.5 dark:bg-transparent">
+              <PraxisLogo className="h-14 w-auto sm:h-16" priority />
             </span>
           </Link>
           <CardTitle>Join Session</CardTitle>

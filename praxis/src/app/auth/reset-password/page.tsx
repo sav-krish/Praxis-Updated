@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import Image from "next/image";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
@@ -11,6 +10,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Loader2, ArrowLeft } from "lucide-react";
 import { toast } from "sonner";
+import { PraxisLogo } from "@/components/praxis-logo";
 
 export default function ResetPasswordPage() {
   const router = useRouter();
@@ -69,7 +69,7 @@ export default function ResetPasswordPage() {
       <Card className="w-full max-w-md">
         <CardHeader>
           <div className="flex items-center justify-center mb-4">
-            <Image src="/new_logo.png" alt="Praxis" width={40} height={40} className="rounded" />
+            <PraxisLogo className="h-12 w-auto" />
           </div>
           <CardTitle>Reset Password</CardTitle>
           <CardDescription>Enter the code from your email and choose a new password</CardDescription>

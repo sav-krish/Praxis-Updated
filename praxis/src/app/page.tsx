@@ -9,6 +9,7 @@ import { HowItWorksHorizontalScroll } from "@/components/landing/how-it-works";
 import { FaqSection } from "@/components/landing/faq-section";
 import { LandingBackground } from "@/components/landing/landing-background";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { PraxisLogo } from "@/components/praxis-logo";
 
 /* ─────────────────────────── Data ─────────────────────────── */
 
@@ -173,15 +174,8 @@ export default function HomePage() {
       <header className="sticky top-0 z-40 border-b border-line/60 bg-white safe-area-inset-top">
         <nav className="container flex min-h-16 items-center justify-between gap-2 px-4 py-2 sm:min-h-18 sm:gap-3 sm:px-6 sm:py-2.5">
           <Link href="/" className="flex min-w-0 shrink items-center gap-1.5 sm:gap-2">
-            <span className="inline-flex h-12 shrink-0 items-center justify-center rounded-sm bg-white p-0.5 sm:h-14">
-              <Image
-                src="/new_logo.png"
-                alt="Praxis"
-                width={300}
-                height={73}
-                className="h-full w-auto"
-                priority
-              />
+            <span className="inline-flex h-12 shrink-0 items-center justify-center rounded-sm bg-white p-0.5 dark:bg-transparent sm:h-14">
+              <PraxisLogo className="h-full w-auto" priority />
             </span>
           </Link>
           <div className="hidden items-center gap-8 md:flex">

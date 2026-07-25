@@ -2,13 +2,13 @@
 
 import { use, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import Image from "next/image";
 import { RolePicker, type SimulationRoleOption } from "@/components/simulation/role-picker";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Building2, Clock, ListChecks, Users } from "lucide-react";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { PraxisLogo } from "@/components/praxis-logo";
 
 export default function RoleSelectPage({ params }: { params: Promise<{ code: string }> }) {
   const { code } = use(params);
@@ -89,7 +89,7 @@ export default function RoleSelectPage({ params }: { params: Promise<{ code: str
     <div className="flex min-h-dvh flex-col bg-background">
       <header className="border-b bg-card">
         <div className="mx-auto flex min-h-16 max-w-6xl items-center justify-between px-4">
-          <Image src="/new_logo.png" alt="Praxis" width={300} height={73} className="h-12 w-auto" priority />
+          <PraxisLogo className="h-12 w-auto" priority />
           <ThemeToggle />
         </div>
       </header>

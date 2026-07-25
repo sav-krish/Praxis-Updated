@@ -57,6 +57,7 @@ import {
   type DecisionImpact,
 } from "@/lib/student/decision-impact";
 import { getSimulationFlowSettings } from "@/lib/simulation-flow";
+import { PraxisLogo } from "@/components/praxis-logo";
 
 const MarkdownBody = dynamic(
   () =>
@@ -1499,7 +1500,22 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
             <div className="px-3 py-4 sm:px-4 sm:py-8">
               <div className="max-w-5xl mx-auto space-y-4">
                 <div className="flex items-center justify-between rounded-xl border bg-card px-3 py-2 shadow-sm">
-                  <Image src="/new_logo.png" alt="Praxis" width={300} height={73} className="h-9 w-auto" priority />
+                  <PraxisLogo className="h-9 w-auto" priority />
+                  <div className="hidden flex-1 items-center justify-center gap-1.5 sm:flex">
+                    {Array.from(
+                      { length: decisions.length + reflectionQuestions.length },
+                      (_, index) => index + 1,
+                    ).map((step) => (
+                      <span
+                        key={step}
+                        className={`h-1 w-8 rounded-full lg:w-12 ${
+                          step <= decision.order_num
+                            ? "bg-[#bf6b3d]"
+                            : "bg-[#e8e2da] dark:bg-[#4a4741]"
+                        }`}
+                      />
+                    ))}
+                  </div>
                   <div className="flex items-center gap-2">
                     <Badge className="bg-[#f3e3d9] text-[#8f4b2d] hover:bg-[#f3e3d9]">
                       {selectedRoleLabel}
@@ -1666,7 +1682,22 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
         <div className="flex min-h-0 flex-1 flex-col overflow-y-auto bg-muted/50">
           <div className="px-3 py-4 sm:px-4 sm:py-6">
             <div className="mx-auto mb-3 flex max-w-5xl items-center justify-between rounded-xl border bg-card px-3 py-2 shadow-sm">
-              <Image src="/new_logo.png" alt="Praxis" width={300} height={73} className="h-9 w-auto" priority />
+              <PraxisLogo className="h-9 w-auto" priority />
+              <div className="hidden flex-1 items-center justify-center gap-1.5 sm:flex">
+                {Array.from(
+                  { length: decisions.length + reflectionQuestions.length },
+                  (_, index) => index + 1,
+                ).map((step) => (
+                  <span
+                    key={step}
+                    className={`h-1 w-8 rounded-full lg:w-12 ${
+                      step <= decision.order_num
+                        ? "bg-[#bf6b3d]"
+                        : "bg-[#e8e2da] dark:bg-[#4a4741]"
+                    }`}
+                  />
+                ))}
+              </div>
               <div className="flex items-center gap-2">
                 <Badge className="bg-[#f3e3d9] text-[#8f4b2d] hover:bg-[#f3e3d9]">
                   {selectedRoleLabel}

@@ -1,5 +1,4 @@
 import { redirect } from "next/navigation";
-import Image from "next/image";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { Button } from "@/components/ui/button";
@@ -18,6 +17,7 @@ import { CopilotLazy } from "@/components/copilot/copilot-lazy";
 import { ReplayTutorialMenuItem } from "@/components/tutorial/replay-tutorial-menu-item";
 import { TourProvider } from "@/components/tutorial/tour-provider";
 import { LandingBackground } from "@/components/landing/landing-background";
+import { PraxisLogo } from "@/components/praxis-logo";
 
 export const dynamic = "force-dynamic";
 
@@ -116,15 +116,8 @@ export default async function DashboardLayout({
       <header className="bg-white border-b border-line/60 sticky top-0 z-50 safe-area-inset-top">
         <div className="container mx-auto px-3 sm:px-4 min-h-16 sm:min-h-18 flex items-center justify-between gap-2 py-2">
           <Link href="/dashboard" className="flex items-center min-w-0">
-            <span className="inline-flex h-12 shrink-0 items-center justify-center rounded-sm bg-white p-0.5 sm:h-14">
-              <Image
-                src="/new_logo.png"
-                alt="Praxis"
-                width={300}
-                height={73}
-                className="h-full w-auto"
-                priority
-              />
+            <span className="inline-flex h-12 shrink-0 items-center justify-center rounded-sm bg-white p-0.5 dark:bg-transparent sm:h-14">
+              <PraxisLogo className="h-full w-auto" priority />
             </span>
           </Link>
           

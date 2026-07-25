@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import Image from "next/image";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
@@ -11,6 +10,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
+import { PraxisLogo } from "@/components/praxis-logo";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -47,15 +47,8 @@ export default function LoginPage() {
       <Card className="w-full max-w-md max-h-[calc(100dvh-3rem)] overflow-auto">
         <CardHeader className="text-center">
           <Link href="/" className="flex items-center justify-center gap-2 mb-4">
-            <span className="inline-flex shrink-0 items-center justify-center rounded-sm bg-white p-0.5">
-              <Image
-                src="/new_logo.png"
-                alt="Praxis"
-                width={420}
-                height={109}
-                className="h-14 w-auto sm:h-16"
-                priority
-              />
+            <span className="inline-flex shrink-0 items-center justify-center rounded-sm bg-white p-0.5 dark:bg-transparent">
+              <PraxisLogo className="h-14 w-auto sm:h-16" priority />
             </span>
           </Link>
           <CardTitle>Welcome back</CardTitle>
