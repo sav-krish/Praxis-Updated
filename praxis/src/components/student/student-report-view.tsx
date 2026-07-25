@@ -39,6 +39,8 @@ export function StudentReportView({
   attemptId,
   sessionId,
 }: StudentReportViewProps) {
+  void attemptId;
+  void sessionId;
   const [copilotOpen, setCopilotOpen] = useState(false);
 
   // Build context for Praxis Copilot

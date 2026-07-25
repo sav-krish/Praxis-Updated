@@ -20,15 +20,13 @@ export function LandingBackground() {
       <div
         className="absolute inset-0 opacity-80"
         style={{
-          background:
-            "linear-gradient(155deg, #fff3e4 0%, #fff7ee 32%, #ffe6d3 62%, #ffd7b6 100%)",
+          background: "var(--praxis-page-gradient)",
         }}
       />
       <div
         className="absolute inset-0 opacity-50"
         style={{
-          background:
-            "radial-gradient(ellipse 85% 55% at 15% 12%, rgba(253, 140, 46, 0.14), transparent 52%), radial-gradient(ellipse 75% 50% at 88% 78%, rgba(247, 98, 36, 0.1), transparent 48%), radial-gradient(ellipse 60% 40% at 50% 100%, rgba(249, 121, 42, 0.08), transparent 55%)",
+          background: "var(--praxis-accent-gradient)",
         }}
       />
       <div className="absolute -top-32 right-10 h-64 w-64 rounded-full bg-[#ffd0a8]/45 blur-3xl" />

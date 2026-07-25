@@ -18,10 +18,11 @@ import {
   Share2,
   Users,
   CircleDot,
+  BriefcaseBusiness,
 } from "lucide-react";
 import { PreviewSimulationButton } from "@/components/simulation/PreviewSimulationButton";
 import { DeleteSimulationDropdownItem } from "@/app/(dashboard)/dashboard/delete-simulation-dropdown-item";
-import { appTileBackgroundForDifficulty } from "@/lib/app-tile-backgrounds";
+import { appTileBackgroundForDifficulty, simulationIconColorForId } from "@/lib/app-tile-backgrounds";
 import {
   SIMULATION_CARD_ACTION_MIN_HEIGHT_CLASS,
   SIMULATION_CARD_HEADER_CLASS,
@@ -81,9 +82,14 @@ export function DashboardSimulationCard({
       <CardHeader className={SIMULATION_CARD_HEADER_CLASS}>
         <div className="flex items-start justify-between gap-2">
           <div className="min-w-0 flex-1 space-y-1.5">
-            <CardTitle className={SIMULATION_CARD_TITLE_CLASS}>
-              {simulation.title}
-            </CardTitle>
+            <div className="flex items-start gap-2.5">
+              <span className={`mt-0.5 inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${simulationIconColorForId(simulation.id)}`}>
+                <BriefcaseBusiness className="h-4 w-4" aria-hidden />
+              </span>
+              <CardTitle className={SIMULATION_CARD_TITLE_CLASS}>
+                {simulation.title}
+              </CardTitle>
+            </div>
             <div className="flex flex-wrap items-center gap-1.5">
               <Badge
                 variant="secondary"

@@ -3,7 +3,7 @@
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { ArrowRight, BookOpen, Brain, TrendingUp, AlertTriangle, CheckCircle, MessageSquare, Lightbulb, RefreshCw } from "lucide-react";
+import { ArrowRight, BookOpen, Brain, TrendingUp, AlertTriangle, CheckCircle, MessageSquare, Lightbulb } from "lucide-react";
 import { useEffect, useState } from "react";
 
 interface ConsequenceFeedbackProps {
@@ -48,12 +48,6 @@ interface ConsequenceFeedbackProps {
   loadingConsequence?: boolean;
 }
 
-const defaultDataImpacts = [
-  { metric: "Revenue", change: "+$2.3M", direction: "up" as const },
-  { metric: "NPS", change: "+8pts", direction: "up" as const },
-  { metric: "Retention", change: "-2.1%", direction: "down" as const },
-];
-
 export function ConsequenceFeedback({
   decisionTitle,
   decisionNumber,
@@ -79,14 +73,15 @@ export function ConsequenceFeedback({
   loadingConsequence = false,
 }: ConsequenceFeedbackProps) {
   const [revealed, setRevealed] = useState(false);
-  const impacts = dataImpact || defaultDataImpacts;
+  const impacts = dataImpact ?? [];
 
   useEffect(() => {
     if (showVotingResults) {
       const t = window.setTimeout(() => setRevealed(true), 120);
       return () => window.clearTimeout(t);
     }
-    setRevealed(false);
+    const t = window.setTimeout(() => setRevealed(false), 0);
+    return () => window.clearTimeout(t);
   }, [showVotingResults, decisionNumber, classVotes]);
 
   const totalClass = classVotes?.total || 0;
@@ -100,7 +95,7 @@ export function ConsequenceFeedback({
   return (
     <div className="w-full max-w-2xl mx-auto space-y-4">
       {/* Header */}
-      <Card className="dark:border-zinc-700 dark:bg-zinc-900">
+      {impacts.length > 0 && <Card className="dark:border-zinc-700 dark:bg-zinc-900">
         <CardHeader className="px-4 sm:px-6">
           <div className="flex items-center justify-between gap-3">
             <div>
@@ -132,7 +127,7 @@ export function ConsequenceFeedback({
             )}
           </div>
         </CardHeader>
-      </Card>
+      </Card>}
 
       {/* 1. AI Justification Feedback (Individual Mode) */}
       {isIndividualMode && aiJustificationFeedback && (
@@ -257,7 +252,7 @@ export function ConsequenceFeedback({
                   <div key={group.optionLabel} className="space-y-1">
                     <p className="text-xs font-medium text-zinc-700 dark:text-zinc-300">Option {group.optionLabel}</p>
                     {group.texts.slice(0, 3).map((text, idx) => (
-                      <p key={idx} className="text-xs text-zinc-600 dark:text-zinc-400 leading-relaxed line-clamp-2">"{text}"</p>
+                      <p key={idx} className="text-xs text-zinc-600 dark:text-zinc-400 leading-relaxed line-clamp-2">&ldquo;{text}&rdquo;</p>
                     ))}
                   </div>
                 ))}

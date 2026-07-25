@@ -224,6 +224,9 @@ CREATE TABLE IF NOT EXISTS responses (
   CHECK (participant_id IS NOT NULL OR team_id IS NOT NULL)
 );
 
+CREATE UNIQUE INDEX IF NOT EXISTS responses_one_per_participant_decision_session
+  ON responses (participant_id, decision_id, session_id);
+
 CREATE TABLE IF NOT EXISTS response_videos (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   response_id UUID NOT NULL UNIQUE REFERENCES responses(id) ON DELETE CASCADE,

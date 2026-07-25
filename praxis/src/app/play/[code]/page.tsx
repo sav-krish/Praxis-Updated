@@ -27,7 +27,6 @@ import {
   Clock,
   Trophy,
   ChevronDown,
-  ChevronRight,
   RefreshCw,
   LogOut,
   Video,
@@ -46,6 +45,13 @@ import { sourceTypeDisplayLabel } from "@/lib/source-display";
 import { publicScenarioImageUrl } from "@/lib/scenario-image-url";
 import { formatScheduleDateTime, getSimulationSessionSchedule } from "@/lib/session-schedule";
 import type { Json } from "@/types/database";
+import { ThemeToggle } from "@/components/theme-toggle";
+import { SimulationAssistant } from "@/components/simulation/simulation-assistant";
+import {
+  accumulateImpacts,
+  calculateDecisionImpact,
+  type DecisionImpact,
+} from "@/lib/student/decision-impact";
 
 const MarkdownBody = dynamic(
   () =>
@@ -140,6 +146,21 @@ interface PlaySessionPayload {
   responses: Array<{ decision_id: string; option_id: string }>;
 }
 
+function roundedPercentages(counts: number[]): number[] {
+  const total = counts.reduce((sum, count) => sum + count, 0);
+  if (total === 0) return counts.map(() => 0);
+  const exact = counts.map((count) => (count / total) * 100);
+  const floors = exact.map(Math.floor);
+  const remaining = 100 - floors.reduce((sum, value) => sum + value, 0);
+  const order = exact
+    .map((value, index) => ({ index, remainder: value - floors[index] }))
+    .sort((a, b) => b.remainder - a.remainder);
+  for (let index = 0; index < remaining; index += 1) {
+    floors[order[index].index] += 1;
+  }
+  return floors;
+}
+
 export default function PlayPage({ params }: { params: Promise<{ code: string }> }) {
   const { code } = use(params);
   const router = useRouter();
@@ -164,6 +185,7 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
   const [showConsequence, setShowConsequence] = useState(false);
   const [currentConsequence, setCurrentConsequence] = useState("");
   const [currentDataImpact, setCurrentDataImpact] = useState<{ metric: string; change: string; direction: "up" | "down" | "neutral" }[] | undefined>(undefined);
+  const [cumulativeImpact, setCumulativeImpact] = useState<DecisionImpact[]>([]);
   const [outcomeRating, setOutcomeRating] = useState<"strong" | "decent" | "mixed" | "poor" | null>(null);
   const [myResponses, setMyResponses] = useState<{ decision_id: string; option_id: string; score: number }[]>([]);
   const [reflectionAnswers, setReflectionAnswers] = useState<Record<string, string>>({});
@@ -186,8 +208,9 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
   const [responseInputMode, setResponseInputMode] = useState<"text" | "video">("text");
   const [studentAttemptId, setStudentAttemptId] = useState<string | null>(null);
   const [completedReportId, setCompletedReportId] = useState<string | null>(null);
-  const [loadingConsequence, setLoadingConsequence] = useState(false);
+  const [, setLoadingConsequence] = useState(false);
   const [aiJustificationFeedback, setAiJustificationFeedback] = useState<string | null>(null);
+  const [selectedRoleLabel, setSelectedRoleLabel] = useState("Decision maker");
   const fileInputRef = useRef<HTMLInputElement>(null);
   const liveVideoPreviewRef = useRef<HTMLVideoElement>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
@@ -252,7 +275,7 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
       )
       .subscribe();
     return () => { supabase.removeChannel(channel); };
-  }, [session?.id, currentStep]);
+  }, [session, currentStep]);
 
   // Subscribe to session updates
   useEffect(() => {
@@ -280,7 +303,7 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [session?.id]);
+  }, [session]);
 
   // Sync scheduled start/end
   useEffect(() => {
@@ -399,13 +422,25 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
     return 5;
   }
 
-  // Redirect to role selection if needed
+  // Redirect to role selection
   useEffect(() => {
     if (!session || currentStep !== 1 || !participantId) return;
-    if (session.simulation.hidden_profiles_enabled && !playerProfile) {
+    const roleSelected = searchParams.get("roleSelected") === "1";
+    const storedRole = sessionStorage.getItem(`role_${code.toUpperCase()}`);
+    if (!roleSelected && !storedRole && !playerProfile) {
       router.replace(`/play/${code}/role-select`);
     }
-  }, [session, currentStep, participantId, playerProfile, code, router]);
+  }, [session, currentStep, participantId, playerProfile, code, router, searchParams]);
+
+  useEffect(() => {
+    const role = sessionStorage.getItem(`role_${code.toUpperCase()}`);
+    const labels: Record<string, string> = {
+      marketing_lead: "Marketing Lead",
+      cfo: "CFO",
+      customer_rep: "Customer Rep",
+    };
+    setSelectedRoleLabel(playerProfile?.profile_name || (role ? labels[role] : null) || "Decision maker");
+  }, [code, playerProfile]);
 
   // Fetch hidden profile when transitioning to background
   useEffect(() => {
@@ -420,6 +455,7 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
         /* keep silent */
       }
     })();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentStep, participantId, playerProfile, session?.simulation?.hidden_profiles_enabled]);
 
   // Polling fallback
@@ -444,7 +480,7 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
     }, pollInterval);
 
     return () => clearInterval(interval);
-  }, [session?.id, currentStep]);
+  }, [session, currentStep]);
 
   async function loadSession() {
     let initialPayload: PlaySessionPayload;
@@ -460,8 +496,17 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
     const urlParticipantName = searchParams.get("participantName");
     const initialSession = initialPayload.session;
 
-    let storedParticipantId = sessionStorage.getItem(`participant_${initialSession.id}`);
+    let storedParticipantId =
+      sessionStorage.getItem(`participant_${initialSession.id}`) ||
+      (localStorage.getItem("praxis_active_session_code") === code.toUpperCase()
+        ? localStorage.getItem("praxis_guest_participant_id")
+        : null);
     let storedName = sessionStorage.getItem(`participant_name_${initialSession.id}`);
+
+    if (storedParticipantId) {
+      sessionStorage.setItem(`participant_${initialSession.id}`, storedParticipantId);
+      sessionStorage.setItem(`participant_code_${code.toUpperCase()}`, storedParticipantId);
+    }
 
     if (urlParticipantId && urlParticipantName) {
       sessionStorage.setItem(`participant_${initialSession.id}`, urlParticipantId);
@@ -527,7 +572,35 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
 
   useEffect(() => {
     void loadSession();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [code]);
+
+  useEffect(() => {
+    if (decisions.length === 0) return;
+    const restoredImpact = myResponses.reduce<DecisionImpact[]>((total, response) => {
+      const decision = decisions.find((item) => item.id === response.decision_id);
+      const option = decision?.options.find((item) => item.id === response.option_id);
+      if (!decision || !option) return total;
+      return accumulateImpacts(total, calculateDecisionImpact(option, decision.order_num));
+    }, []);
+    setCumulativeImpact(restoredImpact);
+  }, [decisions, myResponses]);
+
+  useEffect(() => {
+    if (!participantId || !session) return;
+    const interval = window.setInterval(async () => {
+      try {
+        const payload = await fetchPlaySessionPayload(participantId);
+        setSession(payload.session);
+        setParticipantCount(payload.participantCount ?? 0);
+        setCurrentStep(getStepForPayload(payload));
+      } catch {
+        /* keep current state */
+      }
+    }, 30_000);
+    return () => window.clearInterval(interval);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [participantId, session?.id]);
 
   useEffect(() => {
     if (session?.simulation.mode !== "teams" || currentStep < 2 || currentStep > 4) return;
@@ -563,6 +636,7 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
     }, 3000);
 
     return () => window.clearInterval(interval);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [session?.id, session?.status, session?.simulation.mode, participantId, decisions]);
 
   const setVideoSelection = async (file: File) => {
@@ -768,7 +842,7 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
           });
 
         if (error) {
-          toast.error("Failed to submit justification");
+          toast.error(error.code === "23505" ? "You have already submitted this response" : "Failed to submit justification");
           setSubmitting(false);
           return;
         }
@@ -786,7 +860,7 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
           .single();
 
         if (responseError || !responseRow) {
-          toast.error("Failed to submit response");
+          toast.error(responseError?.code === "23505" ? "You have already submitted this response" : "Failed to submit response");
           setSubmitting(false);
           return;
         }
@@ -839,7 +913,7 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
           });
 
         if (error) {
-          toast.error("Failed to submit response");
+          toast.error(error.code === "23505" ? "You have already submitted this response" : "Failed to submit response");
           setSubmitting(false);
           return;
         }
@@ -851,6 +925,12 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
       option_id: chosenOptionId, 
       score: option?.score || 0 
     }]);
+
+    const calculatedImpact = option
+      ? calculateDecisionImpact(option, decision.order_num)
+      : [];
+    setCurrentDataImpact(calculatedImpact);
+    setCumulativeImpact((current) => accumulateImpacts(current, calculatedImpact));
 
     // Generate consequence if needed
     if (!option?.consequence && session.simulation.mode === "individual") {
@@ -877,11 +957,11 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
           } else {
             setCurrentConsequence("Your choice has been recorded. The consequences of your decision are outlined below.");
           }
-          if (data.dataImpact) {
-            setCurrentDataImpact(data.dataImpact);
-          }
           if (data.outcomeRating) {
             setOutcomeRating(data.outcomeRating);
+          }
+          if (data.feedback) {
+            setAiJustificationFeedback(data.feedback);
           }
         } catch {
           setCurrentConsequence("Your choice has been recorded. The consequences of your decision are outlined below.");
@@ -894,6 +974,25 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
       setCurrentConsequence(option?.consequence || "");
       setOutcomeRating(option?.score && option.score >= 3 ? "strong" : option?.score && option.score >= 2 ? "decent" : option?.score && option.score >= 1 ? "mixed" : "poor");
       setShowConsequence(true);
+      void fetch("/api/generate-consequence", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          scenarioTitle: session.simulation.title,
+          scenarioContext: session.simulation.background_content,
+          decisionPrompt: decision.prompt,
+          optionLabel: option?.label,
+          optionTitle: option?.title,
+          optionDescription: option?.description,
+          justification: trimmedJustification,
+          roleLabel: selectedRoleLabel,
+        }),
+      })
+        .then((response) => response.json())
+        .then((data) => {
+          if (data.feedback) setAiJustificationFeedback(data.feedback);
+        })
+        .catch(() => undefined);
     }
     setSubmitting(false);
   };
@@ -927,7 +1026,7 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
       }
     }
 
-    setCurrentStep(prev => prev + 1);
+    setCurrentStep(prev => prev === 4 ? 6 : prev + 1);
   };
 
   const submitReflection = async () => {
@@ -1007,7 +1106,6 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
       : null;
   const waitingForTeamChoice = session?.simulation.mode === "teams" && !currentTeamDecision;
   const canSelectTeamChoice = Boolean(session?.simulation.mode === "teams" && isTeamVoter && !currentTeamDecision);
-  const teamChoiceIsLocked = Boolean(session?.simulation.mode === "teams" && currentTeamDecision);
   const activeTeamName = teamName || "Your team";
   const submitButtonLabel =
     session?.simulation.mode === "teams"
@@ -1081,7 +1179,7 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
               </CardHeader>
               <CardContent className="px-4 sm:px-6">
                 <div className="space-y-3 text-center">
-                  <p className="font-medium text-foreground">You're in.</p>
+                  <p className="font-medium text-foreground">You&apos;re in.</p>
                   {session?.simulation.mode === "teams" ? (
                     <p className="text-sm text-muted-foreground">
                       {teamName ? `${teamName} · ` : ""}
@@ -1263,6 +1361,10 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
                   </div>
                 </CardContent>
               </Card>
+              <SimulationAssistant
+                role={selectedRoleLabel}
+                scenario={session?.simulation.background_content || ""}
+              />
             </div>
           </div>
         </div>
@@ -1288,13 +1390,23 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
 
     // Show consequence after submission
     if (showConsequence) {
-      const selectedOpt = decision.options.find(o => o.id === selectedOption);
       return (
         <div className="flex min-h-dvh flex-col">
           {previewBar}
           <div className="flex min-h-0 flex-1 flex-col overflow-y-auto bg-muted/50">
             <div className="px-3 py-4 sm:px-4 sm:py-8">
-              <div className="max-w-3xl mx-auto space-y-4">
+              <div className="max-w-5xl mx-auto space-y-4">
+                <div className="flex items-center justify-between rounded-2xl border bg-card px-4 py-3 shadow-sm">
+                  <div className="flex items-center gap-3">
+                    <Image src="/new_logo.png" alt="Praxis" width={300} height={73} className="h-11 w-auto" priority />
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Badge className="bg-[#f3e3d9] text-[#8f4b2d] hover:bg-[#f3e3d9]">
+                      {selectedRoleLabel}
+                    </Badge>
+                    <ThemeToggle />
+                  </div>
+                </div>
                 <Card>
                   <CardHeader className="px-4 sm:px-6">
                     <div className="flex items-center justify-between gap-3">
@@ -1319,18 +1431,67 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
                       <p className="text-base sm:text-lg break-words">{currentConsequence || "Your choice has been recorded."}</p>
                     </div>
                     {currentDataImpact && currentDataImpact.length > 0 && (
-                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                      <div>
+                        <p className="mb-2 text-sm font-semibold">What happened as a result:</p>
+                        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
                         {currentDataImpact.map((impact) => (
-                          <div key={impact.metric} className="p-3 rounded-lg bg-muted/60 text-center">
-                            <p className="text-xs text-muted-foreground mb-1">{impact.metric}</p>
+                          <div key={impact.metric} className="rounded-lg border bg-muted/60 p-3">
+                            <p className="text-sm font-semibold">
+                              {impact.metric} {impact.direction === "up" ? "Improved" : impact.direction === "down" ? "Declined" : "Held Steady"}
+                            </p>
                             <p className={`text-lg font-bold ${impact.direction === "up" ? "text-emerald-600" : impact.direction === "down" ? "text-red-600" : "text-gray-600"}`}>
                               {impact.change}
                             </p>
+                            <p className="mt-1 text-xs text-muted-foreground">
+                              This decision changed {impact.metric.toLowerCase()} by {impact.change}.
+                            </p>
                           </div>
                         ))}
+                        </div>
+                      </div>
+                    )}
+                    {cumulativeImpact.length > 0 && (
+                      <div className="rounded-xl border border-[#e4dcd2] bg-[#faf7f2] p-4 dark:border-zinc-700 dark:bg-zinc-900">
+                        <div className="mb-3 flex items-center justify-between">
+                          <div>
+                            <p className="text-sm font-semibold">Live dashboard</p>
+                            <p className="text-xs text-muted-foreground">Cumulative impact across your decisions</p>
+                          </div>
+                          <Badge variant="outline">{myResponses.length} locked in</Badge>
+                        </div>
+                        <div className="grid gap-3 sm:grid-cols-3">
+                          {cumulativeImpact.map((impact) => (
+                            <div key={impact.metric} className="rounded-lg bg-background p-3">
+                              <p className="text-xs text-muted-foreground">{impact.metric}</p>
+                              <p className={`text-lg font-bold ${
+                                impact.direction === "up"
+                                  ? "text-emerald-700 dark:text-emerald-400"
+                                  : impact.direction === "down"
+                                    ? "text-red-700 dark:text-red-400"
+                                    : ""
+                              }`}>
+                                {impact.change}
+                              </p>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                    {aiJustificationFeedback && (
+                      <div className="rounded-xl border-l-4 border-primary bg-muted p-4">
+                        <p className="text-sm font-semibold">Feedback on your reasoning</p>
+                        <p className="mt-1 text-sm leading-relaxed text-muted-foreground">{aiJustificationFeedback}</p>
                       </div>
                     )}
                     <div className="flex flex-col sm:flex-row gap-2 justify-between pt-2">
+                      <Button
+                        variant="outline"
+                        onClick={() => setShowConsequence(false)}
+                        className="w-full sm:w-auto min-h-[44px]"
+                      >
+                        <ArrowLeft className="mr-2 h-4 w-4" />
+                        Back to Decision
+                      </Button>
                       <Button
                         variant="outline"
                         onClick={() => goToScenario(currentStep, true)}
@@ -1339,13 +1500,31 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
                         <BookOpen className="mr-2 h-4 w-4 shrink-0" />
                         View scenario
                       </Button>
+                      {session?.simulation.mode === "teams" && (
+                        <Button
+                          variant="secondary"
+                          className="w-full sm:w-auto min-h-[44px]"
+                          onClick={() => toast.info("Your instructor can now open this choice for class discussion.")}
+                        >
+                          Discuss with Class
+                        </Button>
+                      )}
                       <Button onClick={continueToNext} className="w-full sm:w-auto min-h-[48px]">
-                        {decisionIndex < 2 ? "Proceed to Next Decision →" : "Proceed to Class Votes →"}
+                        {decisionIndex < 2
+                          ? "Proceed to Next Decision →"
+                          : session?.simulation.mode === "teams"
+                            ? "Proceed to Class Votes →"
+                            : "Next: Reflection →"}
                         <ArrowRight className="ml-2 h-4 w-4 shrink-0" />
                       </Button>
                     </div>
                   </CardContent>
                 </Card>
+                <SimulationAssistant
+                  role={selectedRoleLabel}
+                  scenario={session?.simulation.background_content || ""}
+                  decision={decision.prompt}
+                />
               </div>
             </div>
           </div>
@@ -1357,8 +1536,28 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
       <div className="flex min-h-dvh flex-col">
         {previewBar}
         <div className="flex min-h-0 flex-1 flex-col overflow-y-auto bg-muted/50">
-          <div className="px-3 py-4 sm:px-4 sm:py-8">
-            <div className="max-w-2xl mx-auto space-y-4">
+          <div className="px-3 py-4 sm:px-4 sm:py-6">
+            <div className="mx-auto mb-5 flex max-w-6xl items-center justify-between rounded-2xl border bg-card px-4 py-3 shadow-sm">
+              <div className="flex items-center gap-3">
+                <Image src="/new_logo.png" alt="Praxis" width={300} height={73} className="h-11 w-auto" priority />
+              </div>
+              <div className="hidden flex-1 items-center justify-center gap-2 sm:flex">
+                {[1, 2, 3].map((step) => (
+                  <span
+                    key={step}
+                    className={`h-1.5 w-14 rounded-full ${step <= decision.order_num ? "bg-[#bf6b3d]" : "bg-[#e8e2da]"}`}
+                  />
+                ))}
+              </div>
+              <div className="flex items-center gap-2">
+                <Badge className="bg-[#f3e3d9] text-[#8f4b2d] hover:bg-[#f3e3d9]">
+                  {selectedRoleLabel}
+                </Badge>
+                <ThemeToggle />
+              </div>
+            </div>
+            <div className="mx-auto grid max-w-6xl gap-5 lg:grid-cols-[minmax(0,1fr)_310px]">
+            <div className="space-y-4 rounded-2xl border bg-[#fcfaf7] p-5 shadow-sm dark:bg-card sm:p-8">
               <Button
                 variant="outline"
                 onClick={() => goToScenario(currentStep, false)}
@@ -1615,26 +1814,84 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
                 </Button>
               </div>
             </div>
+            <aside className="h-fit space-y-4 rounded-2xl border bg-card p-5 shadow-sm lg:sticky lg:top-5">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">Live dashboard</p>
+                <h3 className="mt-1 font-semibold">{session?.simulation.title || "Simulation impact"}</h3>
+              </div>
+              <div className="space-y-4">
+                {(cumulativeImpact.length > 0
+                  ? cumulativeImpact
+                  : [
+                      { metric: "Revenue", change: "$0", direction: "neutral" as const },
+                      { metric: "NPS", change: "0 pts", direction: "neutral" as const },
+                      { metric: "Retention", change: "0%", direction: "neutral" as const },
+                    ]
+                ).map((impact) => (
+                  <div key={impact.metric}>
+                    <div className="mb-1.5 flex items-center justify-between text-sm">
+                      <span className="text-muted-foreground">{impact.metric}</span>
+                      <strong className={
+                        impact.direction === "up"
+                          ? "text-emerald-700 dark:text-emerald-400"
+                          : impact.direction === "down"
+                            ? "text-red-700 dark:text-red-400"
+                            : ""
+                      }>
+                        {impact.change}
+                      </strong>
+                    </div>
+                    <div className="h-1.5 overflow-hidden rounded-full bg-muted">
+                      <div
+                        className={`h-full rounded-full ${
+                          impact.direction === "down" ? "bg-red-600" : "bg-[#4c7a20]"
+                        }`}
+                        style={{ width: impact.direction === "neutral" ? "4%" : "68%" }}
+                      />
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <div className="rounded-xl bg-[#f5eee8] p-3 text-sm dark:bg-zinc-800">
+                <p className="font-medium">{myResponses.length} of 3 decisions complete</p>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Each choice updates these totals using its quality, tradeoffs, and decision stage.
+                </p>
+              </div>
+            </aside>
+            <SimulationAssistant
+              role={selectedRoleLabel}
+              scenario={session?.simulation.background_content || ""}
+              decision={decision.prompt}
+            />
           </div>
         </div>
+      </div>
       </div>
     );
   }
 
   // Class Votes screen (step 5 in teams mode)
   if (currentStep === 5 && session?.simulation.mode === "teams") {
-    const decision = decisions[currentStep - 2];
-    const selectedOpt = decision?.options.find(o => o.id === selectedOption);
-    const totalVotes = teamDecisions.length;
+    const decision = decisions.at(-1);
+    const myLastResponse = decision
+      ? myResponses.find((response) => response.decision_id === decision.id)
+      : null;
+    const selectedOpt = decision?.options.find(o => o.id === myLastResponse?.option_id);
+    const decisionVotes = decision
+      ? teamDecisions.filter((item) => item.decision_id === decision.id)
+      : [];
+    const totalVotes = decisionVotes.length;
     const optionVotes = {
-      A: teamDecisions.filter(td => td.option_id === decision?.options.find(o => o.label === "A")?.id).length,
-      B: teamDecisions.filter(td => td.option_id === decision?.options.find(o => o.label === "B")?.id).length,
-      C: teamDecisions.filter(td => td.option_id === decision?.options.find(o => o.label === "C")?.id).length,
+      A: decisionVotes.filter(td => td.option_id === decision?.options.find(o => o.label === "A")?.id).length,
+      B: decisionVotes.filter(td => td.option_id === decision?.options.find(o => o.label === "B")?.id).length,
+      C: decisionVotes.filter(td => td.option_id === decision?.options.find(o => o.label === "C")?.id).length,
     };
+    const [pctA, pctB, pctC] = roundedPercentages([optionVotes.A, optionVotes.B, optionVotes.C]);
     const optionPcts = {
-      A: totalVotes > 0 ? Math.round((optionVotes.A / totalVotes) * 100) : 0,
-      B: totalVotes > 0 ? Math.round((optionVotes.B / totalVotes) * 100) : 0,
-      C: totalVotes > 0 ? Math.round((optionVotes.C / totalVotes) * 100) : 0,
+      A: pctA,
+      B: pctB,
+      C: pctC,
     };
 
     return (
@@ -1674,6 +1931,10 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
                       );
                     })}
                   </div>
+                  <div className="rounded-lg border bg-muted/50 p-3 text-sm">
+                    <span className="text-muted-foreground">You voted: </span>
+                    <strong>{selectedOpt ? `${selectedOpt.label}. ${selectedOpt.title}` : "No submitted choice found"}</strong>
+                  </div>
                 </CardContent>
               </Card>
 
@@ -1681,14 +1942,16 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
                 <Button
                   variant="outline"
                   onClick={() => {
-                    setReturnToStep(currentStep);
-                    setReturnToConsequence(true);
-                    setCurrentStep(currentStep);
+                    if (!decision || !selectedOpt) return;
+                    setCurrentStep(4);
+                    setSelectedOption(selectedOpt.id);
+                    setCurrentConsequence(selectedOpt.consequence || "Your choice has been recorded.");
+                    setShowConsequence(true);
                   }}
                   className="min-h-[44px]"
                 >
                   <ArrowLeft className="mr-2 h-4 w-4 shrink-0" />
-                  Back
+                  Back to Consequence
                 </Button>
                 <Button onClick={continueToNext} className="min-h-[48px]">
                   Continue to Reflection

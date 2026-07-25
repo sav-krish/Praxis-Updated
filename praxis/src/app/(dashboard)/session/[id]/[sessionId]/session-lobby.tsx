@@ -271,7 +271,7 @@ export function SessionLobby({
     }
   };
 
-  const assignProfilesToParticipants = async () => {
+  const assignProfilesToParticipants = useCallback(async () => {
     if (!simulation.hidden_profiles_enabled || profiles.length === 0) return;
     const supabase = createClient();
     const unassigned = participants.filter(p => !p.profile_id);
@@ -289,7 +289,7 @@ export function SessionLobby({
       .eq("session_id", session.id)
       .order("joined_at", { ascending: true });
     if (data) setParticipants(data);
-  };
+  }, [participants, profiles, session.id, simulation.hidden_profiles_enabled]);
 
   const reassignProfile = async (participantId: string, profileId: string) => {
     const supabase = createClient();

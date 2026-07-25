@@ -210,7 +210,7 @@ function SignupForm() {
                 <div className="space-y-2">
                   <Label>Career interests (optional)</Label>
                   <p className="text-xs text-muted-foreground">
-                    Select the career paths you're most interested in.
+                    Select the career paths you&apos;re most interested in.
                   </p>
                   <div className="flex flex-wrap gap-2 mt-1">
                     {CAREER_INTERESTS.map((interest) => (

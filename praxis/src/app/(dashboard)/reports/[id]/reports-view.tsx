@@ -16,7 +16,6 @@ import {
   Download, 
   Users, 
   BarChart3,
-  MessageSquare,
   Trophy,
   BookOpen,
   Loader2,

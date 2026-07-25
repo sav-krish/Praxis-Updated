@@ -12,6 +12,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Loader2, ArrowRight, UserPlus, SkipForward } from "lucide-react";
 import { toast } from "sonner";
+import { ThemeToggle } from "@/components/theme-toggle";
 
 function JoinForm() {
   const router = useRouter();
@@ -122,11 +123,15 @@ function JoinForm() {
     if (pendingJoinData) {
       sessionStorage.setItem(`participant_${session!.id}`, pendingJoinData.participantId);
       sessionStorage.setItem(`participant_name_${session!.id}`, pendingJoinData.participantName);
+      localStorage.setItem("praxis_active_session_code", joinCode.toUpperCase());
+      localStorage.setItem("praxis_guest_participant_id", pendingJoinData.participantId);
     }
     setShowAccountModal(false);
     setPendingJoinData(null);
     // Navigate to play page
-    router.push(`/play/${joinCode.toUpperCase()}`);
+    router.push(
+      `/play/${joinCode.toUpperCase()}?participantId=${encodeURIComponent(pendingJoinData?.participantId ?? "")}&participantName=${encodeURIComponent(pendingJoinData?.participantName ?? "")}`,
+    );
   };
 
   // Show a spinner while verifying a returning student
@@ -143,6 +148,9 @@ function JoinForm() {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-muted/50 px-4 py-6">
+      <div className="fixed right-4 top-4 z-20 rounded-full border bg-background/90 shadow-sm backdrop-blur">
+        <ThemeToggle />
+      </div>
       <Card className="w-full max-w-md max-h-[calc(100dvh-3rem)] overflow-auto">
         <CardHeader className="text-center">
           <Link href="/" className="flex items-center justify-center gap-2 mb-4">

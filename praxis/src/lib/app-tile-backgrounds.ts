@@ -12,6 +12,24 @@ export const APP_TILE_BACKGROUNDS = [
   "bg-[linear-gradient(160deg,#ffe4ce_0%,#fff1e5_50%,#ffc795_100%)]",
 ] as const;
 
+const SIMULATION_ICON_COLORS = [
+  "bg-[#213c27] text-[#b9d8bd]",
+  "bg-[#203447] text-[#b8cee2]",
+  "bg-[#352944] text-[#d0c0df]",
+  "bg-[#45272a] text-[#e0bfc1]",
+  "bg-[#183b3b] text-[#add7d5]",
+  "bg-[#433326] text-[#dbc4ae]",
+  "bg-[#333a24] text-[#ccd5ae]",
+] as const;
+
+export function simulationIconColorForId(id: string): string {
+  let hash = 0;
+  for (let index = 0; index < id.length; index += 1) {
+    hash = (hash * 31 + id.charCodeAt(index)) | 0;
+  }
+  return SIMULATION_ICON_COLORS[Math.abs(hash) % SIMULATION_ICON_COLORS.length];
+}
+
 export type AppTileBackground = (typeof APP_TILE_BACKGROUNDS)[number];
 
 /** DB / product difficulty levels mapped 1:1 to the three pastel gradients. */

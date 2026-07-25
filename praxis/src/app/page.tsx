@@ -8,6 +8,7 @@ import { FadeIn } from "@/components/landing/fade-in";
 import { HowItWorksHorizontalScroll } from "@/components/landing/how-it-works";
 import { FaqSection } from "@/components/landing/faq-section";
 import { LandingBackground } from "@/components/landing/landing-background";
+import { ThemeToggle } from "@/components/theme-toggle";
 
 /* ─────────────────────────── Data ─────────────────────────── */
 
@@ -195,6 +196,7 @@ export default function HomePage() {
             ))}
           </div>
           <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
+            <ThemeToggle />
             <Link
               href="/join"
               className="hidden md:inline-flex items-center"
@@ -240,7 +242,7 @@ export default function HomePage() {
           <FadeIn className="mx-auto max-w-3xl text-center">
             <h1 className="mt-4 text-4xl font-bold leading-[1.12] text-ink md:text-[3.25rem]">
               Prepare students for the{" "}
-              <span className="bg-gradient-to-r from-accent via-[#f9792a] to-[#f76224] bg-clip-text text-transparent">
+              <span className="text-accent">
                 real decisions
               </span>{" "}
               AI can&apos;t make.
@@ -308,7 +310,7 @@ export default function HomePage() {
             ].map((card, i) => (
               <FadeIn key={card.label} delay={i * 0.1} className="h-full min-h-0">
                 <div
-                  className={`flex h-full min-h-[280px] w-full flex-col items-center justify-center rounded-3xl p-7 text-center shadow-[0_24px_60px_-28px_rgba(15,36,71,0.22)] ring-1 ring-white/50 md:min-h-[300px] md:p-8 ${LANDING_TILE_BACKGROUNDS[i % 3]}`}
+                  className={`landing-tile flex h-full min-h-[280px] w-full flex-col items-center justify-center rounded-3xl p-7 text-center shadow-[0_24px_60px_-28px_rgba(15,36,71,0.22)] ring-1 ring-white/50 md:min-h-[300px] md:p-8 ${LANDING_TILE_BACKGROUNDS[i % 3]}`}
                 >
                   <div className="space-y-3">
                     <p className="text-[3.6rem] font-black leading-none tracking-[-0.05em] text-accent md:text-[4.8rem]">
@@ -329,7 +331,7 @@ export default function HomePage() {
           <FadeIn className="mt-10 max-w-2xl mx-auto">
             <div className="rounded-3xl shadow-subtle animate-aurora-border">
               <div
-                className={`rounded-[calc(1.5rem-1.5px)] px-6 py-6 text-center ${LANDING_TILE_BACKGROUNDS[0]}`}
+                className={`landing-tile rounded-[calc(1.5rem-1.5px)] px-6 py-6 text-center ${LANDING_TILE_BACKGROUNDS[0]}`}
               >
                 <p className="text-lg font-semibold text-ink md:text-xl leading-snug">
                   &ldquo;At the very moment deeper learning matters most, it is
@@ -383,7 +385,7 @@ export default function HomePage() {
             {impactMetrics.map((metric, i) => (
               <FadeIn key={metric.label} delay={i * 0.12} className="h-full min-h-0">
                 <div
-                  className={`flex h-full min-h-[280px] w-full flex-col items-center justify-center rounded-3xl p-7 text-center shadow-[0_24px_60px_-28px_rgba(15,36,71,0.22)] ring-1 ring-white/50 md:min-h-[300px] md:p-8 ${LANDING_TILE_BACKGROUNDS[i % 3]}`}
+                  className={`landing-tile flex h-full min-h-[280px] w-full flex-col items-center justify-center rounded-3xl p-7 text-center shadow-[0_24px_60px_-28px_rgba(15,36,71,0.22)] ring-1 ring-white/50 md:min-h-[300px] md:p-8 ${LANDING_TILE_BACKGROUNDS[i % 3]}`}
                 >
                   <p
                     className={`leading-none text-accent ${
@@ -430,7 +432,7 @@ export default function HomePage() {
             {testimonials.map((t, i) => (
               <FadeIn key={t.name} delay={i * 0.1} className="h-full min-h-0">
                 <div
-                  className={`flex h-full min-h-[280px] w-full flex-col rounded-3xl p-8 text-left md:min-h-[300px] ${LANDING_TILE_BACKGROUNDS[i % 3]}`}
+                  className={`landing-tile flex h-full min-h-[280px] w-full flex-col rounded-3xl p-8 text-left md:min-h-[300px] ${LANDING_TILE_BACKGROUNDS[i % 3]}`}
                 >
                   <span
                     className="block w-full text-left font-serif text-6xl leading-[0.85] text-accent md:text-7xl"
@@ -462,7 +464,7 @@ export default function HomePage() {
         {/* ── Mailing List ── */}
         <section className="container py-12 md:py-16">
           <FadeIn>
-            <div className="rounded-2xl border border-accent/20 bg-gradient-to-br from-accentSoft/60 via-white/90 to-accentSoft/40 p-8 md:p-12 text-center shadow-soft">
+            <div className="landing-surface rounded-2xl border border-accent/20 bg-gradient-to-br from-accentSoft/60 via-white/90 to-accentSoft/40 p-8 md:p-12 text-center shadow-soft">
               <h2 className="text-2xl font-bold text-ink md:text-3xl">
                 Stay in the loop.
               </h2>

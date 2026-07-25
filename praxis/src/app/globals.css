@@ -50,7 +50,7 @@
   --color-ink: #4a1f10;
   --color-line: #f5d3bd;
   --color-accentSoft: #ffe6d3;
-  --color-sun: #fd8c2e;
+  --color-sun: #e75b0c;
   --shadow-soft: 0 12px 30px rgba(128, 52, 20, 0.16);
   --shadow-subtle: 0 6px 16px rgba(128, 52, 20, 0.12);
   --color-muted-text: #91593a;
@@ -65,65 +65,74 @@
   --popover: oklch(1 0 0);
   --popover-foreground: oklch(0.22 0.02 250);
   /* Praxis orange palette */
-  --primary: #f9792a;
-  --primary-foreground: oklch(0.985 0 0);
+  --primary: #e75b0c;
+  --primary-foreground: #080c11;
   --secondary: #fff0e4;
   --secondary-foreground: #4a1f10;
   --muted: #fff5ec;
   --muted-foreground: #91593a;
-  --accent: #fd8c2e;
+  --accent: #e75b0c;
   --accent-foreground: #4a1f10;
   --destructive: oklch(0.577 0.245 27.325);
   --border: #f5d3bd;
   --input: #fce7d6;
-  --ring: #f9792a;
-  --chart-1: #fd8c2e;
-  --chart-2: #f9792a;
-  --chart-3: #f76224;
+  --ring: #e75b0c;
+  --chart-1: #e75b0c;
+  --chart-2: #f07832;
+  --chart-3: #c94e0a;
   --chart-4: #f9a25e;
   --chart-5: #ffd0a8;
   --sidebar: oklch(0.985 0 0);
   --sidebar-foreground: #4a1f10;
-  --sidebar-primary: #f9792a;
-  --sidebar-primary-foreground: oklch(0.985 0 0);
+  --sidebar-primary: #e75b0c;
+  --sidebar-primary-foreground: #080c11;
   --sidebar-accent: #fff0e4;
   --sidebar-accent-foreground: #4a1f10;
   --sidebar-border: #f5d3bd;
-  --sidebar-ring: #f9792a;
+  --sidebar-ring: #e75b0c;
+  --praxis-page-gradient: linear-gradient(155deg, #fff3e4 0%, #fff7ee 32%, #ffe6d3 62%, #ffd7b6 100%);
+  --praxis-accent-gradient: radial-gradient(ellipse 85% 55% at 15% 12%, rgba(253, 140, 46, 0.14), transparent 52%), radial-gradient(ellipse 75% 50% at 88% 78%, rgba(247, 98, 36, 0.1), transparent 48%);
 }
 
 .dark {
-  --background: #2c140d;
-  --foreground: #fff4ea;
-  --card: #3a1a10;
-  --card-foreground: #fff4ea;
-  --popover: #3a1a10;
-  --popover-foreground: #fff4ea;
-  --primary: #fd8c2e;
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: #4a2417;
-  --secondary-foreground: #fff4ea;
-  --muted: #432015;
-  --muted-foreground: #e6b89a;
-  --accent: #5a2817;
-  --accent-foreground: #fff4ea;
+  --background: #080c11;
+  --foreground: #F7F1E3;
+  --card: #131a22;
+  --card-foreground: #F7F1E3;
+  --popover: #131a22;
+  --popover-foreground: #F7F1E3;
+  --primary: #e75b0c;
+  --primary-foreground: #080c11;
+  --secondary: #1b242e;
+  --secondary-foreground: #F7F1E3;
+  --muted: #161e27;
+  --muted-foreground: #c9c2b4;
+  --accent: #2a211c;
+  --accent-foreground: #F7F1E3;
   --destructive: oklch(0.704 0.191 22.216);
-  --border: #6f3520;
-  --input: #5a2817;
-  --ring: #fd8c2e;
-  --chart-1: #fd8c2e;
-  --chart-2: #f9792a;
-  --chart-3: #f76224;
-  --chart-4: #f9a25e;
-  --chart-5: #ffd0a8;
-  --sidebar: #35170f;
-  --sidebar-foreground: #fff4ea;
-  --sidebar-primary: #fd8c2e;
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: #4a2417;
-  --sidebar-accent-foreground: #fff4ea;
-  --sidebar-border: #6f3520;
-  --sidebar-ring: #fd8c2e;
+  --border: #33404d;
+  --input: #33404d;
+  --ring: #e75b0c;
+  --chart-1: #e75b0c;
+  --chart-2: #4ade80;
+  --chart-3: #fbbf24;
+  --chart-4: #f87171;
+  --chart-5: #60a5fa;
+  --sidebar: #10171f;
+  --sidebar-foreground: #F7F1E3;
+  --sidebar-primary: #e75b0c;
+  --sidebar-primary-foreground: #080c11;
+  --sidebar-accent: #1b242e;
+  --sidebar-accent-foreground: #F7F1E3;
+  --sidebar-border: #33404d;
+  --sidebar-ring: #e75b0c;
+  --color-canvas: #080c11;
+  --color-ink: #F7F1E3;
+  --color-line: #33404d;
+  --color-accentSoft: #2a211c;
+  --color-muted-text: #c9c2b4;
+  --praxis-page-gradient: linear-gradient(155deg, #080c11 0%, #080c11 45%, #10171f 100%);
+  --praxis-accent-gradient: radial-gradient(ellipse 85% 55% at 15% 12%, rgba(231, 91, 12, 0.12), transparent 52%), radial-gradient(ellipse 75% 50% at 88% 78%, rgba(33, 60, 39, 0.12), transparent 48%);
 }
 
 @layer base {
@@ -152,13 +161,13 @@
 
 /* Landing page orange theme */
 [data-landing="true"] {
-  --accent: #fd8c2e;
+  --accent: #e75b0c;
   --accent-foreground: #ffffff;
   --muted: #91593a;
   --muted-foreground: #91593a;
   --background: #fff7ee;
   --foreground: #4a1f10;
-  --primary: #f76224;
+  --primary: #e75b0c;
   --secondary: #ffe6d3;
   --border: #f5d3bd;
 }
@@ -170,8 +179,8 @@
 [data-app="true"] {
   --background: #fff7ee;
   --foreground: #4a1f10;
-  --primary: #f9792a;
-  --primary-foreground: #ffffff;
+  --primary: #e75b0c;
+  --primary-foreground: #080c11;
   --secondary: #ffe6d3;
   --secondary-foreground: #4a1f10;
   /* Accent is the universal hover/focus tint used by ghost & outline Buttons,
@@ -179,7 +188,7 @@
      links. Keep it a soft ink wash so the hover state is always visible on
      light, white, and pastel surfaces alike — without competing with the
      bright sky-blue --primary used for real CTAs. */
-  --accent: rgba(249, 121, 42, 0.12);
+  --accent: rgba(231, 91, 12, 0.12);
   --accent-foreground: #4a1f10;
   --border: #f5d3bd;
   --muted: #fff1e5;
@@ -189,46 +198,142 @@
   --popover: #ffffff;
   --popover-foreground: #4a1f10;
   --input: #fce7d6;
-  --ring: #f9792a;
-  --chart-1: #fd8c2e;
-  --chart-2: #f9792a;
-  --chart-3: #f76224;
+  --ring: #e75b0c;
+  --chart-1: #e75b0c;
+  --chart-2: #f07832;
+  --chart-3: #c94e0a;
   --chart-4: #f9a25e;
   --chart-5: #ffd0a8;
 }
 
-[data-app="true"] .dark {
-  --background: #0f1221;
-  --foreground: #f3f4f6;
-  --card: #1a1d2e;
-  --card-foreground: #f3f4f6;
-  --popover: #1a1d2e;
-  --popover-foreground: #f3f4f6;
-  --primary: #fd8c2e;
-  --primary-foreground: #0f1221;
-  --secondary: #1f2335;
-  --secondary-foreground: #f3f4f6;
-  --muted: #1a1d2e;
-  --muted-foreground: #b8bfc9;
-  --accent: #2a3048;
-  --accent-foreground: #f3f4f6;
-  --destructive: #f87171;
-  --border: #2a3048;
-  --input: #2a3048;
-  --ring: #fd8c2e;
-  --chart-1: #fd8c2e;
-  --chart-2: #f9792a;
-  --chart-3: #f76224;
-  --chart-4: #f9a25e;
-  --chart-5: #ffd0a8;
-  --sidebar: #111222;
-  --sidebar-foreground: #f3f4f6;
-  --sidebar-primary: #fd8c2e;
-  --sidebar-primary-foreground: #0f1221;
-  --sidebar-accent: #1f2335;
-  --sidebar-accent-foreground: #f3f4f6;
-  --sidebar-border: #2a3048;
-  --sidebar-ring: #fd8c2e;
+.dark [data-app="true"],
+.dark [data-landing="true"] {
+  --background: #080c11;
+  --foreground: #F7F1E3;
+  --card: #131a22;
+  --card-foreground: #F7F1E3;
+  --popover: #131a22;
+  --popover-foreground: #F7F1E3;
+  --primary: #e75b0c;
+  --primary-foreground: #080c11;
+  --secondary: #1b242e;
+  --secondary-foreground: #F7F1E3;
+  --muted: #161e27;
+  --muted-foreground: #c9c2b4;
+  --accent: #2a211c;
+  --accent-foreground: #F7F1E3;
+  --border: #33404d;
+  --input: #33404d;
+  --ring: #e75b0c;
+  --sidebar: #10171f;
+  --sidebar-foreground: #F7F1E3;
+  --sidebar-primary: #e75b0c;
+  --sidebar-primary-foreground: #080c11;
+  --sidebar-accent: #1b242e;
+  --sidebar-accent-foreground: #F7F1E3;
+  --sidebar-border: #33404d;
+  --sidebar-ring: #e75b0c;
+  --color-canvas: #080c11;
+  --color-ink: #F7F1E3;
+  --color-line: #33404d;
+  --color-accentSoft: #2a211c;
+  --color-muted-text: #c9c2b4;
+}
+
+.dark body,
+.dark [data-landing="true"],
+.dark [data-app="true"] {
+  background: #080c11;
+  color: #F7F1E3;
+}
+
+.dark header,
+.dark header.bg-white {
+  background-color: #10171f;
+  color: #F7F1E3;
+  border-color: #33404d;
+}
+
+.dark input,
+.dark textarea,
+.dark select {
+  background-color: #131a22;
+  color: #F7F1E3;
+  border-color: #33404d;
+}
+
+.dark input::placeholder,
+.dark textarea::placeholder {
+  color: #b6b1a8;
+}
+
+.dark .bg-white,
+.dark .bg-card {
+  background-color: #131a22;
+}
+
+.dark .text-ink,
+.dark .text-zinc-900,
+.dark .text-zinc-800,
+.dark .text-zinc-700 {
+  color: #F7F1E3;
+}
+
+/* Marketing dark contrast */
+.dark [data-landing="true"] .text-ink {
+  color: #F7F1E3 !important;
+}
+
+.dark [data-landing="true"] .text-muted,
+.dark [data-landing="true"] .text-muted-text {
+  color: #c9c2b4 !important;
+}
+
+.dark [data-landing="true"] .text-accent {
+  color: #e75b0c !important;
+}
+
+.dark [data-landing="true"] .landing-tile,
+.dark [data-landing="true"] .landing-surface {
+  background: #131a22 !important;
+  color: #F7F1E3 !important;
+  border-color: #33404d !important;
+  --tw-ring-color: #33404d;
+}
+
+.dark [data-landing="true"] [class*="bg-white/"],
+.dark [data-landing="true"] [class*="via-white/"] {
+  background-color: #131a22 !important;
+  color: #F7F1E3 !important;
+}
+
+.dark [data-landing="true"] input {
+  background: #131a22 !important;
+  color: #F7F1E3 !important;
+  border-color: #33404d !important;
+}
+
+/* Dashboard dark contrast */
+.dark [data-app="true"] .text-ink {
+  color: #F7F1E3 !important;
+}
+
+.dark [data-app="true"] .text-muted,
+.dark [data-app="true"] .text-muted-text {
+  color: #c9c2b4 !important;
+}
+
+.dark [data-app="true"] [class*="bg-white/"],
+.dark [data-app="true"] [class*="hover:bg-white"]:hover,
+.dark [data-app="true"] [class*="bg-[linear-gradient"],
+.dark [data-app="true"] [style*="background-image"] {
+  background: #131a22 !important;
+  color: #F7F1E3 !important;
+}
+
+.dark [data-app="true"] [class*="border-white"],
+.dark [data-app="true"] [class*="border-ink"] {
+  border-color: #33404d !important;
 }
 
 /* Landing: no horizontal page scroll / scrollbar (wide How it works strip, etc.) */
@@ -269,16 +374,13 @@ html:has([data-landing="true"]) {
 /* ── Praxis Copilot Animations ───────────────────────────────────────── */
 
 @keyframes aurora-border {
-  0%   { border-color: #fd8c2e; box-shadow: 0 0 12px 2px #fd8c2e40; }
-  25%  { border-color: #f9792a; box-shadow: 0 0 16px 3px #f9792a40; }
-  50%  { border-color: #f76224; box-shadow: 0 0 12px 2px #f7622440; }
-  75%  { border-color: #f9792a; box-shadow: 0 0 16px 3px #f9792a40; }
-  100% { border-color: #fd8c2e; box-shadow: 0 0 12px 2px #fd8c2e40; }
+  0%, 100% { border-color: #e75b0c; box-shadow: 0 0 12px 2px #e75b0c40; }
+  50% { border-color: #f07832; box-shadow: 0 0 16px 3px #e75b0c40; }
 }
 
 @keyframes copilot-glow-pulse {
-  0%,100% { box-shadow: 0 0 0 0 #fd8c2e60; }
-  50%      { box-shadow: 0 0 0 8px #fd8c2e20; }
+  0%,100% { box-shadow: 0 0 0 0 #e75b0c60; }
+  50%      { box-shadow: 0 0 0 8px #e75b0c20; }
 }
 
 @keyframes ai-panel-in {
@@ -308,10 +410,9 @@ html:has([data-landing="true"]) {
 .shimmer-label {
   background: linear-gradient(
     90deg,
-    #fd8c2e 0%,
-    #f9792a 40%,
-    #f76224 80%,
-    #fd8c2e 100%
+    #e75b0c 0%,
+    #f07832 50%,
+    #e75b0c 100%
   );
   background-size: 200% auto;
   -webkit-background-clip: text;
