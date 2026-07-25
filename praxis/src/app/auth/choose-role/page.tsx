@@ -14,10 +14,10 @@ function ChooseRoleContent() {
   const nextQuery = next?.startsWith("/") ? `&next=${encodeURIComponent(next)}` : "";
 
   return (
-    <div className="relative isolate min-h-screen text-ink">
+    <div className="relative isolate min-h-screen bg-background text-foreground">
       <LandingBackground />
       <div className="container mx-auto flex min-h-screen items-center justify-center px-4 py-10">
-        <Card className="w-full max-w-lg border-border/80 bg-white/95 shadow-soft">
+        <Card className="w-full max-w-lg border-border bg-card text-card-foreground shadow-soft">
           <CardHeader className="text-center">
             <Link href="/" className="flex items-center justify-center mb-4">
               <span className="inline-flex shrink-0 items-center justify-center rounded-sm bg-white p-0.5">
@@ -31,32 +31,32 @@ function ChooseRoleContent() {
                 />
               </span>
             </Link>
-            <CardTitle className="text-2xl text-ink">How will you use Praxis?</CardTitle>
-            <CardDescription>
+            <CardTitle className="text-2xl text-foreground">How will you use Praxis?</CardTitle>
+            <CardDescription className="text-muted-foreground">
               Choose your role to get the right dashboard and signup experience.
             </CardDescription>
           </CardHeader>
           <CardContent className="grid gap-3 sm:grid-cols-2">
             <Link
               href={`/auth/signup?role=professor${nextQuery}`}
-              className="group flex flex-col items-center gap-3 rounded-2xl border-2 border-border p-6 transition hover:border-accent hover:bg-accentSoft/40"
+              className="group flex flex-col items-center gap-3 rounded-2xl border-2 border-border bg-background/40 p-6 text-foreground transition hover:border-primary hover:bg-accent"
             >
-              <GraduationCap className="h-10 w-10 text-accent" />
+              <GraduationCap className="h-10 w-10 text-primary" />
               <div className="text-center">
-                <p className="font-semibold text-ink">I&apos;m a Professor</p>
-                <p className="mt-1 text-xs text-muted-text">
+                <p className="font-semibold text-foreground">I&apos;m a Professor</p>
+                <p className="mt-1 text-xs text-muted-foreground">
                   Create and run classroom simulations
                 </p>
               </div>
             </Link>
             <Link
               href={`/auth/signup?role=student${nextQuery}`}
-              className="group flex flex-col items-center gap-3 rounded-2xl border-2 border-border p-6 transition hover:border-accent hover:bg-accentSoft/40"
+              className="group flex flex-col items-center gap-3 rounded-2xl border-2 border-border bg-background/40 p-6 text-foreground transition hover:border-primary hover:bg-accent"
             >
-              <BookOpen className="h-10 w-10 text-accent" />
+              <BookOpen className="h-10 w-10 text-primary" />
               <div className="text-center">
-                <p className="font-semibold text-ink">I&apos;m a Student</p>
-                <p className="mt-1 text-xs text-muted-text">
+                <p className="font-semibold text-foreground">I&apos;m a Student</p>
+                <p className="mt-1 text-xs text-muted-foreground">
                   Join sessions and practice in Explore
                 </p>
               </div>
@@ -67,14 +67,14 @@ function ChooseRoleContent() {
               Already have an account?{" "}
               <Link
                 href={`/auth/login${next ? `?next=${encodeURIComponent(next)}` : ""}`}
-                className="text-accent hover:underline font-medium"
+                className="font-medium text-primary hover:underline"
               >
                 Sign in
               </Link>
             </p>
             <p className="mt-3 text-sm text-muted-foreground">
               Joining a class session without an account?{" "}
-              <Link href="/join" className="text-accent hover:underline font-medium">
+              <Link href="/join" className="font-medium text-primary hover:underline">
                 Enter a join code
               </Link>
             </p>
