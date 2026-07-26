@@ -1155,7 +1155,8 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
     const completedDecisionIndex = currentStep - 2;
     if (
       completedDecisionIndex >= 0 &&
-      getSimulationFlowSettings(session?.simulation.preferences).classVotesEnabled
+      getSimulationFlowSettings(session?.simulation.preferences).classVotesEnabled &&
+      participantCount > 1
     ) {
       setClassVotesDecisionIndex(completedDecisionIndex);
       setShowConsequence(false);
@@ -1754,7 +1755,7 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
                       )}
                       <Button onClick={continueToNext} className="w-full sm:w-auto min-h-[48px]">
                         {getSimulationFlowSettings(session?.simulation.preferences)
-                          .classVotesEnabled
+                          .classVotesEnabled && participantCount > 1
                           ? "Proceed to Class Votes →"
                           : decisionIndex < decisions.length - 1
                             ? "Proceed to Next Decision →"
