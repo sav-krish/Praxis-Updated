@@ -120,42 +120,6 @@ export function StudentReportView({
         </Card>
       )}
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Decision Review</CardTitle>
-          <CardDescription>
-            See why each choice was strong, partial, or weak based on the scenario.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          {decisions.length === 0 ? (
-            <div className="rounded-2xl border border-dashed border-border bg-muted/40 p-5 text-sm text-muted-foreground">
-              No saved decision responses were found for this attempt.
-            </div>
-          ) : decisions.map((decision, index) => (
-            <div key={decision.decisionId} className="min-w-0 rounded-2xl border border-border bg-card p-4 text-card-foreground sm:p-5">
-              <div className="flex flex-wrap items-start justify-between gap-2 mb-2">
-                <p className="font-semibold">Decision {index + 1}</p>
-                <Badge className={qualityBadgeClass(decision.quality)}>
-                  {decision.qualityLabel}
-                </Badge>
-              </div>
-              <p className="mb-3 break-words text-sm text-muted-foreground">{decision.prompt}</p>
-              <p className="mb-1 break-words text-sm font-medium">
-                Your choice:{" "}
-                {decision.selectedLabel
-                  ? `${decision.selectedLabel}. ${decision.selectedTitle}`
-                  : "No response recorded"}
-              </p>
-              <p className="text-xs text-muted-foreground mb-3">
-                Points: {decision.score} / {decision.maxScore}
-              </p>
-              <Separator className="my-3" />
-              <p className="break-words text-sm leading-relaxed">{decision.explanation}</p>
-            </div>
-          ))}
-        </CardContent>
-      </Card>
 
       {/* Praxis Copilot for follow-up questions about performance */}
       <CopilotPanel

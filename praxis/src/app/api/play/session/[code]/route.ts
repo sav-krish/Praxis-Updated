@@ -298,25 +298,49 @@ export async function GET(request: NextRequest, { params }: RouteContext) {
   }
 
   if (flowSettings.classVotesEnabled && voteDecision) {
+    const isStudentVotesMode = request.nextUrl.searchParams.get("mode") === "simulation";
+    
     const [voteResult, eligibilityResult, justificationResult] = await Promise.all([
       simulationData.mode === "teams"
         ? supabase
             .from("team_decision_submissions")
             .select("option_id")
-            .eq("session_id", sessionData.id)
             .eq("decision_id", voteDecision.id)
-        : supabase
-            .from("responses")
-            .select("option_id")
             .eq("session_id", sessionData.id)
-            .eq("decision_id", voteDecision.id),
+        : isStudentVotesMode
+          ? supabase
+              .from("responses")
+              .select("option_id")
+              .eq("decision_id", voteDecision.id)
+              .in("session_id", await supabase
+                .from("sessions")
+                .select("id")
+                .eq("simulation_id", simulationData.id)
+                .then(r => r.data?.map(s => s.id) || [])
+              )
+          : supabase
+              .from("responses")
+              .select("option_id")
+              .eq("session_id", sessionData.id)
+              .eq("decision_id", voteDecision.id),
       simulationData.mode === "teams"
         ? supabase
             .from("teams")
             .select("*", { count: "exact", head: true })
             .eq("session_id", sessionData.id)
-        : Promise.resolve({ count: count ?? 0 }),
-      flowSettings.showAnonymousJustifications
+        : isStudentVotesMode
+          ? supabase
+              .from("responses")
+              .select("participant_id", { count: "exact", head: true })
+              .eq("decision_id", voteDecision.id)
+              .in("session_id", await supabase
+                .from("sessions")
+                .select("id")
+                .eq("simulation_id", simulationData.id)
+                .then(r => r.data?.map(s => s.id) || [])
+              )
+          : Promise.resolve({ count: count ?? 0 }),
+      flowSettings.showAnonymousJustifications && !isStudentVotesMode
         ? supabase
             .from("responses")
             .select("option_id, justification")
@@ -330,7 +354,7 @@ export async function GET(request: NextRequest, { params }: RouteContext) {
       totalSubmitted: optionIds.length,
       totalEligible: eligibilityResult.count ?? 0,
       optionIds,
-      justifications: (justificationResult.data ?? []).flatMap((response) => {
+      justifications: isStudentVotesMode ? [] : (justificationResult.data ?? []).flatMap((response) => {
         const text = response.justification?.trim();
         return text && !UNSAFE_JUSTIFICATION.test(text)
           ? [{ optionId: response.option_id, text: text.slice(0, 500) }]

@@ -187,20 +187,20 @@ function roundedPercentages(counts: number[]): number[] {
 }
 
 function SimulationFlowNavigation({
-  decisionCount,
+  classVotesEnabled,
+  votesNavLabel,
   activeStage,
 }: {
-  decisionCount: number;
   classVotesEnabled: boolean;
+  votesNavLabel: string;
   activeStage: string;
 }) {
   const stages = [
     { id: "background", label: "Background", shortLabel: "BG" },
-    ...Array.from({ length: decisionCount }, (_, index) => ({
-      id: `decision-${index + 1}`,
-      label: `Decision ${index + 1}`,
-      shortLabel: `D${index + 1}`,
-    })),
+    { id: "consequence", label: "Consequence", shortLabel: "Result" },
+    ...(classVotesEnabled
+      ? [{ id: "class-votes", label: votesNavLabel, shortLabel: "Votes" }]
+      : []),
     { id: "reflection", label: "Reflection", shortLabel: "Reflect" },
     { id: "complete", label: "Complete", shortLabel: "Done" },
   ];
@@ -487,6 +487,9 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
     if (targetParticipantId) {
       params.set("participantId", targetParticipantId);
     }
+    if (isStudentPortal) {
+      params.set("mode", "simulation");
+    }
     const response = await fetch(`/api/play/session/${code.toUpperCase()}${params.size ? `?${params.toString()}` : ""}`);
     const result = (await response.json().catch(() => null)) as PlaySessionPayload | { error?: string } | null;
     if (!response.ok || !result || !("session" in result)) {
@@ -538,9 +541,9 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
 
     const answeredCount = payload.responses?.length || 0;
     if (answeredCount === 0) return 1;
-    const votesEnabled =
-      getSimulationFlowSettings(payload.session.simulation.preferences).classVotesEnabled &&
-      (payload.participantCount ?? 0) > 1;
+    const votesEnabled = getSimulationFlowSettings(
+      payload.session.simulation.preferences,
+    ).classVotesEnabled;
     const lastAnsweredDecision = payload.decisions[answeredCount - 1];
     const votesSeen =
       !lastAnsweredDecision ||
@@ -557,7 +560,6 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
     if (
       hasCompletedSimulation(payload) ||
       !getSimulationFlowSettings(payload.session.simulation.preferences).classVotesEnabled ||
-      (payload.participantCount ?? 0) <= 1 ||
       payload.responses.length === 0
     ) {
       return null;
@@ -1155,8 +1157,7 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
     const completedDecisionIndex = currentStep - 2;
     if (
       completedDecisionIndex >= 0 &&
-      getSimulationFlowSettings(session?.simulation.preferences).classVotesEnabled &&
-      participantCount > 1
+      getSimulationFlowSettings(session?.simulation.preferences).classVotesEnabled
     ) {
       setClassVotesDecisionIndex(completedDecisionIndex);
       setShowConsequence(false);
@@ -1343,6 +1344,11 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
         poor: "Poor Outcome",
       }[outcomeRating]
     : null;
+  const isStudentPortal = Boolean(studentAttemptId);
+  const votesTitle = isStudentPortal ? "Student Votes" : "Class Votes";
+  const votesDescription = isStudentPortal
+    ? "See how students voted on this decision across everyone who has done this simulation."
+    : "See how your class voted on this decision.";
 
   if (loading) {
     return (
@@ -1446,10 +1452,10 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
                 roleLabel={selectedRoleLabel}
               />
               <SimulationFlowNavigation
-                decisionCount={decisions.length}
                 classVotesEnabled={
                   getSimulationFlowSettings(session?.simulation.preferences).classVotesEnabled
                 }
+                votesNavLabel={votesTitle}
                 activeStage="background"
               />
               <Card>
@@ -1628,10 +1634,10 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
                   roleLabel={selectedRoleLabel}
                 />
                 <SimulationFlowNavigation
-                  decisionCount={decisions.length}
                   classVotesEnabled={
                     getSimulationFlowSettings(session?.simulation.preferences).classVotesEnabled
                   }
+                  votesNavLabel={votesTitle}
                   activeStage="consequence"
                 />
                 <Card>
@@ -1732,10 +1738,7 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
                         <p className="mt-1 text-sm leading-relaxed text-muted-foreground">{aiJustificationFeedback}</p>
                       </div>
                     )}
-                    <div className="flex flex-col sm:flex-row gap-2 justify-between pt-2">
-                      <Badge variant="secondary" className="min-h-[44px] px-4">
-                        Decision submitted
-                      </Badge>
+                    <div className="flex flex-col sm:flex-row gap-2 justify-end pt-2">
                       <Button
                         variant="outline"
                         onClick={() => goToScenario(currentStep, true)}
@@ -1755,8 +1758,8 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
                       )}
                       <Button onClick={continueToNext} className="w-full sm:w-auto min-h-[48px]">
                         {getSimulationFlowSettings(session?.simulation.preferences)
-                          .classVotesEnabled && participantCount > 1
-                          ? "Proceed to Class Votes →"
+                          .classVotesEnabled
+                          ? `Proceed to ${votesTitle} →`
                           : decisionIndex < decisions.length - 1
                             ? "Proceed to Next Decision →"
                             : "Next: Reflection →"}
@@ -1792,11 +1795,11 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
             </div>
             <div className="mx-auto mb-3 max-w-5xl">
               <SimulationFlowNavigation
-                decisionCount={decisions.length}
                 classVotesEnabled={
                   getSimulationFlowSettings(session?.simulation.preferences).classVotesEnabled
                 }
-                activeStage={`decision-${decision.order_num}`}
+                votesNavLabel={votesTitle}
+                activeStage=""
               />
             </div>
             <div className="mx-auto max-w-5xl">
@@ -2091,8 +2094,7 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
     // Class Votes screen (optional step after every consequence)
   if (
     currentStep === 5 &&
-    getSimulationFlowSettings(session?.simulation.preferences).classVotesEnabled &&
-    participantCount > 1
+    getSimulationFlowSettings(session?.simulation.preferences).classVotesEnabled
   ) {
     const decisionIndex = classVotesDecisionIndex ?? Math.max(0, myResponses.length - 1);
     const decision = decisions[decisionIndex];
@@ -2144,14 +2146,14 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
                 roleLabel={selectedRoleLabel}
               />
               <SimulationFlowNavigation
-                decisionCount={decisions.length}
                 classVotesEnabled
+                votesNavLabel={votesTitle}
                 activeStage="class-votes"
               />
               <Card>
                 <CardHeader className="px-4 sm:px-6">
-                  <CardTitle className="text-lg sm:text-xl">Class Votes</CardTitle>
-                  <CardDescription>See how your class voted on this decision.</CardDescription>
+                  <CardTitle className="text-lg sm:text-xl">{votesTitle}</CardTitle>
+                  <CardDescription>{votesDescription}</CardDescription>
                 </CardHeader>
                 <CardContent className="px-4 sm:px-6 space-y-4">
                   <div className="flex w-full flex-wrap items-center gap-2 rounded-lg border bg-muted/40 px-3 py-2 text-sm sm:w-fit">
@@ -2179,7 +2181,7 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
                             : "#86827b",
                       }}
                     >
-                      <div className="grid h-full w-full place-items-center rounded-full bg-card text-center shadow-inner">
+                      <div className="grid h-full w-full place-items-center rounded-full bg-card dark:bg-zinc-900 text-center shadow-inner">
                         <div>
                           <p className="text-3xl font-bold tabular-nums">{totalSubmitted}</p>
                           <p className="text-xs text-muted-foreground">Total votes</p>
@@ -2361,10 +2363,10 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
                 roleLabel={selectedRoleLabel}
               />
               <SimulationFlowNavigation
-                decisionCount={decisions.length}
                 classVotesEnabled={
                   getSimulationFlowSettings(session?.simulation.preferences).classVotesEnabled
                 }
+                votesNavLabel={votesTitle}
                 activeStage="reflection"
               />
               <Button
@@ -2438,10 +2440,10 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
               roleLabel={selectedRoleLabel}
             />
             <SimulationFlowNavigation
-              decisionCount={decisions.length}
               classVotesEnabled={
                 getSimulationFlowSettings(session?.simulation.preferences).classVotesEnabled
               }
+              votesNavLabel={votesTitle}
               activeStage="complete"
             />
             <Card>
