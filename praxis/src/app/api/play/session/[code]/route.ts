@@ -250,6 +250,13 @@ export async function GET(request: NextRequest, { params }: RouteContext) {
   }
 
   const flowSettings = getSimulationFlowSettings(simulationData.preferences);
+  const { data: reflectionResponseData } = participantId
+    ? await supabase
+        .from("reflection_responses")
+        .select("question_id")
+        .eq("session_id", sessionData.id)
+        .eq("participant_id", participantId)
+    : { data: [] };
   const answeredDecisionIds = new Set(
     (responsesData ?? []).map((response) => response.decision_id),
   );
@@ -374,6 +381,9 @@ export async function GET(request: NextRequest, { params }: RouteContext) {
     sources: sourcesData ?? [],
     scenarioImages: scenarioImgData ?? [],
     responses: responsesData ?? [],
+    reflectionResponseQuestionIds: [
+      ...new Set((reflectionResponseData ?? []).map((response) => response.question_id)),
+    ],
   });
 }
 

@@ -156,6 +156,7 @@ interface PlaySessionPayload {
   sources: Array<{ id: string; label: string; url?: string | null; source_type?: string | null }>;
   scenarioImages: Array<{ id: string; storage_path: string; alt_text: string | null; order_num: number }>;
   responses: Array<{ decision_id: string; option_id: string }>;
+  reflectionResponseQuestionIds: string[];
   submissionStatus: {
     decisionId: string;
     submitted: number;
@@ -516,9 +517,25 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
     };
   }
 
+  function hasCompletedSimulation(payload: PlaySessionPayload) {
+    if (payload.session.status === "complete") return true;
+    const storedComplete =
+      typeof window !== "undefined" &&
+      payload.participant &&
+      sessionStorage.getItem(
+        `simulation_completed_${payload.session.id}_${payload.participant.id}`,
+      ) === "1";
+    if (storedComplete) return true;
+    if (payload.reflectionQuestions.length === 0) return false;
+    const answeredReflectionIds = new Set(payload.reflectionResponseQuestionIds);
+    return payload.reflectionQuestions.every((question) =>
+      answeredReflectionIds.has(question.id),
+    );
+  }
+
   function getStepForPayload(payload: PlaySessionPayload) {
     if (payload.session.status === "lobby") return 0;
-    if (payload.session.status === "complete") return 7;
+    if (hasCompletedSimulation(payload)) return 7;
 
     const answeredCount = payload.responses?.length || 0;
     if (answeredCount === 0) return 1;
@@ -539,6 +556,7 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
 
   function getPendingClassVotesDecisionIndex(payload: PlaySessionPayload) {
     if (
+      hasCompletedSimulation(payload) ||
       !getSimulationFlowSettings(payload.session.simulation.preferences).classVotesEnabled ||
       payload.responses.length === 0
     ) {
@@ -1197,18 +1215,39 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
 
     if (!session.is_preview) {
       const supabase = createClient();
-      for (const question of reflectionQuestions) {
-        const answer = reflectionAnswers[question.id];
-        if (answer) {
-          await supabase
-            .from("reflection_responses")
-            .insert({
+      const { data: existingResponses, error: existingResponsesError } = await supabase
+        .from("reflection_responses")
+        .select("question_id")
+        .eq("session_id", session.id)
+        .eq("participant_id", participantId);
+      if (existingResponsesError) {
+        toast.error("Could not save your reflection. Please try again.");
+        setSubmitting(false);
+        return;
+      }
+      const existingQuestionIds = new Set(
+        (existingResponses ?? []).map((response) => response.question_id),
+      );
+      const newResponses = reflectionQuestions.flatMap((question) => {
+        const answer = reflectionAnswers[question.id]?.trim();
+        return answer && !existingQuestionIds.has(question.id)
+          ? [{
               session_id: session.id,
               participant_id: participantId,
               team_id: teamId,
               question_id: question.id,
               response: answer,
-            });
+            }]
+          : [];
+      });
+      if (newResponses.length > 0) {
+        const { error: reflectionError } = await supabase
+          .from("reflection_responses")
+          .insert(newResponses);
+        if (reflectionError) {
+          toast.error("Could not save your reflection. Please try again.");
+          setSubmitting(false);
+          return;
         }
       }
     }
@@ -1240,6 +1279,10 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
       }
     }
 
+    sessionStorage.setItem(
+      `simulation_completed_${session.id}_${participantId}`,
+      "1",
+    );
     setCurrentStep(7);
     setSubmitting(false);
   };
@@ -2184,6 +2227,16 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
                         );
                       })}
                     </div>
+                  </div>
+                  <div className="rounded-xl border-2 border-primary/30 bg-primary/5 p-4">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-primary">
+                      You voted
+                    </p>
+                    <p className="mt-1 font-semibold">
+                      {selectedOpt
+                        ? `${selectedOpt.label}. ${selectedOpt.title}`
+                        : "No submitted choice found"}
+                    </p>
                   </div>
                   {showAnonymousJustifications ? (
                     <div className="rounded-xl border bg-card p-4">
