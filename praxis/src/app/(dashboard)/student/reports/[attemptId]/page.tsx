@@ -149,7 +149,7 @@ export default async function StudentReportPage({ params }: StudentReportPagePro
     return total + Math.max(0, ...optionScores);
   }, 0);
   const calculatedScore =
-    responses.length > 0
+    responses.length > 0 && availableMaxScore > 0
       ? scorePercent(recordedScore, availableMaxScore)
       : attempt.score ?? 0;
 

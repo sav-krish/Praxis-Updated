@@ -32,13 +32,16 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Attempt not found." }, { status: 404 });
   }
 
+  // Use the service role client to bypass RLS when reading responses,
+  // ensuring we can always calculate the correct score.
+  const adminSupabase = createServiceRoleClient();
   const [{ data: decisions }, { data: responses }] = await Promise.all([
-    supabase
+    adminSupabase
       .from("decisions")
       .select("id, options(id, score)")
       .eq("simulation_id", attempt.simulation_id),
     attempt.participant_id
-      ? supabase
+      ? adminSupabase
           .from("responses")
           .select("decision_id, option_id")
           .eq("session_id", attempt.session_id)
@@ -59,14 +62,19 @@ export async function POST(request: NextRequest) {
     (total, response) => total + (optionScores.get(response.option_id) ?? 0),
     0,
   );
-  const percentScore = scorePercent(totalScore, maxScore);
+  // Fall back to client-provided scores if DB recalculation yields nothing
+  const percentScore =
+    responses && responses.length > 0
+      ? scorePercent(totalScore, maxScore)
+      : body.totalScore != null && body.maxScore != null && body.maxScore > 0
+        ? scorePercent(body.totalScore, body.maxScore)
+        : 0;
 
   if (attempt.status === "completed") {
     return NextResponse.json({ attemptId: attempt.id, score: percentScore });
   }
 
   const now = new Date().toISOString();
-  const adminSupabase = createServiceRoleClient();
 
   const { error: attemptError } = await supabase
     .from("student_simulation_attempts")

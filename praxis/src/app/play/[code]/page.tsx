@@ -538,9 +538,9 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
 
     const answeredCount = payload.responses?.length || 0;
     if (answeredCount === 0) return 1;
-    const votesEnabled = getSimulationFlowSettings(
-      payload.session.simulation.preferences,
-    ).classVotesEnabled;
+    const votesEnabled =
+      getSimulationFlowSettings(payload.session.simulation.preferences).classVotesEnabled &&
+      (payload.participantCount ?? 0) > 1;
     const lastAnsweredDecision = payload.decisions[answeredCount - 1];
     const votesSeen =
       !lastAnsweredDecision ||
@@ -557,6 +557,7 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
     if (
       hasCompletedSimulation(payload) ||
       !getSimulationFlowSettings(payload.session.simulation.preferences).classVotesEnabled ||
+      (payload.participantCount ?? 0) <= 1 ||
       payload.responses.length === 0
     ) {
       return null;
@@ -2086,10 +2087,11 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
     );
   }
 
-  // Class Votes screen (optional step after every consequence)
+    // Class Votes screen (optional step after every consequence)
   if (
     currentStep === 5 &&
-    getSimulationFlowSettings(session?.simulation.preferences).classVotesEnabled
+    getSimulationFlowSettings(session?.simulation.preferences).classVotesEnabled &&
+    participantCount > 1
   ) {
     const decisionIndex = classVotesDecisionIndex ?? Math.max(0, myResponses.length - 1);
     const decision = decisions[decisionIndex];
