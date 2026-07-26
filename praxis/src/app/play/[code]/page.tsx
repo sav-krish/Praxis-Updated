@@ -2332,8 +2332,8 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
                   className="min-h-[48px]"
                 >
                   {decisionIndex < decisions.length - 1
-                    ? `Continue to Decision ${decisionIndex + 2}`
-                    : "Continue to Reflection"}
+                    ? "Continue to Next Decision →"
+                    : "Continue to Reflection →"}
                   <ArrowRight className="ml-2 h-4 w-4 shrink-0" />
                 </Button>
               </div>
