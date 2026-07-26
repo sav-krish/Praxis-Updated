@@ -10,7 +10,7 @@ import {
   DropdownMenuTrigger 
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { LogOut, Plus, BookOpen, User, Mail, MessageSquareHeart, CreditCard, Home, BarChart3, Pin } from "lucide-react";
+import { LogOut, Plus, BookOpen, User, Mail, MessageSquareHeart, Home, BarChart3, Pin } from "lucide-react";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { createServiceRoleClient } from "@/lib/supabase/server";
 import { CopilotLazy } from "@/components/copilot/copilot-lazy";
@@ -198,12 +198,6 @@ export default async function DashboardLayout({
                       <Link href="/admin/emails" className="cursor-pointer">
                         <Mail className="mr-2 h-4 w-4" />
                         Admin – Emails
-                      </Link>
-                    </DropdownMenuItem>
-                    <DropdownMenuItem asChild>
-                      <Link href="/pricing" className="cursor-pointer">
-                        <CreditCard className="mr-2 h-4 w-4" />
-                        Pricing
                       </Link>
                     </DropdownMenuItem>
                   </>

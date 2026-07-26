@@ -17,7 +17,7 @@ const navLinks = [
   { label: "About", href: "#about" },
   { label: "FAQ", href: "#faq" },
   { label: "Contact", href: "#contact" },
-  { label: "Pricing", href: "/pricing" },
+  // { label: "Pricing", href: "/pricing" },
 ] as const;
 
 /** Lavender / mint / sky pastel tiles: flat, no border (reference: analyst-style recognition cards). */

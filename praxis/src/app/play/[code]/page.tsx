@@ -188,7 +188,6 @@ function roundedPercentages(counts: number[]): number[] {
 
 function SimulationFlowNavigation({
   decisionCount,
-  classVotesEnabled,
   activeStage,
 }: {
   decisionCount: number;
@@ -2122,12 +2121,6 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
     const showAnonymousJustifications = getSimulationFlowSettings(
       session?.simulation.preferences,
     ).showAnonymousJustifications;
-    const highestVoteCount = Math.max(0, ...optionCounts);
-    const winningIndexes = optionCounts.flatMap((count, index) =>
-      count === highestVoteCount && count > 0 ? [index] : [],
-    );
-    const winningOption =
-      winningIndexes.length === 1 ? decision?.options[winningIndexes[0]] : null;
     const activeJustificationOption =
       decision?.options.find((option) => option.label === justificationVoteTab) ??
       decision?.options[0];
@@ -2158,7 +2151,7 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
                   <CardDescription>See how your class voted on this decision.</CardDescription>
                 </CardHeader>
                 <CardContent className="px-4 sm:px-6 space-y-4">
-                  <div className="inline-flex items-center gap-3 rounded-lg border bg-muted/40 px-3 py-2 text-sm">
+                  <div className="flex w-full flex-wrap items-center gap-2 rounded-lg border bg-muted/40 px-3 py-2 text-sm sm:w-fit">
                     <span className="font-medium tabular-nums">
                       {totalSubmitted} vote{totalSubmitted === 1 ? "" : "s"}
                     </span>
@@ -2169,7 +2162,7 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
                           {totalSubmitted}/{totalEligible}
                         </span>
                         <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
-                          {submittedPercentage}%
+                          {submittedPercentage}% submitted
                         </Badge>
                       </>
                     ) : null}
@@ -2202,7 +2195,7 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
                               isChosen ? "border-primary/50 bg-primary/5" : "bg-card"
                             }`}
                           >
-                            <div className="flex items-start justify-between gap-4">
+                            <div className="flex flex-wrap items-start justify-between gap-3">
                               <div className="flex min-w-0 items-start gap-3">
                                 <span
                                   className="grid h-8 w-8 shrink-0 place-items-center rounded-full font-bold text-white"
@@ -2219,7 +2212,7 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
                                   ) : null}
                                 </div>
                               </div>
-                              <span className="shrink-0 text-lg font-bold tabular-nums">
+                              <span className="shrink-0 text-base font-bold tabular-nums sm:text-lg">
                                 {count} · {pct}%
                               </span>
                             </div>
@@ -2227,16 +2220,6 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
                         );
                       })}
                     </div>
-                  </div>
-                  <div className="rounded-xl border-2 border-primary/30 bg-primary/5 p-4">
-                    <p className="text-xs font-semibold uppercase tracking-wide text-primary">
-                      You voted
-                    </p>
-                    <p className="mt-1 font-semibold">
-                      {selectedOpt
-                        ? `${selectedOpt.label}. ${selectedOpt.title}`
-                        : "No submitted choice found"}
-                    </p>
                   </div>
                   {showAnonymousJustifications ? (
                     <div className="rounded-xl border bg-card p-4">

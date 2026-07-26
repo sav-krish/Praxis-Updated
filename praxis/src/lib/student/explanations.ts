@@ -64,7 +64,11 @@ export function buildDecisionExplanations(
     const response = responses.find((r) => r.decision_id === decision.id);
     const selected = decision.options.find((o) => o.id === response?.option_id) ?? null;
     const score = selected?.score ?? 0;
-    const quality = decisionQualityFromScore(score);
+    const maxScore = Math.max(
+      0,
+      ...decision.options.map((option) => option.score ?? 0),
+    );
+    const quality = decisionQualityFromScore(score, maxScore);
 
     return {
       decisionId: decision.id,
@@ -74,7 +78,7 @@ export function buildDecisionExplanations(
       selectedLabel: selected?.label ?? null,
       selectedTitle: selected?.title ?? null,
       score,
-      maxScore: 3,
+      maxScore,
       quality,
       qualityLabel: decisionQualityLabel(quality),
       explanation: explanationText(quality, selected?.consequence ?? null, selected?.title ?? null),

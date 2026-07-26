@@ -22,19 +22,44 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "attemptId is required." }, { status: 400 });
   }
 
-  const totalScore = body.totalScore ?? 0;
-  const maxScore = body.maxScore ?? 0;
-  const percentScore = scorePercent(totalScore, maxScore);
-
   const { data: attempt } = await supabase
     .from("student_simulation_attempts")
-    .select("id, student_id, session_id, status")
+    .select("id, student_id, simulation_id, session_id, participant_id, status")
     .eq("id", body.attemptId)
     .single();
 
   if (!attempt || attempt.student_id !== user.id) {
     return NextResponse.json({ error: "Attempt not found." }, { status: 404 });
   }
+
+  const [{ data: decisions }, { data: responses }] = await Promise.all([
+    supabase
+      .from("decisions")
+      .select("id, options(id, score)")
+      .eq("simulation_id", attempt.simulation_id),
+    attempt.participant_id
+      ? supabase
+          .from("responses")
+          .select("decision_id, option_id")
+          .eq("session_id", attempt.session_id)
+          .eq("participant_id", attempt.participant_id)
+      : Promise.resolve({ data: [] }),
+  ]);
+  const optionScores = new Map<string, number>();
+  let maxScore = 0;
+  for (const decision of decisions ?? []) {
+    const scores = (decision.options ?? []).map((option) => {
+      const score = option.score ?? 0;
+      optionScores.set(option.id, score);
+      return score;
+    });
+    maxScore += Math.max(0, ...scores);
+  }
+  const totalScore = (responses ?? []).reduce(
+    (total, response) => total + (optionScores.get(response.option_id) ?? 0),
+    0,
+  );
+  const percentScore = scorePercent(totalScore, maxScore);
 
   if (attempt.status === "completed") {
     return NextResponse.json({ attemptId: attempt.id, score: percentScore });

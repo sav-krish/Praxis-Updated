@@ -1,6 +1,7 @@
 import { notFound, redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { buildDecisionExplanations } from "@/lib/student/explanations";
+import { scorePercent } from "@/lib/student/scoring";
 import { StudentReportView } from "@/components/student/student-report-view";
 
 interface StudentReportPageProps {
@@ -21,7 +22,7 @@ export default async function StudentReportPage({ params }: StudentReportPagePro
   const { data: attempt } = await supabase
     .from("student_simulation_attempts")
     .select(
-      `id, student_id, session_id, status, score, completed_at,
+      `id, student_id, session_id, participant_id, status, score, completed_at,
        simulation:simulations(id, title)`
     )
     .eq("id", attemptId)
@@ -49,12 +50,19 @@ export default async function StudentReportPage({ params }: StudentReportPagePro
     .eq("simulation_id", simulation.id)
     .order("order_num", { ascending: true });
 
-  const { data: participant } = await supabase
-    .from("participants")
-    .select("id, team_id")
-    .eq("session_id", attempt.session_id)
-    .eq("user_id", user.id)
-    .maybeSingle();
+  const { data: participant } = attempt.participant_id
+    ? await supabase
+        .from("participants")
+        .select("id, team_id")
+        .eq("id", attempt.participant_id)
+        .eq("session_id", attempt.session_id)
+        .maybeSingle()
+    : await supabase
+        .from("participants")
+        .select("id, team_id")
+        .eq("session_id", attempt.session_id)
+        .eq("user_id", user.id)
+        .maybeSingle();
 
   let responses: { decision_id: string; option_id: string }[] = [];
   if (participant) {
@@ -130,11 +138,25 @@ export default async function StudentReportPage({ params }: StudentReportPagePro
     })),
     responses
   );
+  const recordedScore = decisionExplanations.reduce(
+    (total, decision) => total + decision.score,
+    0,
+  );
+  const availableMaxScore = (decisions ?? []).reduce((total, decision) => {
+    const optionScores = (
+      decision.options as Array<{ score: number }> | null
+    )?.map((option) => option.score ?? 0) ?? [];
+    return total + Math.max(0, ...optionScores);
+  }, 0);
+  const calculatedScore =
+    responses.length > 0
+      ? scorePercent(recordedScore, availableMaxScore)
+      : attempt.score ?? 0;
 
   return (
     <StudentReportView
       simulationTitle={simulation.title}
-      score={attempt.score ?? 0}
+      score={calculatedScore}
       teamScore={teamScore}
       completedAt={attempt.completed_at}
       decisions={decisionExplanations}

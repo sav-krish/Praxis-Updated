@@ -101,7 +101,7 @@ export function StudentDashboardView({
                     attemptId={attempt.id}
                     footer={
                       <div className="flex w-full flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                        <span className="text-sm font-semibold text-accent">
+                        <span className="text-sm font-semibold text-[#9f3805] dark:text-[#ffad7a]">
                           Score: {attempt.score ?? 0}%
                         </span>
                         <Button asChild variant="outline" className="min-h-[44px]">

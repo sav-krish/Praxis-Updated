@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { trackForSimulation, STUDENT_TRACKS, type StudentTrackId } from "./tracks";
+import { scorePercent } from "./scoring";
 
 export type StudentSimulationCard = {
   id: string;
@@ -55,7 +56,7 @@ export async function fetchStudentDashboardData(userId: string) {
     supabase
       .from("student_simulation_attempts")
       .select(
-        `id, simulation_id, status, score, source, started_at, completed_at,
+        `id, simulation_id, session_id, participant_id, status, score, source, started_at, completed_at,
          simulation:simulations(${PUBLIC_SIM_COLUMNS})`
       )
       .eq("student_id", userId)
@@ -69,6 +70,50 @@ export async function fetchStudentDashboardData(userId: string) {
 
   const completedAttempts = (attempts ?? []).filter((a) => a.status === "completed");
   const inProgressAttempts = (attempts ?? []).filter((a) => a.status === "in_progress");
+  const completedParticipantIds = completedAttempts.flatMap((attempt) =>
+    attempt.participant_id ? [attempt.participant_id] : [],
+  );
+  const completedSimulationIdList = [...new Set(
+    completedAttempts.map((attempt) => attempt.simulation_id),
+  )];
+  const [{ data: completedResponses }, { data: completedDecisions }] =
+    await Promise.all([
+      completedParticipantIds.length > 0
+        ? supabase
+            .from("responses")
+            .select("participant_id, option_id")
+            .in("participant_id", completedParticipantIds)
+        : Promise.resolve({ data: [] }),
+      completedSimulationIdList.length > 0
+        ? supabase
+            .from("decisions")
+            .select("simulation_id, options(id, score)")
+            .in("simulation_id", completedSimulationIdList)
+        : Promise.resolve({ data: [] }),
+    ]);
+  const optionScoreById = new Map<string, number>();
+  const maxScoreBySimulation = new Map<string, number>();
+  for (const decision of completedDecisions ?? []) {
+    const scores = (decision.options ?? []).map((option) => {
+      const score = option.score ?? 0;
+      optionScoreById.set(option.id, score);
+      return score;
+    });
+    maxScoreBySimulation.set(
+      decision.simulation_id,
+      (maxScoreBySimulation.get(decision.simulation_id) ?? 0) +
+        Math.max(0, ...scores),
+    );
+  }
+  const earnedScoreByParticipant = new Map<string, number>();
+  for (const response of completedResponses ?? []) {
+    if (!response.participant_id) continue;
+    earnedScoreByParticipant.set(
+      response.participant_id,
+      (earnedScoreByParticipant.get(response.participant_id) ?? 0) +
+        (optionScoreById.get(response.option_id) ?? 0),
+    );
+  }
 
   const completedSimulationIds = new Set(
     completedAttempts.map((a) => a.simulation_id)
@@ -163,7 +208,12 @@ export async function fetchStudentDashboardData(userId: string) {
           id: row.id,
           simulation_id: row.simulation_id,
           status: row.status,
-          score: row.score,
+          score: row.participant_id
+            ? scorePercent(
+                earnedScoreByParticipant.get(row.participant_id) ?? 0,
+                maxScoreBySimulation.get(row.simulation_id) ?? 0,
+              )
+            : row.score,
           source: row.source,
           started_at: row.started_at,
           completed_at: row.completed_at,
