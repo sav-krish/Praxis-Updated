@@ -70,6 +70,28 @@ export async function fetchStudentDashboardData(userId: string) {
 
   const completedAttempts = (attempts ?? []).filter((a) => a.status === "completed");
   const inProgressAttempts = (attempts ?? []).filter((a) => a.status === "in_progress");
+
+  // For attempts missing participant_id, look up the participant from the session
+  const attemptsNeedingParticipantLookup = completedAttempts.filter(a => !a.participant_id && a.session_id);
+  if (attemptsNeedingParticipantLookup.length > 0) {
+    const sessionIds = attemptsNeedingParticipantLookup.map(a => a.session_id);
+    const { data: participants } = await supabase
+      .from("participants")
+      .select("id, session_id")
+      .in("session_id", sessionIds)
+      .eq("user_id", userId);
+
+    if (participants && participants.length > 0) {
+      const participantBySession = new Map(participants.map(p => [p.session_id, p.id]));
+      for (const attempt of attemptsNeedingParticipantLookup) {
+        const participantId = participantBySession.get(attempt.session_id);
+        if (participantId) {
+          attempt.participant_id = participantId;
+        }
+      }
+    }
+  }
+
   const completedParticipantIds = completedAttempts.flatMap((attempt) =>
     attempt.participant_id ? [attempt.participant_id] : [],
   );
@@ -218,16 +240,22 @@ export async function fetchStudentDashboardData(userId: string) {
           } | null
         );
         if (!simulation) return null;
+        
+        // Calculate score from responses if we have participant_id and maxScore
+        let calculatedScore = row.score;
+        if (row.participant_id && row.simulation_id) {
+          const earnedScore = earnedScoreByParticipantSimulation.get(`${row.participant_id}:${row.simulation_id}`) ?? 0;
+          const maxScore = maxScoreBySimulation.get(row.simulation_id) ?? 0;
+          if (maxScore > 0) {
+            calculatedScore = scorePercent(earnedScore, maxScore);
+          }
+        }
+        
         return {
           id: row.id,
           simulation_id: row.simulation_id,
           status: row.status,
-          score: row.participant_id && row.simulation_id
-            ? scorePercent(
-                earnedScoreByParticipantSimulation.get(`${row.participant_id}:${row.simulation_id}`) ?? 0,
-                maxScoreBySimulation.get(row.simulation_id) ?? 0,
-              )
-            : row.score,
+          score: calculatedScore,
           source: row.source,
           started_at: row.started_at,
           completed_at: row.completed_at,
