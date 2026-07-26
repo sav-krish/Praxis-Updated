@@ -42,10 +42,16 @@ export function DataBlockChartRenderer({ block }: { block: SimulationDataBlock }
         <div className="h-[220px] min-w-[280px]">
           <ResponsiveContainer width="100%" height="100%">
             <BarChart data={chartData}>
-              <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-              <XAxis dataKey="name" tick={{ fontSize: 12 }} />
-              <YAxis tick={{ fontSize: 12 }} />
-              <Tooltip />
+              <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
+              <XAxis dataKey="name" tick={{ fontSize: 12, fill: "var(--muted-foreground)" }} />
+              <YAxis tick={{ fontSize: 12, fill: "var(--muted-foreground)" }} />
+              <Tooltip
+                contentStyle={{
+                  backgroundColor: "var(--card)",
+                  borderColor: "var(--border)",
+                  color: "var(--foreground)",
+                }}
+              />
               <Bar dataKey="value" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
@@ -96,23 +102,28 @@ export function DataBlockChartRenderer({ block }: { block: SimulationDataBlock }
         <div className="h-[220px] min-w-[280px]">
           <ResponsiveContainer width="100%" height="100%">
             <LineChart data={chartData}>
-              <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+              <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
               <XAxis
                 dataKey="name"
-                tick={{ fontSize: 12 }}
-                label={data.xLabel ? { value: data.xLabel, position: "insideBottom", offset: -4 } : undefined}
+                tick={{ fontSize: 12, fill: "var(--muted-foreground)" }}
+                label={data.xLabel ? { value: data.xLabel, position: "insideBottom", offset: -4, fill: "var(--muted-foreground)" } : undefined}
               />
               <YAxis
-                tick={{ fontSize: 12 }}
-                label={data.yLabel ? { value: data.yLabel, angle: -90, position: "insideLeft" } : undefined}
+                tick={{ fontSize: 12, fill: "var(--muted-foreground)" }}
+                label={data.yLabel ? { value: data.yLabel, angle: -90, position: "insideLeft", fill: "var(--muted-foreground)" } : undefined}
               />
               <Tooltip
                 formatter={(value: string | number | readonly (string | number)[] | null | undefined) => [
                   Array.isArray(value) ? value.join(", ") : (value ?? "—"),
                   data.yLabel || "Value",
                 ]}
+                contentStyle={{
+                  backgroundColor: "var(--card)",
+                  borderColor: "var(--border)",
+                  color: "var(--foreground)",
+                }}
               />
-              <Legend />
+              <Legend wrapperStyle={{ color: "var(--foreground)" }} />
               {series.map((s, i) => (
                 <Line
                   key={s.key}
@@ -167,6 +178,7 @@ export function DataBlockChartRenderer({ block }: { block: SimulationDataBlock }
                 paddingAngle={2}
                 dataKey="value"
                 label={({ name, percent }) => `${name} ${((percent ?? 0) * 100).toFixed(0)}%`}
+                labelLine={{ stroke: "var(--muted-foreground)" }}
               >
                 {chartData.map((_, index) => (
                   <Cell key={index} fill={colors[index % colors.length]} />
@@ -176,6 +188,11 @@ export function DataBlockChartRenderer({ block }: { block: SimulationDataBlock }
                 formatter={(
                   value: string | number | readonly (string | number)[] | null | undefined,
                 ) => [Array.isArray(value) ? value.join(", ") : (value ?? 0), ""]}
+                contentStyle={{
+                  backgroundColor: "var(--card)",
+                  borderColor: "var(--border)",
+                  color: "var(--foreground)",
+                }}
               />
             </PieChart>
           </ResponsiveContainer>
