@@ -76,13 +76,23 @@ export async function fetchStudentDashboardData(userId: string) {
   const completedSimulationIdList = [...new Set(
     completedAttempts.map((attempt) => attempt.simulation_id),
   )];
+
+  // Build a map of participant_id -> simulation_id for completed attempts
+  const participantToSimulation = new Map<string, string>();
+  for (const attempt of completedAttempts) {
+    if (attempt.participant_id && attempt.simulation_id) {
+      participantToSimulation.set(attempt.participant_id, attempt.simulation_id);
+    }
+  }
+
   const [{ data: completedResponses }, { data: completedDecisions }] =
     await Promise.all([
-      completedParticipantIds.length > 0
+      completedSimulationIdList.length > 0 && completedParticipantIds.length > 0
         ? supabase
             .from("responses")
-            .select("participant_id, option_id")
+            .select("participant_id, option_id, session_id")
             .in("participant_id", completedParticipantIds)
+            .in("session_id", completedAttempts.map(a => a.session_id).filter(Boolean))
         : Promise.resolve({ data: [] }),
       completedSimulationIdList.length > 0
         ? supabase
@@ -105,12 +115,16 @@ export async function fetchStudentDashboardData(userId: string) {
         Math.max(0, ...scores),
     );
   }
-  const earnedScoreByParticipant = new Map<string, number>();
+  // Calculate earned score per participant per simulation
+  const earnedScoreByParticipantSimulation = new Map<string, number>();
   for (const response of completedResponses ?? []) {
-    if (!response.participant_id) continue;
-    earnedScoreByParticipant.set(
-      response.participant_id,
-      (earnedScoreByParticipant.get(response.participant_id) ?? 0) +
+    if (!response.participant_id || !response.session_id) continue;
+    const simulationId = participantToSimulation.get(response.participant_id);
+    if (!simulationId) continue;
+    const key = `${response.participant_id}:${simulationId}`;
+    earnedScoreByParticipantSimulation.set(
+      key,
+      (earnedScoreByParticipantSimulation.get(key) ?? 0) +
         (optionScoreById.get(response.option_id) ?? 0),
     );
   }
@@ -208,9 +222,9 @@ export async function fetchStudentDashboardData(userId: string) {
           id: row.id,
           simulation_id: row.simulation_id,
           status: row.status,
-          score: row.participant_id
+          score: row.participant_id && row.simulation_id
             ? scorePercent(
-                earnedScoreByParticipant.get(row.participant_id) ?? 0,
+                earnedScoreByParticipantSimulation.get(`${row.participant_id}:${row.simulation_id}`) ?? 0,
                 maxScoreBySimulation.get(row.simulation_id) ?? 0,
               )
             : row.score,
