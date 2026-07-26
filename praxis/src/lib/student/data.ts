@@ -25,7 +25,7 @@ export type StudentAttemptRow = {
   id: string;
   simulation_id: string;
   status: "in_progress" | "completed";
-  score: number | null;
+  score: number;
   source: "classroom" | "explore";
   started_at: string;
   completed_at: string | null;
@@ -107,48 +107,47 @@ export async function fetchStudentDashboardData(userId: string) {
     }
   }
 
-  const [{ data: completedResponses }, { data: completedDecisions }] =
-    await Promise.all([
-      completedSimulationIdList.length > 0 && completedParticipantIds.length > 0
-        ? supabase
-            .from("responses")
-            .select("participant_id, option_id, session_id")
-            .in("participant_id", completedParticipantIds)
-            .in("session_id", completedAttempts.map(a => a.session_id).filter(Boolean))
-        : Promise.resolve({ data: [] }),
-      completedSimulationIdList.length > 0
-        ? supabase
-            .from("decisions")
-            .select("simulation_id, options(id, score)")
-            .in("simulation_id", completedSimulationIdList)
-        : Promise.resolve({ data: [] }),
+  let earnedScoreByParticipantSimulation = new Map<string, number>();
+  let maxScoreBySimulation = new Map<string, number>();
+
+  if (completedSimulationIdList.length > 0 && completedParticipantIds.length > 0) {
+    const [{ data: completedResponses }, { data: completedDecisions }] = await Promise.all([
+      supabase
+        .from("responses")
+        .select("participant_id, option_id, session_id")
+        .in("participant_id", completedParticipantIds)
+        .in("session_id", completedAttempts.map(a => a.session_id).filter(Boolean)),
+      supabase
+        .from("decisions")
+        .select("simulation_id, options(id, score)")
+        .in("simulation_id", completedSimulationIdList),
     ]);
-  const optionScoreById = new Map<string, number>();
-  const maxScoreBySimulation = new Map<string, number>();
-  for (const decision of completedDecisions ?? []) {
-    const scores = (decision.options ?? []).map((option) => {
-      const score = option.score ?? 0;
-      optionScoreById.set(option.id, score);
-      return score;
-    });
-    maxScoreBySimulation.set(
-      decision.simulation_id,
-      (maxScoreBySimulation.get(decision.simulation_id) ?? 0) +
-        Math.max(0, ...scores),
-    );
-  }
-  // Calculate earned score per participant per simulation
-  const earnedScoreByParticipantSimulation = new Map<string, number>();
-  for (const response of completedResponses ?? []) {
-    if (!response.participant_id || !response.session_id) continue;
-    const simulationId = participantToSimulation.get(response.participant_id);
-    if (!simulationId) continue;
-    const key = `${response.participant_id}:${simulationId}`;
-    earnedScoreByParticipantSimulation.set(
-      key,
-      (earnedScoreByParticipantSimulation.get(key) ?? 0) +
-        (optionScoreById.get(response.option_id) ?? 0),
-    );
+
+    const optionScoreById = new Map<string, number>();
+    for (const decision of completedDecisions ?? []) {
+      const scores = (decision.options ?? []).map((option) => {
+        const score = option.score ?? 0;
+        optionScoreById.set(option.id, score);
+        return score;
+      });
+      maxScoreBySimulation.set(
+        decision.simulation_id,
+        (maxScoreBySimulation.get(decision.simulation_id) ?? 0) +
+          Math.max(0, ...scores),
+      );
+    }
+
+    for (const response of completedResponses ?? []) {
+      if (!response.participant_id || !response.session_id) continue;
+      const simulationId = participantToSimulation.get(response.participant_id);
+      if (!simulationId) continue;
+      const key = `${response.participant_id}:${simulationId}`;
+      earnedScoreByParticipantSimulation.set(
+        key,
+        (earnedScoreByParticipantSimulation.get(key) ?? 0) +
+          (optionScoreById.get(response.option_id) ?? 0),
+      );
+    }
   }
 
   const completedSimulationIds = new Set(
@@ -255,7 +254,7 @@ export async function fetchStudentDashboardData(userId: string) {
           id: row.id,
           simulation_id: row.simulation_id,
           status: row.status,
-          score: calculatedScore,
+          score: calculatedScore ?? 0,
           source: row.source,
           started_at: row.started_at,
           completed_at: row.completed_at,
