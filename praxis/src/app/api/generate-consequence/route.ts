@@ -24,7 +24,6 @@ const PlainText = z
 
 const ConsequenceSchema = z.object({
   consequence: PlainText,
-  outcomeRating: z.enum(["excellent", "decent", "poor"]),
   outcomeReasoning: PlainText,
   feedback: PlainText,
   impacts: z
@@ -48,7 +47,6 @@ export async function POST(request: NextRequest) {
 OUTCOME
 - Write a specific consequence in one or two short sentences that says what happened.
 - Write one short outcomeReasoning sentence that clearly says why it happened.
-- Use "excellent", "decent", or "poor" for outcomeRating.
 - Do not use numbers, percentages, dollar amounts, made-up data, or em dashes.
 - Use everyday words that a sixteen-year-old would understand.
 

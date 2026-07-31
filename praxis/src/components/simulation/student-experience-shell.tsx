@@ -235,7 +235,7 @@ export function StudentExperienceShell({
           <SimulationAssistant
             sessionKey={sessionId}
             decisionCount={payload?.decisions.length ?? 0}
-            classVotesEnabled={flowSettings.classVotesEnabled || individualMode}
+            classVotesEnabled={flowSettings.classVotesEnabled}
             leaderboardEnabled={flowSettings.leaderboardEnabled}
             individualMode={individualMode}
             onOpenOnboarding={openOnboarding}

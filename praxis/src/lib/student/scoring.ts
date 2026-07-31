@@ -1,3 +1,5 @@
+import { optionScoreToXp } from "./leaderboard";
+
 export type DecisionQuality = "strong" | "partial" | "weak";
 
 export function decisionQualityFromScore(
@@ -43,8 +45,9 @@ export function outcomeToXp(
   outcomeRating: string | null | undefined,
   score?: number | null,
 ): number {
-  if (!outcomeRating && (score == null)) return 0;
-  
+  if (score != null) return optionScoreToXp(score);
+  if (!outcomeRating) return 0;
+
   const rating = (outcomeRating ?? "").toLowerCase();
   
   if (rating === "excellent" || rating === "perfect" || rating === "strong") {
@@ -57,14 +60,6 @@ export function outcomeToXp(
     return XP_TIERS.decent;
   }
   if (rating === "poor" || rating === "weak" || rating === "mixed") {
-    return XP_TIERS.poor;
-  }
-  
-  // Fall back to score-based calculation
-  if (score != null) {
-    if (score >= 3) return XP_TIERS.perfect;
-    if (score >= 2) return XP_TIERS.good;
-    if (score >= 1) return XP_TIERS.decent;
     return XP_TIERS.poor;
   }
   
@@ -91,7 +86,7 @@ export function xpTierColor(tier: XpTier | string): string {
     case "good":
       return "text-emerald-600 dark:text-emerald-400";
     case "decent":
-      return "text-amber-600 dark:text-amber-400";
+      return "text-lime-700 dark:text-lime-300";
     case "poor":
       return "text-red-600 dark:text-red-400";
     default:
@@ -109,7 +104,7 @@ export function xpTierBgColor(tier: XpTier | string): string {
     case "good":
       return "bg-emerald-100 text-emerald-700 dark:bg-emerald-900 dark:text-emerald-300";
     case "decent":
-      return "bg-amber-100 text-amber-700 dark:bg-amber-900 dark:text-amber-300";
+      return "bg-lime-100 text-lime-800 dark:bg-lime-900 dark:text-lime-200";
     case "poor":
       return "bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300";
     default:

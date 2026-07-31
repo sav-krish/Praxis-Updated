@@ -48,7 +48,9 @@ export type OnboardingScreenId =
   | "leaderboard"
   | "ready";
 
-export type SimulationHelpTopicId = Exclude<OnboardingScreenId, "ready">;
+export type SimulationHelpTopicId =
+  | Exclude<OnboardingScreenId, "ready">
+  | "comparison";
 
 interface SimulationEntryModalProps {
   open: boolean;
@@ -671,19 +673,75 @@ function LeaderboardScreen() {
   );
 }
 
+function ComparisonHelpScreen({
+  classVotesEnabled,
+  leaderboardEnabled,
+  individualMode,
+}: {
+  classVotesEnabled: boolean;
+  leaderboardEnabled: boolean;
+  individualMode: boolean;
+}) {
+  if (individualMode) {
+    return <VotesScreen individualMode />;
+  }
+
+  if (!classVotesEnabled && !leaderboardEnabled) {
+    return (
+      <div className="mx-auto w-full max-w-3xl rounded-2xl border border-dashed bg-muted/30 p-5 text-card-foreground sm:p-6">
+        <div className="flex items-start gap-3">
+          <span className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-muted text-muted-foreground">
+            <CircleHelp className="h-5 w-5" aria-hidden />
+          </span>
+          <div>
+            <h2 className="text-xl font-bold text-foreground sm:text-2xl">
+              Comparison features are unavailable
+            </h2>
+            <p className="mt-2 text-sm leading-relaxed text-muted-foreground sm:text-base">
+              Your instructor has not enabled Class Votes or the Leaderboard for this
+              simulation, so they will not be available.
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-8">
+      {classVotesEnabled ? <VotesScreen individualMode={false} /> : null}
+      {classVotesEnabled && leaderboardEnabled ? <Separator /> : null}
+      {leaderboardEnabled ? <LeaderboardScreen /> : null}
+    </div>
+  );
+}
+
 export function SimulationHelpTopic({
   topic,
   decisionCount,
   individualMode,
+  classVotesEnabled,
+  leaderboardEnabled,
 }: {
   topic: SimulationHelpTopicId;
   decisionCount: number;
   individualMode: boolean;
+  classVotesEnabled: boolean;
+  leaderboardEnabled: boolean;
 }) {
   if (topic === "how-it-works") {
     return <HowItWorksScreen decisionCount={decisionCount} />;
   }
   if (topic === "consequences") return <ConsequencesScreen />;
+  if (topic === "comparison") {
+    return (
+      <ComparisonHelpScreen
+        classVotesEnabled={classVotesEnabled}
+        leaderboardEnabled={leaderboardEnabled}
+        individualMode={individualMode}
+      />
+    );
+  }
   if (topic === "votes") return <VotesScreen individualMode={individualMode} />;
   return <LeaderboardScreen />;
 }
@@ -777,7 +835,7 @@ export function SimulationOnboardingCarousel({
   const screens = useMemo<OnboardingScreenId[]>(() => {
     const next: OnboardingScreenId[] = ["how-it-works", "consequences"];
     if (individualMode || classVotesEnabled) next.push("votes");
-    if (leaderboardEnabled) next.push("leaderboard");
+    if (!individualMode && leaderboardEnabled) next.push("leaderboard");
     next.push("ready");
     return next;
   }, [classVotesEnabled, individualMode, leaderboardEnabled]);
@@ -813,6 +871,8 @@ export function SimulationOnboardingCarousel({
         topic={activeScreen}
         decisionCount={decisionCount}
         individualMode={individualMode}
+        classVotesEnabled={classVotesEnabled}
+        leaderboardEnabled={leaderboardEnabled}
       />
     );
   };

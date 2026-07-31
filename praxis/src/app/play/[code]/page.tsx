@@ -44,6 +44,10 @@ import { toast } from "sonner";
 import Link from "next/link";
 import { endPreviewSession } from "@/app/(dashboard)/session/[id]/actions";
 import { decisionQualityFromScore, decisionQualityLabel, scorePercent } from "@/lib/student/scoring";
+import {
+  optionScoreToTier,
+  type LeaderboardTier,
+} from "@/lib/student/leaderboard";
 import { DataBlockRenderer } from "@/components/simulation/DataBlockRenderer";
 import { FeedbackCard } from "@/components/simulation/FeedbackCard";
 import { sourceTypeDisplayLabel } from "@/lib/source-display";
@@ -77,6 +81,50 @@ interface Option {
   consequence: string | null;
   score: number;
 }
+
+const OUTCOME_TIER_STYLES: Record<
+  LeaderboardTier,
+  {
+    container: string;
+    icon: string;
+    label: string;
+    badge: string;
+  }
+> = {
+  Perfect: {
+    container:
+      "border-blue-200 bg-blue-50/70 dark:border-blue-900 dark:bg-blue-950/30",
+    icon: "bg-blue-100 text-blue-700 dark:bg-blue-900/70 dark:text-blue-200",
+    label: "text-blue-800 dark:text-blue-200",
+    badge:
+      "bg-blue-100 text-blue-800 hover:bg-blue-100 dark:bg-blue-900/70 dark:text-blue-200",
+  },
+  Good: {
+    container:
+      "border-emerald-200 bg-emerald-50/70 dark:border-emerald-900 dark:bg-emerald-950/30",
+    icon:
+      "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/70 dark:text-emerald-200",
+    label: "text-emerald-800 dark:text-emerald-200",
+    badge:
+      "bg-emerald-100 text-emerald-800 hover:bg-emerald-100 dark:bg-emerald-900/70 dark:text-emerald-200",
+  },
+  Decent: {
+    container:
+      "border-lime-200 bg-lime-50/70 dark:border-lime-900 dark:bg-lime-950/30",
+    icon: "bg-lime-100 text-lime-800 dark:bg-lime-900/70 dark:text-lime-200",
+    label: "text-lime-900 dark:text-lime-200",
+    badge:
+      "bg-lime-100 text-lime-900 hover:bg-lime-100 dark:bg-lime-900/70 dark:text-lime-200",
+  },
+  Poor: {
+    container:
+      "border-rose-200 bg-rose-50/70 dark:border-rose-900 dark:bg-rose-950/30",
+    icon: "bg-rose-100 text-rose-700 dark:bg-rose-900/70 dark:text-rose-200",
+    label: "text-rose-800 dark:text-rose-200",
+    badge:
+      "bg-rose-100 text-rose-800 hover:bg-rose-100 dark:bg-rose-900/70 dark:text-rose-200",
+  },
+};
 
 interface Decision {
   id: string;
@@ -308,7 +356,7 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
   const [showConsequence, setShowConsequence] = useState(false);
   const [currentConsequence, setCurrentConsequence] = useState("");
   const [currentDataImpact, setCurrentDataImpact] = useState<QualitativeImpact[] | undefined>(undefined);
-  const [outcomeRating, setOutcomeRating] = useState<"excellent" | "decent" | "poor" | null>(null);
+  const [outcomeTier, setOutcomeTier] = useState<LeaderboardTier | null>(null);
   const [outcomeReasoning, setOutcomeReasoning] = useState("");
   const [myResponses, setMyResponses] = useState<{ decision_id: string; option_id: string; score: number }[]>([]);
   const [reflectionAnswers, setReflectionAnswers] = useState<Record<string, string>>({});
@@ -427,6 +475,20 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
       supabase.removeChannel(channel);
     };
   }, [session]);
+
+  useEffect(() => {
+    if (!session?.id || currentStep !== 7) return;
+
+    const timeoutId = window.setTimeout(() => {
+      window.dispatchEvent(
+        new CustomEvent("praxis:simulation-complete", {
+          detail: { sessionId: session.id },
+        }),
+      );
+    }, 0);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [currentStep, session?.id]);
 
   // Sync scheduled start/end
   useEffect(() => {
@@ -1102,6 +1164,7 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
         )
       : [];
     setCurrentDataImpact(calculatedImpact);
+    setOutcomeTier(optionScoreToTier(option?.score));
 
     // Wait for the scenario-specific result before showing the consequence.
     // This avoids briefly rendering a generic result and replacing it seconds later.
@@ -1127,14 +1190,6 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
           data.consequence ||
           "Your choice has been recorded. The consequences of your decision are outlined below.",
       );
-      setOutcomeRating(
-        data.outcomeRating ||
-          (option?.score && option.score >= 3
-            ? "excellent"
-            : option?.score && option.score >= 2
-              ? "decent"
-              : "poor"),
-      );
       setOutcomeReasoning(data.outcomeReasoning || "");
       if (Array.isArray(data.impacts) && data.impacts.length === 4) {
         setCurrentDataImpact(data.impacts);
@@ -1144,13 +1199,6 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
       setCurrentConsequence(
         option?.consequence?.trim() ||
           "Your choice has been recorded. The consequences of your decision are outlined below.",
-      );
-      setOutcomeRating(
-        option?.score && option.score >= 3
-          ? "excellent"
-          : option?.score && option.score >= 2
-            ? "decent"
-            : "poor",
       );
     } finally {
       setLoadingConsequence(false);
@@ -1200,7 +1248,7 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
     clearVideoSelection();
     setCurrentConsequence("");
     setCurrentDataImpact(undefined);
-    setOutcomeRating(null);
+    setOutcomeTier(null);
     setOutcomeReasoning("");
     setAiJustificationFeedback(null);
 
@@ -1353,13 +1401,10 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
   const maxScore = decisions.length * 3;
   const displayScorePercent = scorePercent(totalScore, maxScore);
 
-  const outcomeLabel = outcomeRating
-    ? {
-        excellent: "Excellent Outcome",
-        decent: "Decent Outcome",
-        poor: "Poor Outcome",
-      }[outcomeRating]
-    : null;
+  const outcomeLabel = outcomeTier ? `${outcomeTier} Outcome` : null;
+  const outcomeTierStyle = outcomeTier
+    ? OUTCOME_TIER_STYLES[outcomeTier]
+    : OUTCOME_TIER_STYLES.Decent;
   const isStudentPortal = Boolean(studentAttemptId);
   const votesTitle = isStudentPortal ? "Student Votes" : "Class Votes";
   const votesDescription = isStudentPortal
@@ -1662,19 +1707,19 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
                     </CardTitle>
                   </CardHeader>
                   <CardContent className="px-4 sm:px-6 space-y-4">
-                    <div className="flex flex-col gap-4 rounded-2xl border border-[#f0d8c8] bg-[#fff8f1] p-5 dark:border-[#6b4938] dark:bg-[#2c241f] sm:flex-row sm:items-center">
-                      <div className="grid h-14 w-14 shrink-0 place-items-center rounded-full bg-[#f8dfcf] dark:bg-[#5a3828]">
-                        <Star className="h-7 w-7 fill-[#e75b0c] text-[#e75b0c]" />
+                    <div className={`flex flex-col gap-4 rounded-2xl border p-5 sm:flex-row sm:items-center ${outcomeTierStyle.container}`}>
+                      <div className={`grid h-14 w-14 shrink-0 place-items-center rounded-full ${outcomeTierStyle.icon}`}>
+                        <Star className="h-7 w-7 fill-current" />
                       </div>
                       <p className="min-w-0 flex-1 leading-relaxed text-foreground">
-                        <strong className="text-[#c95a22]">
+                        <strong className={outcomeTierStyle.label}>
                           {outcomeLabel ?? "Decision outcome"}:
                         </strong>{" "}
                         {currentConsequence || "Your choice has been recorded."}
                         {outcomeReasoning ? ` ${outcomeReasoning}` : ""}
                       </p>
                       {outcomeLabel ? (
-                        <Badge className="shrink-0 bg-[#e8f3df] text-[#356b26] hover:bg-[#e8f3df] dark:bg-[#294322] dark:text-[#bde3a9]">
+                        <Badge className={`shrink-0 ${outcomeTierStyle.badge}`}>
                           {outcomeLabel}
                         </Badge>
                       ) : null}
@@ -2327,7 +2372,7 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
                     clearVideoSelection();
                     setCurrentConsequence("");
                     setCurrentDataImpact(undefined);
-                    setOutcomeRating(null);
+                    setOutcomeTier(null);
                     setOutcomeReasoning("");
                     setAiJustificationFeedback(null);
                     setClassVotesDecisionIndex(null);

@@ -45,6 +45,7 @@ export type LeaderboardPayload = {
     leaderboardEnabled: boolean;
     rankChipEnabled: boolean;
     podiumEnabled: boolean;
+    canShowPodium: boolean;
   };
 };
 
@@ -59,6 +60,10 @@ type DecisionConsequenceDetail = {
   isFinal: boolean;
 };
 
+type SimulationCompleteDetail = {
+  sessionId: string;
+};
+
 type RankUpdate = {
   decisionId: string;
   isFinal: boolean;
@@ -67,11 +72,11 @@ type RankUpdate = {
 
 const TIER_STYLES: Record<LeaderboardTier, string> = {
   Perfect:
-    "border-violet-200 bg-violet-50 text-violet-800 dark:border-violet-700 dark:bg-violet-950 dark:text-violet-200",
+    "border-blue-200 bg-blue-50 text-blue-800 dark:border-blue-700 dark:bg-blue-950 dark:text-blue-200",
   Good:
     "border-emerald-200 bg-emerald-50 text-emerald-800 dark:border-emerald-700 dark:bg-emerald-950 dark:text-emerald-200",
   Decent:
-    "border-amber-200 bg-amber-50 text-amber-800 dark:border-amber-700 dark:bg-amber-950 dark:text-amber-200",
+    "border-lime-200 bg-lime-50 text-lime-900 dark:border-lime-700 dark:bg-lime-950 dark:text-lime-200",
   Poor:
     "border-rose-200 bg-rose-50 text-rose-800 dark:border-rose-700 dark:bg-rose-950 dark:text-rose-200",
 };
@@ -113,6 +118,15 @@ function isDecisionConsequenceDetail(
     candidate.decisionId.length > 0 &&
     typeof candidate.isFinal === "boolean"
   );
+}
+
+function isSimulationCompleteDetail(
+  detail: unknown,
+): detail is SimulationCompleteDetail {
+  if (!detail || typeof detail !== "object") return false;
+
+  const candidate = detail as Partial<SimulationCompleteDetail>;
+  return typeof candidate.sessionId === "string" && candidate.sessionId.length > 0;
 }
 
 function percentileText(row: LeaderboardRow): string | null {
@@ -275,14 +289,17 @@ export function LeaderboardOverlays({
   const chipButtonRef = useRef<HTMLButtonElement>(null);
   const mountedRef = useRef(false);
   const requestNumberRef = useRef(0);
+  const completedSessionRef = useRef<string | null>(null);
 
   const loadLeaderboard =
-    useCallback(async (): Promise<LeaderboardPayload | null> => {
+    useCallback(async (decisionId?: string): Promise<LeaderboardPayload | null> => {
       const requestNumber = ++requestNumberRef.current;
+      const searchParams = new URLSearchParams({ participantId });
+      if (decisionId) searchParams.set("decisionId", decisionId);
 
       try {
         const response = await fetch(
-          `/api/play/session/${encodeURIComponent(code)}/leaderboard?participantId=${encodeURIComponent(participantId)}`,
+          `/api/play/session/${encodeURIComponent(code)}/leaderboard?${searchParams.toString()}`,
           {
             cache: "no-store",
             headers: { Accept: "application/json" },
@@ -354,7 +371,7 @@ export function LeaderboardOverlays({
       if (!isDecisionConsequenceDetail(detail)) return;
 
       void (async () => {
-        const currentPayload = await loadLeaderboard();
+        const currentPayload = await loadLeaderboard(detail.decisionId);
         if (
           !mountedRef.current ||
           !currentPayload?.settings.leaderboardEnabled
@@ -383,6 +400,41 @@ export function LeaderboardOverlays({
   }, [loadLeaderboard]);
 
   useEffect(() => {
+    const handleSimulationComplete = (event: Event) => {
+      const detail = (event as CustomEvent<unknown>).detail;
+      if (
+        !isSimulationCompleteDetail(detail) ||
+        detail.sessionId !== sessionId ||
+        completedSessionRef.current === sessionId
+      ) {
+        return;
+      }
+      completedSessionRef.current = sessionId;
+
+      void (async () => {
+        const snapshot = await loadLeaderboard();
+        if (
+          !mountedRef.current ||
+          !snapshot?.settings.canShowPodium
+        ) {
+          return;
+        }
+
+        setRankUpdate(null);
+        setRevealSnapshot(copyPayload(snapshot));
+      })();
+    };
+
+    window.addEventListener("praxis:simulation-complete", handleSimulationComplete);
+    return () => {
+      window.removeEventListener(
+        "praxis:simulation-complete",
+        handleSimulationComplete,
+      );
+    };
+  }, [loadLeaderboard, sessionId]);
+
+  useEffect(() => {
     if (!chipExpanded) return;
 
     const handlePointerDown = (event: PointerEvent) => {
@@ -409,10 +461,6 @@ export function LeaderboardOverlays({
 
   const dismissRankUpdate = useCallback(() => {
     if (!rankUpdate) return;
-
-    if (rankUpdate.isFinal && rankUpdate.snapshot.settings.podiumEnabled) {
-      setRevealSnapshot(rankUpdate.snapshot);
-    }
     setRankUpdate(null);
   }, [rankUpdate]);
 

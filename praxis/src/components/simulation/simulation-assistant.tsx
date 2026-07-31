@@ -239,24 +239,21 @@ export function SimulationAssistant({
       icon: TrendingUp,
       action: () => openTopic("consequences"),
     },
-    ...(classVotesEnabled || leaderboardEnabled
-      ? [
-          {
-            title:
-              individualMode
-                ? "Student Votes"
-                : classVotesEnabled && leaderboardEnabled
-                  ? "Class Votes and Leaderboard"
-                  : classVotesEnabled
-                    ? "Class Votes"
-                    : "Leaderboard",
-            description: "See how comparison features work",
-            icon: Users,
-            action: () =>
-              openTopic(classVotesEnabled ? "votes" : "leaderboard"),
-          },
-        ]
-      : []),
+    {
+      title:
+        individualMode
+          ? "Student Votes"
+          : classVotesEnabled && leaderboardEnabled
+            ? "Class Votes and Leaderboard"
+            : classVotesEnabled
+              ? "Class Votes"
+              : leaderboardEnabled
+                ? "Leaderboard"
+                : "Class Votes and Leaderboard",
+      description: "See how comparison features work",
+      icon: Users,
+      action: () => openTopic("comparison"),
+    },
   ];
 
   const helpOverlay = open ? (
@@ -325,6 +322,8 @@ export function SimulationAssistant({
                   topic={topic}
                   decisionCount={decisionCount}
                   individualMode={individualMode}
+                  classVotesEnabled={classVotesEnabled}
+                  leaderboardEnabled={leaderboardEnabled}
                 />
               ) : null}
 

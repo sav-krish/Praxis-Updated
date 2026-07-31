@@ -74,6 +74,9 @@ function roundForDisplay(value: number): number {
 export async function GET(request: NextRequest, { params }: RouteContext) {
   const { code } = await params;
   const participantId = request.nextUrl.searchParams.get("participantId")?.trim();
+  const requestedDecisionId = request.nextUrl.searchParams
+    .get("decisionId")
+    ?.trim();
 
   if (!participantId) {
     return json({ error: "participantId is required" }, 400);
@@ -285,15 +288,19 @@ export async function GET(request: NextRequest, { params }: RouteContext) {
           ...aboveRow,
           gapXp: roundForDisplay(aboveRankedRow.score - viewerRow.score),
         };
-  const latestDecision =
-    [
-      ...(decisionsByParticipant.get(participantId)?.values() ?? []),
-    ].sort((left, right) => {
-      if (left.decisionNumber !== right.decisionNumber) {
-        return right.decisionNumber - left.decisionNumber;
-      }
-      return right.submittedAt.localeCompare(left.submittedAt);
-    })[0] ?? null;
+  const viewerDecisions = [
+    ...(decisionsByParticipant.get(participantId)?.values() ?? []),
+  ];
+  const latestDecision = requestedDecisionId
+    ? viewerDecisions.find(
+        (decision) => decision.decisionId === requestedDecisionId,
+      ) ?? null
+    : viewerDecisions.sort((left, right) => {
+        if (left.decisionNumber !== right.decisionNumber) {
+          return right.decisionNumber - left.decisionNumber;
+        }
+        return right.submittedAt.localeCompare(left.submittedAt);
+      })[0] ?? null;
   const simulation = session.simulation as
     | { preferences: Json | null }
     | null;
@@ -319,6 +326,11 @@ export async function GET(request: NextRequest, { params }: RouteContext) {
       leaderboardEnabled: flowSettings.leaderboardEnabled,
       rankChipEnabled: flowSettings.rankChipEnabled,
       podiumEnabled: flowSettings.podiumEnabled,
+      canShowPodium:
+        flowSettings.leaderboardEnabled &&
+        flowSettings.podiumEnabled &&
+        participants.length >= 2 &&
+        rankedParticipantCount >= 2,
     },
   });
 }
