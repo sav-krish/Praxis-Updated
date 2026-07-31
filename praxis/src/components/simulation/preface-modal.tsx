@@ -290,13 +290,21 @@ const journeySteps = [
   },
 ] as const;
 
-function HowItWorksScreen({ decisionCount }: { decisionCount: number }) {
+function HowItWorksScreen({
+  decisionCount,
+  showStepNumber = false,
+}: {
+  decisionCount: number;
+  showStepNumber?: boolean;
+}) {
   return (
     <div className="mx-auto w-full max-w-3xl">
       <div className="flex items-center gap-3">
-        <span className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-primary text-lg font-bold text-primary-foreground">
-          1
-        </span>
+        {showStepNumber ? (
+          <span className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-primary text-lg font-bold text-primary-foreground">
+            1
+          </span>
+        ) : null}
         <h2 className="text-2xl font-bold text-foreground sm:text-3xl">How it works</h2>
       </div>
       <p className="mt-3 text-sm text-muted-foreground sm:text-base">
@@ -400,13 +408,15 @@ const pillColorMap: Record<string, string> = {
   poor: "bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300",
 };
 
-function ConsequencesScreen() {
+function ConsequencesScreen({ showStepNumber = false }: { showStepNumber?: boolean }) {
   return (
     <div className="mx-auto w-full max-w-5xl">
       <div className="flex items-center gap-3">
-        <span className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-primary text-lg font-bold text-primary-foreground">
-          2
-        </span>
+        {showStepNumber ? (
+          <span className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-primary text-lg font-bold text-primary-foreground">
+            2
+          </span>
+        ) : null}
         <h2 className="text-2xl font-bold text-foreground sm:text-3xl">Consequences</h2>
       </div>
       <p className="mt-3 text-sm text-muted-foreground sm:text-base">
@@ -492,20 +502,28 @@ function ConsequencesScreen() {
   );
 }
 
-function VotesScreen({ individualMode }: { individualMode: boolean }) {
+function VotesScreen({
+  individualMode,
+  showStepNumber = false,
+}: {
+  individualMode: boolean;
+  showStepNumber?: boolean;
+}) {
   const title = individualMode ? "Student Votes" : "Class Votes";
   const Icon = individualMode ? BarChart3 : UsersRound;
 
   return (
     <div className="mx-auto w-full max-w-4xl">
       <div className="flex items-center gap-3">
-        <span
-          className={`grid h-11 w-11 shrink-0 place-items-center rounded-full text-lg font-bold text-white ${
-            individualMode ? "bg-blue-600 dark:bg-blue-500" : "bg-violet-600 dark:bg-violet-500"
-          }`}
-        >
-          3
-        </span>
+        {showStepNumber ? (
+          <span
+            className={`grid h-11 w-11 shrink-0 place-items-center rounded-full text-lg font-bold text-white ${
+              individualMode ? "bg-blue-600 dark:bg-blue-500" : "bg-violet-600 dark:bg-violet-500"
+            }`}
+          >
+            3
+          </span>
+        ) : null}
         <h2 className="text-2xl font-bold text-foreground sm:text-3xl">{title}</h2>
       </div>
       <p className="mt-3 text-sm text-muted-foreground sm:text-base">
@@ -677,13 +695,15 @@ function ComparisonHelpScreen({
   classVotesEnabled,
   leaderboardEnabled,
   individualMode,
+  showStepNumber = false,
 }: {
   classVotesEnabled: boolean;
   leaderboardEnabled: boolean;
   individualMode: boolean;
+  showStepNumber?: boolean;
 }) {
   if (individualMode) {
-    return <VotesScreen individualMode />;
+    return <VotesScreen individualMode showStepNumber={showStepNumber} />;
   }
 
   if (!classVotesEnabled && !leaderboardEnabled) {
@@ -709,7 +729,7 @@ function ComparisonHelpScreen({
 
   return (
     <div className="space-y-8">
-      {classVotesEnabled ? <VotesScreen individualMode={false} /> : null}
+      {classVotesEnabled ? <VotesScreen individualMode={false} showStepNumber={showStepNumber} /> : null}
       {classVotesEnabled && leaderboardEnabled ? <Separator /> : null}
       {leaderboardEnabled ? <LeaderboardScreen /> : null}
     </div>
@@ -722,27 +742,30 @@ export function SimulationHelpTopic({
   individualMode,
   classVotesEnabled,
   leaderboardEnabled,
+  showStepNumber = false,
 }: {
   topic: SimulationHelpTopicId;
   decisionCount: number;
   individualMode: boolean;
   classVotesEnabled: boolean;
   leaderboardEnabled: boolean;
+  showStepNumber?: boolean;
 }) {
   if (topic === "how-it-works") {
-    return <HowItWorksScreen decisionCount={decisionCount} />;
+    return <HowItWorksScreen decisionCount={decisionCount} showStepNumber={showStepNumber} />;
   }
-  if (topic === "consequences") return <ConsequencesScreen />;
+  if (topic === "consequences") return <ConsequencesScreen showStepNumber={showStepNumber} />;
   if (topic === "comparison") {
     return (
       <ComparisonHelpScreen
         classVotesEnabled={classVotesEnabled}
         leaderboardEnabled={leaderboardEnabled}
         individualMode={individualMode}
+        showStepNumber={showStepNumber}
       />
     );
   }
-  if (topic === "votes") return <VotesScreen individualMode={individualMode} />;
+  if (topic === "votes") return <VotesScreen individualMode={individualMode} showStepNumber={showStepNumber} />;
   return <LeaderboardScreen />;
 }
 
@@ -873,6 +896,7 @@ export function SimulationOnboardingCarousel({
         individualMode={individualMode}
         classVotesEnabled={classVotesEnabled}
         leaderboardEnabled={leaderboardEnabled}
+        showStepNumber
       />
     );
   };
