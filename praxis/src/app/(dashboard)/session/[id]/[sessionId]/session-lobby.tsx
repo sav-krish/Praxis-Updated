@@ -30,7 +30,7 @@ import {
 import type { Session, Simulation, Participant, Team, SimulationProfile } from "@/types/database";
 import { formatScheduleDateTime, getSimulationSessionSchedule } from "@/lib/session-schedule";
 import { clearSimulationScheduleForSession } from "@/app/(dashboard)/session/[id]/actions";
-import { getSimulationFlowSettings } from "@/lib/simulation-flow";
+import { getSimulationFlowSettings, setSimulationFlowSettings } from "@/lib/simulation-flow";
 
 type LobbySimulation = Pick<
   Simulation,
@@ -421,11 +421,30 @@ export function SessionLobby({
   };
 
   const totalGroups = simulation.mode === "teams" ? teams.length : participants.length;
-  const flowSettings = getSimulationFlowSettings(simulation.preferences);
+  const [flowSettings, setFlowSettings] = useState(() => getSimulationFlowSettings(simulation.preferences));
   const hasFutureScheduledStart =
     session.status === "lobby" &&
     !!sessionSchedule.start_at &&
     new Date(sessionSchedule.start_at).getTime() > Date.now();
+
+  const toggleLeaderboard = async () => {
+    const supabase = createClient();
+    const newEnabled = !flowSettings.leaderboardEnabled;
+    const newPreferences = setSimulationFlowSettings(simulation.preferences, {
+      ...flowSettings,
+      leaderboardEnabled: newEnabled,
+    });
+    const { error } = await supabase
+      .from("simulations")
+      .update({ preferences: newPreferences })
+      .eq("id", simulation.id);
+    if (error) {
+      toast.error("Failed to update leaderboard setting");
+      return;
+    }
+    setFlowSettings(prev => ({ ...prev, leaderboardEnabled: newEnabled }));
+    toast.success(newEnabled ? "Leaderboard enabled" : "Leaderboard disabled");
+  };
 
   const profileMap = new Map(profiles.map(p => [p.id, p]));
   const getProfileName = (profileId: string | null) =>
@@ -578,6 +597,43 @@ export function SessionLobby({
               </div>
             </CardContent>
           </Card>
+
+          {session.status === "lobby" && (
+            <Card>
+              <CardHeader className="px-4 sm:px-6">
+                <CardTitle className="text-lg sm:text-xl">Simulation Settings</CardTitle>
+                <CardDescription className="text-sm">Configure student experience options</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4 px-4 sm:px-6">
+                <div className="flex items-center justify-between gap-4">
+                  <div>
+                    <p className="text-sm font-medium text-foreground">Leaderboard</p>
+                    <p className="text-xs text-muted-foreground">
+                      {flowSettings.leaderboardEnabled
+                        ? "Students can see their rank and XP after each decision"
+                        : "Leaderboard is hidden from students"}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    role="switch"
+                    aria-checked={flowSettings.leaderboardEnabled}
+                    aria-label="Enable student leaderboard"
+                    onClick={toggleLeaderboard}
+                    className={`relative h-6 w-11 shrink-0 rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ${
+                      flowSettings.leaderboardEnabled ? "bg-primary" : "bg-input"
+                    }`}
+                  >
+                    <span
+                      className={`absolute left-1 top-1 h-4 w-4 rounded-full bg-background shadow transition-transform ${
+                        flowSettings.leaderboardEnabled ? "translate-x-5" : "translate-x-0"
+                      }`}
+                    />
+                  </button>
+                </div>
+              </CardContent>
+            </Card>
+          )}
 
           {session.status === "running" && (
             <Card>

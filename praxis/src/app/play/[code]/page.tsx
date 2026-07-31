@@ -51,7 +51,6 @@ import { publicScenarioImageUrl } from "@/lib/scenario-image-url";
 import { formatScheduleDateTime, getSimulationSessionSchedule } from "@/lib/session-schedule";
 import type { Json } from "@/types/database";
 import { ThemeToggle } from "@/components/theme-toggle";
-import { SimulationAssistant } from "@/components/simulation/simulation-assistant";
 import {
   calculateQualitativeImpact,
   type QualitativeImpact,
@@ -235,11 +234,13 @@ function SimulationTopHeader({
   decisionCount,
   reflectionCount,
   completedSteps,
+  currentDecision,
   roleLabel,
 }: {
   decisionCount: number;
   reflectionCount: number;
   completedSteps: number;
+  currentDecision: number;
   roleLabel: string;
 }) {
   const totalSteps = Math.max(1, decisionCount + reflectionCount);
@@ -247,19 +248,24 @@ function SimulationTopHeader({
     <div className="flex w-full items-center justify-between gap-3 rounded-xl border bg-card px-3 py-2 shadow-sm">
       <PraxisLogo className="h-9 w-auto" priority />
       <div
-        className="hidden flex-1 items-center justify-center gap-1.5 sm:flex"
+        className="flex min-w-0 flex-1 flex-col items-center justify-center gap-1"
         aria-label={`${Math.min(completedSteps, totalSteps)} of ${totalSteps} required steps completed`}
       >
-        {Array.from({ length: totalSteps }, (_, index) => (
-          <span
-            key={index}
-            className={`h-1 w-7 rounded-full lg:w-10 ${
-              index < completedSteps
-                ? "bg-[#bf6b3d]"
-                : "bg-[#e8e2da] dark:bg-[#4a4741]"
-            }`}
-          />
-        ))}
+        <span className="whitespace-nowrap text-[11px] font-semibold text-foreground sm:text-xs">
+          Decision {Math.max(1, Math.min(currentDecision, decisionCount))} of {decisionCount}
+        </span>
+        <span className="hidden items-center justify-center gap-1.5 sm:flex">
+          {Array.from({ length: totalSteps }, (_, index) => (
+            <span
+              key={index}
+              className={`h-1 w-7 rounded-full lg:w-10 ${
+                index < completedSteps
+                  ? "bg-[#bf6b3d]"
+                  : "bg-[#e8e2da] dark:bg-[#4a4741]"
+              }`}
+            />
+          ))}
+        </span>
       </div>
       <div className="flex shrink-0 items-center gap-2">
         <Badge className="max-w-40 truncate bg-[#f3e3d9] text-[#8f4b2d] hover:bg-[#f3e3d9]">
@@ -1150,6 +1156,16 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
       setLoadingConsequence(false);
       setShowConsequence(true);
       setSubmitting(false);
+      window.setTimeout(() => {
+        window.dispatchEvent(
+          new CustomEvent("praxis:decision-consequence", {
+            detail: {
+              decisionId: decision.id,
+              isFinal: decision.order_num === decisions.length,
+            },
+          }),
+        );
+      }, 0);
     }
   };
 
@@ -1449,6 +1465,7 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
                 decisionCount={decisions.length}
                 reflectionCount={reflectionQuestions.length}
                 completedSteps={0}
+                currentDecision={1}
                 roleLabel={selectedRoleLabel}
               />
               <SimulationFlowNavigation
@@ -1592,10 +1609,6 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
                   </div>
                 </CardContent>
               </Card>
-              <SimulationAssistant
-                role={selectedRoleLabel}
-                scenario={session?.simulation.background_content || ""}
-              />
             </div>
           </div>
         </div>
@@ -1631,6 +1644,7 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
                   decisionCount={decisions.length}
                   reflectionCount={reflectionQuestions.length}
                   completedSteps={decision.order_num}
+                  currentDecision={decision.order_num}
                   roleLabel={selectedRoleLabel}
                 />
                 <SimulationFlowNavigation
@@ -1768,11 +1782,6 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
                     </div>
                   </CardContent>
                 </Card>
-                <SimulationAssistant
-                  role={selectedRoleLabel}
-                  scenario={session?.simulation.background_content || ""}
-                  decision={decision.prompt}
-                />
               </div>
             </div>
           </div>
@@ -1790,6 +1799,7 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
                 decisionCount={decisions.length}
                 reflectionCount={reflectionQuestions.length}
                 completedSteps={decision.order_num - 1}
+                currentDecision={decision.order_num}
                 roleLabel={selectedRoleLabel}
               />
             </div>
@@ -2079,11 +2089,6 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
               </div>
             </div>
             {/* Live dashboard intentionally hidden for now. */}
-            <SimulationAssistant
-              role={selectedRoleLabel}
-              scenario={session?.simulation.background_content || ""}
-              decision={decision.prompt}
-            />
           </div>
         </div>
       </div>
@@ -2143,6 +2148,7 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
                 decisionCount={decisions.length}
                 reflectionCount={reflectionQuestions.length}
                 completedSteps={decisionIndex + 1}
+                currentDecision={decisionIndex + 1}
                 roleLabel={selectedRoleLabel}
               />
               <SimulationFlowNavigation
@@ -2358,6 +2364,7 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
                 decisionCount={decisions.length}
                 reflectionCount={reflectionQuestions.length}
                 completedSteps={completedRequiredSteps}
+                currentDecision={decisions.length}
                 roleLabel={selectedRoleLabel}
               />
               <SimulationFlowNavigation
@@ -2435,6 +2442,7 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
               decisionCount={decisions.length}
               reflectionCount={reflectionQuestions.length}
               completedSteps={decisions.length + reflectionQuestions.length}
+              currentDecision={decisions.length}
               roleLabel={selectedRoleLabel}
             />
             <SimulationFlowNavigation

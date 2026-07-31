@@ -4,6 +4,9 @@ export type SimulationFlowSettings = {
   classVotesEnabled: boolean;
   showVoteSubmissionStatus: boolean;
   showAnonymousJustifications: boolean;
+  leaderboardEnabled: boolean;
+  rankChipEnabled: boolean;
+  podiumEnabled: boolean;
 };
 
 export type ConsequenceSnapshot = Record<string, string | null>;
@@ -22,6 +25,9 @@ export function getSimulationFlowSettings(
     classVotesEnabled: flow.class_votes_enabled !== false,
     showVoteSubmissionStatus: flow.show_vote_submission_status !== false,
     showAnonymousJustifications: flow.show_anonymous_justifications === true,
+    leaderboardEnabled: flow.leaderboard_enabled !== false,
+    rankChipEnabled: flow.rank_chip_enabled !== false,
+    podiumEnabled: flow.podium_enabled !== false,
   };
 }
 
@@ -31,11 +37,15 @@ export function setSimulationFlowSettings(
 ): Json {
   const base = asRecord(preferences);
   base.simulation_flow = {
+    ...asRecord(base.simulation_flow),
     class_votes_enabled: settings.classVotesEnabled,
     show_vote_submission_status:
       settings.classVotesEnabled && settings.showVoteSubmissionStatus,
     show_anonymous_justifications:
       settings.classVotesEnabled && settings.showAnonymousJustifications,
+    leaderboard_enabled: settings.leaderboardEnabled,
+    rank_chip_enabled: settings.rankChipEnabled,
+    podium_enabled: settings.podiumEnabled,
   };
   return base;
 }
