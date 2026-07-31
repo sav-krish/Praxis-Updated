@@ -14,6 +14,10 @@ export default function StudentExperiencePreviewPage() {
   const [entryOpen, setEntryOpen] = useState(true);
   const [onboardingOpen, setOnboardingOpen] = useState(false);
   const [screen, setScreen] = useState<OnboardingScreenId>("how-it-works");
+  const [entryHelpPortalTarget, setEntryHelpPortalTarget] =
+    useState<HTMLDivElement | null>(null);
+  const [onboardingHelpPortalTarget, setOnboardingHelpPortalTarget] =
+    useState<HTMLDivElement | null>(null);
 
   return (
     <main data-app="true" className="min-h-dvh bg-background p-6 text-foreground">
@@ -47,6 +51,7 @@ export default function StudentExperiencePreviewPage() {
           setScreen("how-it-works");
           setOnboardingOpen(true);
         }}
+        onHelpPortalTargetChange={setEntryHelpPortalTarget}
       />
       <SimulationOnboardingCarousel
         open={onboardingOpen}
@@ -56,15 +61,31 @@ export default function StudentExperiencePreviewPage() {
         individualMode={false}
         startScreen={screen}
         onExit={() => setOnboardingOpen(false)}
+        onHelpPortalTargetChange={setOnboardingHelpPortalTarget}
       />
       <SimulationAssistant
         sessionKey="visual-qa"
+        decisionCount={3}
         classVotesEnabled
         leaderboardEnabled
         onOpenOnboarding={(nextScreen) => {
           setScreen(nextScreen);
           setOnboardingOpen(true);
         }}
+        helpPortalTarget={
+          onboardingOpen
+            ? onboardingHelpPortalTarget
+            : entryOpen
+              ? entryHelpPortalTarget
+              : null
+        }
+        onReturnToSimulation={
+          entryOpen
+            ? () => setEntryOpen(false)
+            : onboardingOpen
+              ? () => setOnboardingOpen(false)
+              : undefined
+        }
       />
     </main>
   );

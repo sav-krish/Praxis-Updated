@@ -1,7 +1,9 @@
 "use client";
 
 import { FormEvent, useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import {
+  ArrowLeft,
   BookOpen,
   Bug,
   ChevronDown,
@@ -22,8 +24,13 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { ThemeToggle } from "@/components/theme-toggle";
 import { cn } from "@/lib/utils";
-import type { OnboardingScreenId } from "@/components/simulation/preface-modal";
+import {
+  SimulationHelpTopic,
+  type OnboardingScreenId,
+  type SimulationHelpTopicId,
+} from "@/components/simulation/preface-modal";
 
 type HelpTab = "home" | "chat" | "contact";
 
@@ -34,7 +41,7 @@ interface Message {
 
 const TECHNICAL_ISSUE_URL = "https://forms.gle/6YQfnscWDy8i3wSP6";
 const SUPPORT_EMAIL = "praxis.simulations@gmail.com";
-const HELP_USED_KEY = "praxis_help_opened";
+const HELP_USED_KEY_PREFIX = "praxis_help_opened";
 
 const FAQS = [
   {
@@ -66,33 +73,41 @@ const FAQS = [
 
 export function SimulationAssistant({
   sessionKey,
+  decisionCount,
   classVotesEnabled,
   leaderboardEnabled,
   individualMode = false,
   onOpenOnboarding,
+  helpPortalTarget = null,
+  onReturnToSimulation,
 }: {
   sessionKey: string;
+  decisionCount: number;
   classVotesEnabled: boolean;
   leaderboardEnabled: boolean;
   individualMode?: boolean;
   onOpenOnboarding: (screen: OnboardingScreenId) => void;
+  helpPortalTarget?: HTMLElement | null;
+  onReturnToSimulation?: () => void;
 }) {
   const [open, setOpen] = useState(false);
   const [tab, setTab] = useState<HelpTab>("home");
+  const [topic, setTopic] = useState<SimulationHelpTopicId | null>(null);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [messages, setMessages] = useState<Message[]>([]);
   const [expandedFaq, setExpandedFaq] = useState<number | null>(null);
   const [feedback, setFeedback] = useState<Record<number, "up" | "down">>({});
-  const [helpUsed, setHelpUsed] = useState(true);
+  const [helpUsed, setHelpUsed] = useState(false);
   const [hydratedSessionKey, setHydratedSessionKey] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
   const historyStorageKey = `praxis_help_chat_${sessionKey}`;
+  const helpUsedStorageKey = `${HELP_USED_KEY_PREFIX}_${sessionKey}`;
 
   useEffect(() => {
-    setHelpUsed(localStorage.getItem(HELP_USED_KEY) === "1");
-  }, []);
+    setHelpUsed(localStorage.getItem(helpUsedStorageKey) === "1");
+  }, [helpUsedStorageKey]);
 
   useEffect(() => {
     const saved = sessionStorage.getItem(historyStorageKey);
@@ -129,15 +144,31 @@ export function SimulationAssistant({
   }, [open, tab]);
 
   const openHelp = () => {
-    localStorage.setItem(HELP_USED_KEY, "1");
+    localStorage.setItem(helpUsedStorageKey, "1");
     setHelpUsed(true);
     setTab("home");
+    setTopic(null);
     setOpen(true);
   };
 
   const openOnboarding = (screen: OnboardingScreenId) => {
     setOpen(false);
+    setTopic(null);
     onOpenOnboarding(screen);
+  };
+
+  const openTopic = (nextTopic: SimulationHelpTopicId) => {
+    setTopic(nextTopic);
+  };
+
+  const closeHelp = () => {
+    setOpen(false);
+    setTopic(null);
+  };
+
+  const returnToSimulation = () => {
+    closeHelp();
+    onReturnToSimulation?.();
   };
 
   const send = async (rawMessage?: string) => {
@@ -200,13 +231,13 @@ export function SimulationAssistant({
       title: "How the simulation works",
       description: "Learn about each stage",
       icon: BookOpen,
-      action: () => openOnboarding("how-it-works"),
+      action: () => openTopic("how-it-works"),
     },
     {
       title: "How consequences work",
       description: "Understand outcomes and results",
       icon: TrendingUp,
-      action: () => openOnboarding("consequences"),
+      action: () => openTopic("consequences"),
     },
     ...(classVotesEnabled || leaderboardEnabled
       ? [
@@ -222,50 +253,82 @@ export function SimulationAssistant({
             description: "See how comparison features work",
             icon: Users,
             action: () =>
-              openOnboarding(classVotesEnabled ? "votes" : "leaderboard"),
+              openTopic(classVotesEnabled ? "votes" : "leaderboard"),
           },
         ]
       : []),
   ];
 
-  return (
-    <>
-      {open ? (
+  const helpOverlay = open ? (
         <div className="fixed inset-0 z-[90]" aria-hidden={false}>
           <button
             type="button"
             className="absolute inset-0 cursor-default bg-black/45 backdrop-blur-[1px]"
             aria-label="Close help"
-            onClick={() => setOpen(false)}
+            onClick={closeHelp}
           />
           <section
             role="dialog"
             aria-modal="true"
             aria-label="Praxis help"
-            className="absolute inset-x-0 bottom-0 flex h-[min(92dvh,760px)] flex-col overflow-hidden rounded-t-3xl border bg-card text-card-foreground shadow-2xl sm:inset-y-0 sm:left-auto sm:h-dvh sm:w-[min(430px,100vw)] sm:rounded-none sm:rounded-l-3xl"
+            className={cn(
+              "absolute inset-x-0 bottom-0 flex flex-col overflow-hidden border bg-card text-card-foreground shadow-2xl",
+              topic
+                ? "h-[min(82dvh,680px)] rounded-t-3xl sm:inset-x-auto sm:bottom-6 sm:right-6 sm:h-[min(82dvh,680px)] sm:w-[min(560px,calc(100vw-3rem))] sm:rounded-3xl"
+                : "h-[min(92dvh,760px)] rounded-t-3xl sm:inset-y-0 sm:left-auto sm:h-dvh sm:w-[min(430px,100vw)] sm:rounded-none sm:rounded-l-3xl",
+            )}
           >
             <header className="flex shrink-0 items-start justify-between gap-4 border-b px-5 py-4">
-              <div>
-                <h2 className="text-lg font-bold">How can we help?</h2>
-                <p className="mt-0.5 text-sm text-muted-foreground">
-                  {tab === "contact"
-                    ? "If you need more help, our support team is here for you."
-                    : "Get quick answers or review how Praxis works."}
-                </p>
+              <div className="flex min-w-0 items-start gap-2">
+                {topic ? (
+                  <Button
+                    type="button"
+                    size="icon"
+                    variant="ghost"
+                    className="-ml-2 h-9 w-9 shrink-0"
+                    onClick={() => setTopic(null)}
+                    aria-label="Back to Quick Help"
+                  >
+                    <ArrowLeft className="h-4 w-4" />
+                  </Button>
+                ) : null}
+                <div>
+                  <h2 className="text-lg font-bold">
+                    {topic ? "Quick Help" : "How can we help?"}
+                  </h2>
+                  <p className="mt-0.5 text-sm text-muted-foreground">
+                    {topic
+                      ? "Review this part of the simulation."
+                      : tab === "contact"
+                        ? "If you need more help, our support team is here for you."
+                        : "Get quick answers or review how Praxis works."}
+                  </p>
+                </div>
               </div>
-              <Button
-                type="button"
-                size="icon"
-                variant="ghost"
-                onClick={() => setOpen(false)}
-                aria-label="Close help"
-              >
-                <X className="h-5 w-5" />
-              </Button>
+              <div className="flex shrink-0 items-center gap-1">
+                {topic ? <ThemeToggle /> : null}
+                <Button
+                  type="button"
+                  size="icon"
+                  variant="ghost"
+                  onClick={closeHelp}
+                  aria-label="Close help"
+                >
+                  <X className="h-5 w-5" />
+                </Button>
+              </div>
             </header>
 
             <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4 sm:px-5">
-              {tab === "home" ? (
+              {topic ? (
+                <SimulationHelpTopic
+                  topic={topic}
+                  decisionCount={decisionCount}
+                  individualMode={individualMode}
+                />
+              ) : null}
+
+              {!topic && tab === "home" ? (
                 <div className="space-y-6">
                   <form onSubmit={submitSearch} className="relative">
                     <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
@@ -369,7 +432,7 @@ export function SimulationAssistant({
                 </div>
               ) : null}
 
-              {tab === "chat" ? (
+              {!topic && tab === "chat" ? (
                 <div className="flex min-h-full flex-col">
                   <div className="flex-1 space-y-3 pb-4">
                     {messages.length === 0 ? (
@@ -477,7 +540,7 @@ export function SimulationAssistant({
                 </div>
               ) : null}
 
-              {tab === "contact" ? (
+              {!topic && tab === "contact" ? (
                 <div className="space-y-3">
                   <a
                     href={TECHNICAL_ISSUE_URL}
@@ -515,52 +578,76 @@ export function SimulationAssistant({
               ) : null}
             </div>
 
-            <nav
-              className="safe-area-inset-bottom grid shrink-0 grid-cols-3 border-t bg-card"
-              aria-label="Help sections"
-            >
-              {[
-                { id: "home" as const, label: "Home", icon: Home },
-                { id: "chat" as const, label: "Chat", icon: MessageCircle },
-                { id: "contact" as const, label: "Contact", icon: Mail },
-              ].map((item) => {
-                const Icon = item.icon;
-                const active = tab === item.id;
-                return (
-                  <button
-                    key={item.id}
-                    type="button"
-                    onClick={() => setTab(item.id)}
-                    className={cn(
-                      "flex min-h-16 flex-col items-center justify-center gap-1 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset",
-                      active
-                        ? "text-primary"
-                        : "text-muted-foreground hover:bg-muted hover:text-foreground",
-                    )}
-                    aria-current={active ? "page" : undefined}
-                  >
-                    <Icon className="h-5 w-5" />
-                    {item.label}
-                  </button>
-                );
-              })}
-            </nav>
+            {topic ? (
+              <footer className="grid shrink-0 gap-2 border-t bg-card p-3 sm:grid-cols-2">
+                <Button type="button" variant="outline" onClick={() => setTopic(null)}>
+                  <ArrowLeft className="h-4 w-4" aria-hidden />
+                  Back to Help
+                </Button>
+                <Button type="button" onClick={returnToSimulation}>
+                  Back to simulation
+                </Button>
+              </footer>
+            ) : (
+              <nav
+                className="safe-area-inset-bottom grid shrink-0 grid-cols-3 border-t bg-card"
+                aria-label="Help sections"
+              >
+                {[
+                  { id: "home" as const, label: "Home", icon: Home },
+                  { id: "chat" as const, label: "Chat", icon: MessageCircle },
+                  { id: "contact" as const, label: "Contact", icon: Mail },
+                ].map((item) => {
+                  const Icon = item.icon;
+                  const active = tab === item.id;
+                  return (
+                    <button
+                      key={item.id}
+                      type="button"
+                      onClick={() => setTab(item.id)}
+                      className={cn(
+                        "flex min-h-16 flex-col items-center justify-center gap-1 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset",
+                        active
+                          ? "text-primary"
+                          : "text-muted-foreground hover:bg-muted hover:text-foreground",
+                      )}
+                      aria-current={active ? "page" : undefined}
+                    >
+                      <Icon className="h-5 w-5" />
+                      {item.label}
+                    </button>
+                  );
+                })}
+              </nav>
+            )}
           </section>
         </div>
-      ) : null}
+      ) : null;
 
-      <Button
-        type="button"
-        onClick={openHelp}
-        className={cn(
-          "fixed bottom-5 right-5 z-[70] h-14 rounded-full shadow-xl",
-          helpUsed ? "w-14 px-0" : "px-5",
-        )}
-        aria-label="Open help"
-      >
-        <HelpCircle className={cn("h-6 w-6", !helpUsed && "mr-2")} />
-        {!helpUsed ? <span>Help</span> : null}
-      </Button>
+  const helpTrigger = (
+    <Button
+      type="button"
+      onClick={openHelp}
+      className={cn(
+        "h-14 rounded-full shadow-xl",
+        helpPortalTarget ? "" : "fixed bottom-5 right-5 z-[70]",
+        helpUsed ? "w-14 px-0" : "px-5",
+      )}
+      aria-label="Open help"
+    >
+      <HelpCircle className={cn("h-6 w-6", !helpUsed && "mr-2")} />
+      {!helpUsed ? <span>Help</span> : null}
+    </Button>
+  );
+
+  return (
+    <>
+      {helpOverlay
+        ? helpPortalTarget
+          ? createPortal(helpOverlay, helpPortalTarget)
+          : helpOverlay
+        : null}
+      {helpPortalTarget ? createPortal(helpTrigger, helpPortalTarget) : helpTrigger}
     </>
   );
 }

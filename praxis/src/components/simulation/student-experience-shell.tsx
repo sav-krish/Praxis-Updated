@@ -80,6 +80,10 @@ export function StudentExperienceShell({
   const [onboardingOpen, setOnboardingOpen] = useState(false);
   const [onboardingStartScreen, setOnboardingStartScreen] =
     useState<OnboardingScreenId>("how-it-works");
+  const [entryHelpPortalTarget, setEntryHelpPortalTarget] =
+    useState<HTMLDivElement | null>(null);
+  const [onboardingHelpPortalTarget, setOnboardingHelpPortalTarget] =
+    useState<HTMLDivElement | null>(null);
 
   const loadExperience = useCallback(async () => {
     if (onRoleSelectionPage) {
@@ -216,6 +220,7 @@ export function StudentExperienceShell({
             isNew={(payload?.responses.length ?? 0) === 0}
             onStart={startDirectly}
             onReview={reviewOnboarding}
+            onHelpPortalTargetChange={setEntryHelpPortalTarget}
           />
           <SimulationOnboardingCarousel
             open={onboardingOpen}
@@ -225,13 +230,29 @@ export function StudentExperienceShell({
             individualMode={individualMode}
             startScreen={onboardingStartScreen}
             onExit={exitOnboarding}
+            onHelpPortalTargetChange={setOnboardingHelpPortalTarget}
           />
           <SimulationAssistant
             sessionKey={sessionId}
+            decisionCount={payload?.decisions.length ?? 0}
             classVotesEnabled={flowSettings.classVotesEnabled || individualMode}
             leaderboardEnabled={flowSettings.leaderboardEnabled}
             individualMode={individualMode}
             onOpenOnboarding={openOnboarding}
+            helpPortalTarget={
+              onboardingOpen
+                ? onboardingHelpPortalTarget
+                : entryOpen
+                  ? entryHelpPortalTarget
+                  : null
+            }
+            onReturnToSimulation={
+              entryOpen
+                ? () => startDirectly(false)
+                : onboardingOpen
+                  ? exitOnboarding
+                  : undefined
+            }
           />
           {participantId ? (
             <LeaderboardOverlays

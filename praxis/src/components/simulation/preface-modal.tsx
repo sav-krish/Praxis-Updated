@@ -1,6 +1,6 @@
 "use client";
 
-import { useId, useMemo, useState } from "react";
+import { useCallback, useId, useMemo, useState } from "react";
 import type { LucideIcon } from "lucide-react";
 import {
   ArrowLeft,
@@ -48,6 +48,8 @@ export type OnboardingScreenId =
   | "leaderboard"
   | "ready";
 
+export type SimulationHelpTopicId = Exclude<OnboardingScreenId, "ready">;
+
 interface SimulationEntryModalProps {
   open: boolean;
   title: string;
@@ -58,6 +60,7 @@ interface SimulationEntryModalProps {
   isNew: boolean;
   onStart: (suppressFuture: boolean) => void;
   onReview: (suppressFuture: boolean) => void;
+  onHelpPortalTargetChange?: (target: HTMLDivElement | null) => void;
 }
 
 interface SimulationOnboardingCarouselProps {
@@ -68,6 +71,7 @@ interface SimulationOnboardingCarouselProps {
   individualMode: boolean;
   startScreen?: OnboardingScreenId;
   onExit: (result: "completed" | "skipped") => void;
+  onHelpPortalTargetChange?: (target: HTMLDivElement | null) => void;
 }
 
 const FULL_SCREEN_DIALOG_CLASS =
@@ -105,9 +109,16 @@ export function SimulationEntryModal({
   isNew,
   onStart,
   onReview,
+  onHelpPortalTargetChange,
 }: SimulationEntryModalProps) {
   const checkboxId = useId();
   const [suppressFuture, setSuppressFuture] = useState(false);
+  const setHelpPortalTarget = useCallback(
+    (target: HTMLDivElement | null) => {
+      onHelpPortalTargetChange?.(target);
+    },
+    [onHelpPortalTargetChange],
+  );
 
   const finishEntry = (
     callback: (suppressFutureOnNextVisit: boolean) => void,
@@ -230,6 +241,10 @@ export function SimulationEntryModal({
             </section>
           </div>
         </main>
+        <div
+          ref={setHelpPortalTarget}
+          className="fixed bottom-5 right-5 z-[60]"
+        />
       </DialogContent>
     </Dialog>
   );
@@ -656,6 +671,23 @@ function LeaderboardScreen() {
   );
 }
 
+export function SimulationHelpTopic({
+  topic,
+  decisionCount,
+  individualMode,
+}: {
+  topic: SimulationHelpTopicId;
+  decisionCount: number;
+  individualMode: boolean;
+}) {
+  if (topic === "how-it-works") {
+    return <HowItWorksScreen decisionCount={decisionCount} />;
+  }
+  if (topic === "consequences") return <ConsequencesScreen />;
+  if (topic === "votes") return <VotesScreen individualMode={individualMode} />;
+  return <LeaderboardScreen />;
+}
+
 const DONT_SHOW_AGAIN_KEY = "praxis_onboarding_dont_show_ready";
 
 function ReadyScreen({ onStart }: { onStart: () => void }) {
@@ -740,6 +772,7 @@ export function SimulationOnboardingCarousel({
   individualMode,
   startScreen = "how-it-works",
   onExit,
+  onHelpPortalTargetChange,
 }: SimulationOnboardingCarouselProps) {
   const screens = useMemo<OnboardingScreenId[]>(() => {
     const next: OnboardingScreenId[] = ["how-it-works", "consequences"];
@@ -753,6 +786,12 @@ export function SimulationOnboardingCarousel({
   const navigationKey = `${screenSignature}:${startScreen}`;
   const [navigation, setNavigation] = useState({ key: "", index: 0 });
   const [skipConfirmationOpen, setSkipConfirmationOpen] = useState(false);
+  const setHelpPortalTarget = useCallback(
+    (target: HTMLDivElement | null) => {
+      onHelpPortalTargetChange?.(target);
+    },
+    [onHelpPortalTargetChange],
+  );
 
   const currentIndex = navigation.key === navigationKey ? navigation.index : startIndex;
   const safeIndex = Math.min(Math.max(0, currentIndex), screens.length - 1);
@@ -766,13 +805,16 @@ export function SimulationOnboardingCarousel({
   };
 
   const renderScreen = () => {
-    if (activeScreen === "how-it-works") {
-      return <HowItWorksScreen decisionCount={decisionCount} />;
+    if (activeScreen === "ready") {
+      return <ReadyScreen onStart={() => handleExit("completed")} />;
     }
-    if (activeScreen === "consequences") return <ConsequencesScreen />;
-    if (activeScreen === "votes") return <VotesScreen individualMode={individualMode} />;
-    if (activeScreen === "leaderboard") return <LeaderboardScreen />;
-    return <ReadyScreen onStart={() => handleExit("completed")} />;
+    return (
+      <SimulationHelpTopic
+        topic={activeScreen}
+        decisionCount={decisionCount}
+        individualMode={individualMode}
+      />
+    );
   };
 
   return (
@@ -866,6 +908,10 @@ export function SimulationOnboardingCarousel({
               )}
             </div>
           </footer>
+          <div
+            ref={setHelpPortalTarget}
+            className="fixed bottom-5 right-5 z-[60]"
+          />
         </DialogContent>
       </Dialog>
 
