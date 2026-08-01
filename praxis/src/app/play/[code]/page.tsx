@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useRef, use } from "react";
+import { useEffect, useLayoutEffect, useState, useRef, use } from "react";
 import dynamic from "next/dynamic";
 import Image from "next/image";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -61,6 +61,7 @@ import {
 } from "@/lib/student/qualitative-impact";
 import { getSimulationFlowSettings } from "@/lib/simulation-flow";
 import { PraxisLogo } from "@/components/praxis-logo";
+import { useStudentLeaderboardVisibility } from "@/components/simulation/student-experience-shell";
 
 const MarkdownBody = dynamic(
   () =>
@@ -329,6 +330,7 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
   const { code } = use(params);
   const router = useRouter();
   const searchParams = useSearchParams();
+  const setLeaderboardVisible = useStudentLeaderboardVisibility();
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [session, setSession] = useState<Session | null>(null);
@@ -392,6 +394,28 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
   const currentStepRef = useRef(currentStep);
   const sessionIdRef = useRef<string | null>(null);
   const transitionRef = useRef(false);
+  const hasEnteredReflectionRef = useRef(false);
+
+  useLayoutEffect(() => {
+    if (currentStep >= 6 || session?.status === "complete") {
+      hasEnteredReflectionRef.current = true;
+    }
+  }, [currentStep, session?.status]);
+
+  // Leaderboard updates are part of the decision phase only. Unmounting the
+  // overlay at reflection also cancels any pending final-decision reveal.
+  const showLeaderboard =
+    session !== null &&
+    session.status !== "complete" &&
+    currentStep < 6 &&
+    !hasEnteredReflectionRef.current;
+  useLayoutEffect(() => {
+    setLeaderboardVisible(showLeaderboard);
+  }, [setLeaderboardVisible, showLeaderboard]);
+
+  useEffect(() => {
+    return () => setLeaderboardVisible(false);
+  }, [setLeaderboardVisible]);
 
   useEffect(() => {
     currentStepRef.current = currentStep;
@@ -475,20 +499,6 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
       supabase.removeChannel(channel);
     };
   }, [session]);
-
-  useEffect(() => {
-    if (!session?.id || currentStep !== 7) return;
-
-    const timeoutId = window.setTimeout(() => {
-      window.dispatchEvent(
-        new CustomEvent("praxis:simulation-complete", {
-          detail: { sessionId: session.id },
-        }),
-      );
-    }, 0);
-
-    return () => window.clearTimeout(timeoutId);
-  }, [currentStep, session?.id]);
 
   // Sync scheduled start/end
   useEffect(() => {

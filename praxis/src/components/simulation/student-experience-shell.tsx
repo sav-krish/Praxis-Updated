@@ -1,6 +1,16 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type Dispatch,
+  type SetStateAction,
+} from "react";
 import { usePathname } from "next/navigation";
 import { Loader2 } from "lucide-react";
 import {
@@ -40,6 +50,22 @@ interface StudentExperiencePayload {
 
 const GLOBAL_SUPPRESSION_PREFIX = "praxis_onboarding_suppressed";
 const SIMULATION_SEEN_PREFIX = "praxis_onboarding_seen";
+
+const StudentLeaderboardVisibilityContext = createContext<
+  Dispatch<SetStateAction<boolean>> | null
+>(null);
+
+export function useStudentLeaderboardVisibility(): Dispatch<
+  SetStateAction<boolean>
+> {
+  const setLeaderboardVisible = useContext(StudentLeaderboardVisibilityContext);
+  if (!setLeaderboardVisible) {
+    throw new Error(
+      "useStudentLeaderboardVisibility must be used inside StudentExperienceShell",
+    );
+  }
+  return setLeaderboardVisible;
+}
 
 function summarizeScenario(background: string | null): string {
   if (!background?.trim()) {
@@ -86,6 +112,7 @@ export function StudentExperienceShell({
     useState<HTMLDivElement | null>(null);
   const [onboardingHelpPortalTarget, setOnboardingHelpPortalTarget] =
     useState<HTMLDivElement | null>(null);
+  const [leaderboardVisible, setLeaderboardVisible] = useState(false);
   const persistedSeenRef = useRef<string | null>(null);
 
   const loadExperience = useCallback(async () => {
@@ -288,7 +315,7 @@ export function StudentExperienceShell({
   if (onRoleSelectionPage) return children;
 
   return (
-    <>
+    <StudentLeaderboardVisibilityContext.Provider value={setLeaderboardVisible}>
       {children}
 
       {loading ? (
@@ -343,7 +370,7 @@ export function StudentExperienceShell({
                   : undefined
             }
           />
-          {participantId ? (
+          {participantId && leaderboardVisible ? (
             <LeaderboardOverlays
               code={normalizedCode}
               sessionId={sessionId}
@@ -352,6 +379,6 @@ export function StudentExperienceShell({
           ) : null}
         </>
       ) : null}
-    </>
+    </StudentLeaderboardVisibilityContext.Provider>
   );
 }

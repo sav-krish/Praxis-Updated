@@ -70,10 +70,6 @@ type DecisionConsequenceDetail = {
   isFinal: boolean;
 };
 
-type SimulationCompleteDetail = {
-  sessionId: string;
-};
-
 type RankUpdate = {
   decisionId: string;
   isFinal: boolean;
@@ -148,15 +144,6 @@ function isDecisionConsequenceDetail(
     candidate.decisionId.length > 0 &&
     typeof candidate.isFinal === "boolean"
   );
-}
-
-function isSimulationCompleteDetail(
-  detail: unknown,
-): detail is SimulationCompleteDetail {
-  if (!detail || typeof detail !== "object") return false;
-
-  const candidate = detail as Partial<SimulationCompleteDetail>;
-  return typeof candidate.sessionId === "string" && candidate.sessionId.length > 0;
 }
 
 function percentileText(row: LeaderboardRow): string | null {
@@ -326,7 +313,6 @@ export function LeaderboardOverlays({
   const chipButtonRef = useRef<HTMLButtonElement>(null);
   const mountedRef = useRef(false);
   const requestNumberRef = useRef(0);
-  const completedSessionRef = useRef<string | null>(null);
 
   const loadLeaderboard =
     useCallback(async (
@@ -459,41 +445,6 @@ export function LeaderboardOverlays({
       );
     };
   }, [loadLeaderboard]);
-
-  useEffect(() => {
-    const handleSimulationComplete = (event: Event) => {
-      const detail = (event as CustomEvent<unknown>).detail;
-      if (
-        !isSimulationCompleteDetail(detail) ||
-        detail.sessionId !== sessionId ||
-        completedSessionRef.current === sessionId
-      ) {
-        return;
-      }
-      completedSessionRef.current = sessionId;
-
-      void (async () => {
-        const snapshot = await loadLeaderboard(undefined, true);
-        if (
-          !mountedRef.current ||
-          !snapshot?.settings.canShowPodium
-        ) {
-          return;
-        }
-
-        setRankUpdate(null);
-        setRevealSnapshot(copyPayload(snapshot));
-      })();
-    };
-
-    window.addEventListener("praxis:simulation-complete", handleSimulationComplete);
-    return () => {
-      window.removeEventListener(
-        "praxis:simulation-complete",
-        handleSimulationComplete,
-      );
-    };
-  }, [loadLeaderboard, sessionId]);
 
   useEffect(() => {
     if (!payload) return;
