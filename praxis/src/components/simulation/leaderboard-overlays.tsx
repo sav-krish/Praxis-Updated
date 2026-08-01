@@ -300,10 +300,14 @@ export function LeaderboardOverlays({
   const completedSessionRef = useRef<string | null>(null);
 
   const loadLeaderboard =
-    useCallback(async (decisionId?: string): Promise<LeaderboardPayload | null> => {
+    useCallback(async (
+      decisionId?: string,
+      revealFinalNames = false,
+    ): Promise<LeaderboardPayload | null> => {
       const requestNumber = ++requestNumberRef.current;
       const searchParams = new URLSearchParams({ participantId });
       if (decisionId) searchParams.set("decisionId", decisionId);
+      if (revealFinalNames) searchParams.set("reveal", "final");
 
       try {
         const response = await fetch(
@@ -346,7 +350,7 @@ export function LeaderboardOverlays({
   useEffect(() => {
     const supabase = createClient();
     const refetch = () => {
-      void loadLeaderboard();
+      void loadLeaderboard(undefined, Boolean(revealSnapshot));
     };
     const filter = `session_id=eq.${sessionId}`;
     const channel = supabase
@@ -376,7 +380,7 @@ export function LeaderboardOverlays({
     return () => {
       void supabase.removeChannel(channel);
     };
-  }, [loadLeaderboard, participantId, sessionId]);
+  }, [loadLeaderboard, participantId, revealSnapshot, sessionId]);
 
   // An individual run is compared with completions from separate sessions, so
   // its changes cannot be covered by a single session-scoped realtime filter.
@@ -385,10 +389,10 @@ export function LeaderboardOverlays({
     if (payload?.scope !== "individual") return;
 
     const intervalId = window.setInterval(() => {
-      void loadLeaderboard();
+      void loadLeaderboard(undefined, Boolean(revealSnapshot));
     }, 5_000);
     return () => window.clearInterval(intervalId);
-  }, [loadLeaderboard, payload?.scope]);
+  }, [loadLeaderboard, payload?.scope, revealSnapshot]);
 
   useEffect(() => {
     const handleDecisionConsequence = (event: Event) => {
@@ -396,7 +400,10 @@ export function LeaderboardOverlays({
       if (!isDecisionConsequenceDetail(detail)) return;
 
       void (async () => {
-        const currentPayload = await loadLeaderboard(detail.decisionId);
+        const currentPayload = await loadLeaderboard(
+          detail.decisionId,
+          detail.isFinal,
+        );
         if (
           !mountedRef.current ||
           !currentPayload?.settings.leaderboardEnabled
@@ -437,7 +444,7 @@ export function LeaderboardOverlays({
       completedSessionRef.current = sessionId;
 
       void (async () => {
-        const snapshot = await loadLeaderboard();
+        const snapshot = await loadLeaderboard(undefined, true);
         if (
           !mountedRef.current ||
           !snapshot?.settings.canShowPodium

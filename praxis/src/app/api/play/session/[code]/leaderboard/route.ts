@@ -75,6 +75,7 @@ export async function GET(request: NextRequest, { params }: RouteContext) {
   const requestedDecisionId = request.nextUrl.searchParams
     .get("decisionId")
     ?.trim();
+  const requestedFinalReveal = request.nextUrl.searchParams.get("reveal") === "final";
 
   if (!participantId) {
     return json({ error: "participantId is required" }, 400);
@@ -257,6 +258,10 @@ export async function GET(request: NextRequest, { params }: RouteContext) {
       })
       .map((participant, index) => [participant.id, index + 1]),
   );
+  const viewerCompletedAllDecisions =
+    totalDecisions > 0 &&
+    (decisionsByParticipant.get(participantId)?.size ?? 0) >= totalDecisions;
+  const revealFinalNames = requestedFinalReveal && viewerCompletedAllDecisions;
 
   const rankedRows = assignLeaderboardRanks(
     participants.map((participant) => {
@@ -272,7 +277,9 @@ export async function GET(request: NextRequest, { params }: RouteContext) {
       return {
         participantId: participant.id,
         displayName:
-          participant.id === participantId || !flowSettings.leaderboardAnonymous
+          participant.id === participantId ||
+          revealFinalNames ||
+          !flowSettings.leaderboardAnonymous
             ? participant.name
             : `Anon Student ${String(anonymousNumber).padStart(2, "0")}`,
         isViewer: participant.id === participantId,

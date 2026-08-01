@@ -136,10 +136,15 @@
 }
 
 @layer base {
+  html {
+    min-height: 100%;
+    background-color: var(--background);
+  }
   * {
     @apply border-border outline-ring/50;
   }
   body {
+    min-height: 100dvh;
     @apply bg-background text-foreground;
   }
 }
@@ -339,6 +344,23 @@
 /* Landing: no horizontal page scroll / scrollbar (wide How it works strip, etc.) */
 html:has([data-landing="true"]) {
   overflow-x: hidden;
+}
+
+/* Keep the document canvas aligned with the page shell. Without this, a
+   browser zoom level can expose the root document background below a light
+   dashboard or landing page, which reads as a stray white/black rectangle. */
+html:has([data-landing="true"]),
+body:has([data-landing="true"]),
+html:has([data-app="true"]),
+body:has([data-app="true"]) {
+  background-color: #fff7ee;
+}
+
+.dark:has([data-landing="true"]),
+.dark body:has([data-landing="true"]),
+.dark:has([data-app="true"]),
+.dark body:has([data-app="true"]) {
+  background-color: #080c11;
 }
 
 /* Safe area insets for notched devices (e.g. iPhone) */
