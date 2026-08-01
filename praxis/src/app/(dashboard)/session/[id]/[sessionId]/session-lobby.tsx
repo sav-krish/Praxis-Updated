@@ -721,30 +721,30 @@ export function SessionLobby({
 
                     <div className="flex items-center justify-between gap-4 border-t border-border pt-4">
                       <div>
-                        <p className="text-sm font-medium text-foreground">Student display mode</p>
+                        <p className="text-sm font-medium text-foreground">Anonymous leaderboard</p>
                         <p className="text-xs text-muted-foreground">
                           {flowSettings.leaderboardAnonymous
-                            ? "Students see anonymous labels; you always see real names."
+                            ? "Students see labels such as Anon Student 01."
                             : "Students can see participant names on the leaderboard."}
                         </p>
                       </div>
                       <button
                         type="button"
                         role="switch"
-                        aria-checked={!flowSettings.leaderboardAnonymous}
-                        aria-label="Show participant names to students"
+                        aria-checked={flowSettings.leaderboardAnonymous}
+                        aria-label="Use anonymous labels on the student leaderboard"
                         onClick={() =>
                           void updateFlowSettings({
                             leaderboardAnonymous: !flowSettings.leaderboardAnonymous,
                           })
                         }
                         className={`relative h-6 w-11 shrink-0 rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ${
-                          !flowSettings.leaderboardAnonymous ? "bg-primary" : "bg-input"
+                          flowSettings.leaderboardAnonymous ? "bg-primary" : "bg-input"
                         }`}
                       >
                         <span
                           className={`absolute left-1 top-1 h-4 w-4 rounded-full bg-background shadow transition-transform ${
-                            !flowSettings.leaderboardAnonymous ? "translate-x-5" : "translate-x-0"
+                            flowSettings.leaderboardAnonymous ? "translate-x-5" : "translate-x-0"
                           }`}
                         />
                       </button>

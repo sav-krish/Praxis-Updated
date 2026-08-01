@@ -522,7 +522,7 @@ export function LeaderboardOverlays({
   useEffect(() => {
     if (!rankUpdate) return;
 
-    const timeoutId = window.setTimeout(dismissRankUpdate, 15_000);
+    const timeoutId = window.setTimeout(dismissRankUpdate, 18_000);
     return () => window.clearTimeout(timeoutId);
   }, [dismissRankUpdate, rankUpdate]);
 

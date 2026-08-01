@@ -1900,6 +1900,46 @@ export function SimulationEditor({
                         />
                       </button>
                     </div>
+                    <div className="flex items-center justify-between gap-4 border-t pt-3">
+                      <div>
+                        <Label htmlFor="leaderboard-anonymous">Anonymous leaderboard</Label>
+                        <p className="text-sm text-muted-foreground">
+                          {flowSettings.leaderboardAnonymous
+                            ? "Students see anonymous labels such as Anon Student 01."
+                            : "Students see participant names on the leaderboard."}
+                        </p>
+                      </div>
+                      <button
+                        id="leaderboard-anonymous"
+                        type="button"
+                        role="switch"
+                        aria-checked={flowSettings.leaderboardAnonymous}
+                        aria-label="Use anonymous labels on the student leaderboard"
+                        disabled={!isOwner}
+                        onClick={() =>
+                          setSimulation((prev) => ({
+                            ...prev,
+                            preferences: setSimulationFlowSettings(prev.preferences, {
+                              ...getSimulationFlowSettings(prev.preferences),
+                              leaderboardAnonymous:
+                                !getSimulationFlowSettings(prev.preferences)
+                                  .leaderboardAnonymous,
+                            }),
+                          }))
+                        }
+                        className={`relative h-6 w-11 shrink-0 rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60 ${
+                          flowSettings.leaderboardAnonymous ? "bg-primary" : "bg-input"
+                        }`}
+                      >
+                        <span
+                          className={`absolute left-1 top-1 h-4 w-4 rounded-full bg-background shadow transition-transform ${
+                            flowSettings.leaderboardAnonymous
+                              ? "translate-x-5"
+                              : "translate-x-0"
+                          }`}
+                        />
+                      </button>
+                    </div>
                   </div>
                 ) : null}
               </div>
