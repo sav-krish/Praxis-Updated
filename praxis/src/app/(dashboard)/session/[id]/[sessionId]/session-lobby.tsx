@@ -622,13 +622,44 @@ export function SessionLobby({
           {session.status !== "complete" && (
             <Card>
               <CardHeader className="px-4 sm:px-6">
-                <CardTitle className="text-lg sm:text-xl">Student leaderboard</CardTitle>
+                <CardTitle className="text-lg sm:text-xl">Student engagement features</CardTitle>
                 <CardDescription className="text-sm">
                   These controls apply to this live session only and update students in real time.
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4 px-4 sm:px-6">
                 <div className="flex items-center justify-between gap-4">
+                  <div>
+                    <p className="text-sm font-medium text-foreground">Class Votes</p>
+                    <p className="text-xs text-muted-foreground">
+                      {flowSettings.classVotesEnabled
+                        ? "Students can see class voting results after each consequence"
+                        : "Class Votes are hidden from students"}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    role="switch"
+                    aria-checked={flowSettings.classVotesEnabled}
+                    aria-label="Enable Class Votes"
+                    onClick={() =>
+                      void updateFlowSettings({
+                        classVotesEnabled: !flowSettings.classVotesEnabled,
+                      })
+                    }
+                    className={`relative h-6 w-11 shrink-0 rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ${
+                      flowSettings.classVotesEnabled ? "bg-primary" : "bg-input"
+                    }`}
+                  >
+                    <span
+                      className={`absolute left-1 top-1 h-4 w-4 rounded-full bg-background shadow transition-transform ${
+                        flowSettings.classVotesEnabled ? "translate-x-5" : "translate-x-0"
+                      }`}
+                    />
+                  </button>
+                </div>
+
+                <div className="flex items-center justify-between gap-4 border-t border-border pt-4">
                   <div>
                     <p className="text-sm font-medium text-foreground">Leaderboard</p>
                     <p className="text-xs text-muted-foreground">
@@ -663,64 +694,6 @@ export function SessionLobby({
                   <div className="space-y-4 border-t border-border pt-4">
                     <div className="flex items-center justify-between gap-4">
                       <div>
-                        <p className="text-sm font-medium text-foreground">Rank chip</p>
-                        <p className="text-xs text-muted-foreground">
-                          Keep each student&apos;s rank available during the simulation.
-                        </p>
-                      </div>
-                      <button
-                        type="button"
-                        role="switch"
-                        aria-checked={flowSettings.rankChipEnabled}
-                        aria-label="Show student rank chip"
-                        onClick={() =>
-                          void updateFlowSettings({
-                            rankChipEnabled: !flowSettings.rankChipEnabled,
-                          })
-                        }
-                        className={`relative h-6 w-11 shrink-0 rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ${
-                          flowSettings.rankChipEnabled ? "bg-primary" : "bg-input"
-                        }`}
-                      >
-                        <span
-                          className={`absolute left-1 top-1 h-4 w-4 rounded-full bg-background shadow transition-transform ${
-                            flowSettings.rankChipEnabled ? "translate-x-5" : "translate-x-0"
-                          }`}
-                        />
-                      </button>
-                    </div>
-
-                    <div className="flex items-center justify-between gap-4 border-t border-border pt-4">
-                      <div>
-                        <p className="text-sm font-medium text-foreground">Final podium</p>
-                        <p className="text-xs text-muted-foreground">
-                          Reveal final standings after the last decision.
-                        </p>
-                      </div>
-                      <button
-                        type="button"
-                        role="switch"
-                        aria-checked={flowSettings.podiumEnabled}
-                        aria-label="Show final leaderboard podium"
-                        onClick={() =>
-                          void updateFlowSettings({
-                            podiumEnabled: !flowSettings.podiumEnabled,
-                          })
-                        }
-                        className={`relative h-6 w-11 shrink-0 rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ${
-                          flowSettings.podiumEnabled ? "bg-primary" : "bg-input"
-                        }`}
-                      >
-                        <span
-                          className={`absolute left-1 top-1 h-4 w-4 rounded-full bg-background shadow transition-transform ${
-                            flowSettings.podiumEnabled ? "translate-x-5" : "translate-x-0"
-                          }`}
-                        />
-                      </button>
-                    </div>
-
-                    <div className="flex items-center justify-between gap-4 border-t border-border pt-4">
-                      <div>
                         <p className="text-sm font-medium text-foreground">Anonymous leaderboard</p>
                         <p className="text-xs text-muted-foreground">
                           {flowSettings.leaderboardAnonymous
@@ -745,6 +718,35 @@ export function SessionLobby({
                         <span
                           className={`absolute left-1 top-1 h-4 w-4 rounded-full bg-background shadow transition-transform ${
                             flowSettings.leaderboardAnonymous ? "translate-x-5" : "translate-x-0"
+                          }`}
+                        />
+                      </button>
+                    </div>
+
+                    <div className="flex items-center justify-between gap-4 border-t border-border pt-4">
+                      <div>
+                        <p className="text-sm font-medium text-foreground">Rank chip</p>
+                        <p className="text-xs text-muted-foreground">
+                          Keep each student&apos;s rank available during the simulation.
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        role="switch"
+                        aria-checked={flowSettings.rankChipEnabled}
+                        aria-label="Show student rank chip"
+                        onClick={() =>
+                          void updateFlowSettings({
+                            rankChipEnabled: !flowSettings.rankChipEnabled,
+                          })
+                        }
+                        className={`relative h-6 w-11 shrink-0 rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ${
+                          flowSettings.rankChipEnabled ? "bg-primary" : "bg-input"
+                        }`}
+                      >
+                        <span
+                          className={`absolute left-1 top-1 h-4 w-4 rounded-full bg-background shadow transition-transform ${
+                            flowSettings.rankChipEnabled ? "translate-x-5" : "translate-x-0"
                           }`}
                         />
                       </button>

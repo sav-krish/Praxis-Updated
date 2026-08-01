@@ -34,6 +34,7 @@ export type TieInfo = {
   tiedNames: string[];
   tieBreakReason: string | null;
   tieBreakAboveName: string | null;
+  playersAhead: number;
 };
 
 export type LeaderboardPayload = {
@@ -54,7 +55,6 @@ export type LeaderboardPayload = {
   settings: {
     leaderboardEnabled: boolean;
     rankChipEnabled: boolean;
-    podiumEnabled: boolean;
     canShowPodium: boolean;
   };
 };
@@ -101,6 +101,25 @@ function formatScore(score: number): string {
   return new Intl.NumberFormat(undefined, {
     maximumFractionDigits: 1,
   }).format(score);
+}
+
+function tieBreakExplanation(reason: string): string {
+  switch (reason) {
+    case "higher raw average XP":
+      return "they have a higher raw average XP";
+    case "more decisions completed":
+      return "they have completed more decisions";
+    case "more Perfect outcomes":
+      return "they have more Perfect outcomes";
+    default:
+      return reason;
+  }
+}
+
+function playersAheadMessage(playersAhead: number): string {
+  return `${playersAhead} ranked ${
+    playersAhead === 1 ? "player is" : "players are"
+  } ahead of you.`;
 }
 
 function copyPayload(payload: LeaderboardPayload): LeaderboardPayload {
@@ -481,7 +500,7 @@ export function LeaderboardOverlays({
 
     setRevealSnapshot((current) => {
       if (!current) return current;
-      if (!payload.settings.leaderboardEnabled || !payload.settings.podiumEnabled) {
+      if (!payload.settings.canShowPodium) {
         return null;
       }
       return copyPayload(payload);
@@ -675,12 +694,12 @@ export function LeaderboardOverlays({
               {rankUpdateViewer.rank === 1
                 ? `You're leading the ${rankUpdate.snapshot.scopeLabel}.`
                 : rankUpdate.snapshot.tieInfo?.tieBreakReason
-                  ? `0 XP behind ${rankUpdate.snapshot.tieInfo.tieBreakAboveName ?? "the student above"}, tied, but below rank due to ${rankUpdate.snapshot.tieInfo.tieBreakReason}.`
+                  ? `You are 0 XP behind ${rankUpdate.snapshot.tieInfo.tieBreakAboveName ?? "the student above"} and have the same completion-weighted score, but ${rankUpdate.snapshot.tieInfo.tieBreakAboveName ?? "they"} is ranked ahead because ${tieBreakExplanation(rankUpdate.snapshot.tieInfo.tieBreakReason)}. ${playersAheadMessage(rankUpdate.snapshot.tieInfo.playersAhead)}`
                   : rankUpdate.snapshot.above
-                    ? `${formatScore(rankUpdate.snapshot.above.gapXp)} XP behind ${rankUpdate.snapshot.above.displayName}`
+                    ? `You are ${formatScore(rankUpdate.snapshot.above.gapXp)} XP behind ${rankUpdate.snapshot.above.displayName}. ${playersAheadMessage(rankUpdate.snapshot.tieInfo.playersAhead)}`
                     : rankUpdateViewer.rank === null
                       ? "Complete a decision to join the rankings."
-                      : "No ranked student is directly above you."}
+                      : playersAheadMessage(rankUpdate.snapshot.tieInfo.playersAhead)}
             </span>
             {rankUpdate.snapshot.tieInfo?.tiedCount &&
             rankUpdate.snapshot.tieInfo.tiedCount > 0 ? (

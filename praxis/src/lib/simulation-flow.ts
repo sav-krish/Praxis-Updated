@@ -6,7 +6,6 @@ export type SimulationFlowSettings = {
   showAnonymousJustifications: boolean;
   leaderboardEnabled: boolean;
   rankChipEnabled: boolean;
-  podiumEnabled: boolean;
   leaderboardAnonymous: boolean;
 };
 
@@ -32,9 +31,25 @@ export function getSimulationFlowSettings(
     showAnonymousJustifications: flow.show_anonymous_justifications === true,
     leaderboardEnabled: flow.leaderboard_enabled !== false,
     rankChipEnabled: flow.rank_chip_enabled !== false,
-    podiumEnabled: flow.podium_enabled !== false,
     leaderboardAnonymous: flow.leaderboard_anonymous !== false,
   };
+}
+
+/**
+ * A podium reveals student identities, so it is only available for a named
+ * leaderboard with enough ranked participants to form standings.
+ */
+export function canShowLeaderboardPodium(
+  settings: SimulationFlowSettings,
+  participantCount: number,
+  rankedParticipantCount: number,
+): boolean {
+  return (
+    settings.leaderboardEnabled &&
+    !settings.leaderboardAnonymous &&
+    participantCount >= 2 &&
+    rankedParticipantCount >= 2
+  );
 }
 
 export function sessionFlowSettings(
@@ -48,7 +63,6 @@ export function sessionFlowSettings(
       settings.classVotesEnabled && settings.showAnonymousJustifications,
     leaderboard_enabled: settings.leaderboardEnabled,
     rank_chip_enabled: settings.rankChipEnabled,
-    podium_enabled: settings.podiumEnabled,
     leaderboard_anonymous: settings.leaderboardAnonymous,
   };
 }
@@ -79,7 +93,6 @@ export function setSimulationFlowSettings(
       settings.classVotesEnabled && settings.showAnonymousJustifications,
     leaderboard_enabled: settings.leaderboardEnabled,
     rank_chip_enabled: settings.rankChipEnabled,
-    podium_enabled: settings.podiumEnabled,
     leaderboard_anonymous: settings.leaderboardAnonymous,
   };
   return base;

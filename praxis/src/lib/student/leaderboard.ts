@@ -218,6 +218,36 @@ export function rankForParticipant(
 }
 
 /**
+ * Returns the nearest strictly better-ranked row and the number of ranked
+ * players ahead of a participant. `assignLeaderboardRanks` uses competition
+ * ranks, so this deliberately does not assume the previous numeric rank
+ * exists (for example, #1, #1, #3).
+ *
+ * The input must be in leaderboard sort order, as returned by
+ * `assignLeaderboardRanks`.
+ */
+export function leaderboardAboveContext<
+  T extends LeaderboardSortableRow & { rank: number | null },
+>(
+  rows: readonly T[],
+  participantId: string,
+): { above: T | null; playersAhead: number } {
+  const viewer = rows.find((row) => row.participantId === participantId);
+  if (!viewer || viewer.rank === null) {
+    return { above: null, playersAhead: 0 };
+  }
+
+  const viewerRank = viewer.rank;
+  const rowsAhead = rows.filter(
+    (row) => row.rank !== null && row.rank < viewerRank,
+  );
+  return {
+    above: rowsAhead.at(-1) ?? null,
+    playersAhead: rowsAhead.length,
+  };
+}
+
+/**
  * Returns the displayed "top X%" value. Rank 1 is clamped to 1%, and a
  * one-person leaderboard has no meaningful percentile.
  */

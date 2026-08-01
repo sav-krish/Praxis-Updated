@@ -1,9 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getSimulationFlowSettings } from "@/lib/simulation-flow";
+import {
+  canShowLeaderboardPodium,
+  getSimulationFlowSettings,
+} from "@/lib/simulation-flow";
 import {
   assignLeaderboardRanks,
   calculateLeaderboardMetrics,
   isFullyTied,
+  leaderboardAboveContext,
   optionScoreToTier,
   percentileForRank,
   percentileLabel,
@@ -264,7 +268,13 @@ export async function GET(request: NextRequest, { params }: RouteContext) {
   const viewerCompletedAllDecisions =
     totalDecisions > 0 &&
     (decisionsByParticipant.get(participantId)?.size ?? 0) >= totalDecisions;
-  const revealFinalNames = requestedFinalReveal && viewerCompletedAllDecisions;
+  // A final podium is intentionally only available on named leaderboards.
+  // Keep anonymous labels anonymous even if a client manually requests a final
+  // reveal URL.
+  const revealFinalNames =
+    requestedFinalReveal &&
+    viewerCompletedAllDecisions &&
+    !flowSettings.leaderboardAnonymous;
 
   const rankedRows = assignLeaderboardRanks(
     participants.map((participant) => {
@@ -354,42 +364,23 @@ export async function GET(request: NextRequest, { params }: RouteContext) {
           isFullyTied(row, viewerRow),
       );
 
-  // Find the row directly above the viewer in sorted order that has the same
-  // completion-weighted score but is NOT fully tied (tie-broken below).
-  const sortedRanked = rankedRows.filter((row) => row.rank !== null);
-  const viewerSortedIndex = sortedRanked.findIndex(
-    (row) => row.participantId === viewerRow.participantId,
+  const { above: aboveRankedRow, playersAhead } = leaderboardAboveContext(
+    rankedRows,
+    participantId,
   );
   let tieBreakAboveReason: TieBreakReason | null = null;
   let tieBreakAboveName: string | null = null;
-  if (viewerSortedIndex > 0 && viewerRow.completedDecisions > 0) {
-    const aboveSorted = sortedRanked[viewerSortedIndex - 1];
-    const sameCompletionWeightedScore =
-      aboveSorted &&
-      (aboveSorted.score === viewerRow.score ||
-        roundForDisplay(aboveSorted.score) === roundForDisplay(viewerRow.score));
-    if (sameCompletionWeightedScore) {
-      const reason = tieBreakReason(aboveSorted, viewerRow);
-      if (reason) {
-        tieBreakAboveReason = reason;
-        const aboveParticipant = participants.find(
-          (p) => p.id === aboveSorted.participantId,
-        );
-        tieBreakAboveName =
-          aboveParticipant?.id === participantId ||
-          revealFinalNames ||
-          !flowSettings.leaderboardAnonymous
-            ? aboveParticipant?.name ?? null
-            : `Anon Student ${String(anonymousNumbers.get(aboveSorted.participantId) ?? 0).padStart(2, "0")}`;
-      }
+  if (
+    aboveRankedRow &&
+    viewerRow.completedDecisions > 0 &&
+    aboveRankedRow.score === viewerRow.score
+  ) {
+    const reason = tieBreakReason(aboveRankedRow, viewerRow);
+    if (reason) {
+      tieBreakAboveReason = reason;
+      tieBreakAboveName = aboveRankedRow.displayName;
     }
   }
-
-  const rankAbove = viewer.rank === null ? null : viewer.rank - 1;
-  const aboveRankedRow =
-    rankAbove === null
-      ? null
-      : rankedRows.find((row) => row.rank === rankAbove) ?? null;
   const aboveRow =
     aboveRankedRow === null
       ? null
@@ -433,6 +424,7 @@ export async function GET(request: NextRequest, { params }: RouteContext) {
       }).filter((name): name is string => name !== null),
       tieBreakReason: tieBreakAboveReason,
       tieBreakAboveName,
+      playersAhead,
     },
     latestDecision:
       latestDecision === null
@@ -449,12 +441,11 @@ export async function GET(request: NextRequest, { params }: RouteContext) {
     settings: {
       leaderboardEnabled: flowSettings.leaderboardEnabled,
       rankChipEnabled: flowSettings.rankChipEnabled,
-      podiumEnabled: flowSettings.podiumEnabled,
-      canShowPodium:
-        flowSettings.leaderboardEnabled &&
-        flowSettings.podiumEnabled &&
-        participants.length >= 2 &&
-        rankedParticipantCount >= 2,
+      canShowPodium: canShowLeaderboardPodium(
+        flowSettings,
+        participants.length,
+        rankedParticipantCount,
+      ),
     },
   });
 }

@@ -1667,281 +1667,253 @@ export function SimulationEditor({
                 </Select>
               </div>
 
-              <div className="space-y-3 rounded-xl border-2 border-primary/30 bg-primary/5 p-4">
-                <div className="flex items-center justify-between gap-4">
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <Label className="text-base">Class Votes</Label>
-                      <Badge variant={flowSettings.classVotesEnabled ? "default" : "secondary"}>
-                        {flowSettings.classVotesEnabled ? "Visible to students" : "Hidden"}
-                      </Badge>
-                    </div>
-                    <p className="text-sm text-muted-foreground">
-                      Shows Class Votes after each consequence. Students continue to reflection after
-                      the final vote.
-                    </p>
-                  </div>
-                  <button
-                    type="button"
-                    role="switch"
-                    aria-checked={flowSettings.classVotesEnabled}
-                    disabled={!isOwner}
-                    onClick={() =>
-                      setSimulation((prev) => ({
-                        ...prev,
-                        preferences: setSimulationFlowSettings(prev.preferences, {
-                          ...getSimulationFlowSettings(prev.preferences),
-                          classVotesEnabled:
-                            !getSimulationFlowSettings(prev.preferences).classVotesEnabled,
-                        }),
-                      }))
-                    }
-                    className={`relative h-6 w-11 shrink-0 rounded-full transition-colors ${
-                      flowSettings.classVotesEnabled ? "bg-primary" : "bg-input"
-                    }`}
-                  >
-                    <span
-                      className={`absolute left-1 top-1 h-4 w-4 rounded-full bg-background shadow transition-transform ${
-                        flowSettings.classVotesEnabled ? "translate-x-5" : "translate-x-0"
-                      }`}
-                    />
-                  </button>
+              <div className="space-y-4 rounded-xl border-2 border-primary/30 bg-primary/5 p-4">
+                <div>
+                  <Label className="text-base">Student engagement features</Label>
+                  <p className="text-sm text-muted-foreground">
+                    Choose which class-wide features students can use during the simulation.
+                  </p>
                 </div>
-                {flowSettings.classVotesEnabled ? (
-                  <div className="space-y-3 border-t pt-3">
+
+                <div className="space-y-3 border-t pt-3">
                   <div className="flex items-center justify-between gap-4">
                     <div>
-                      <Label>Show submission status</Label>
+                      <div className="flex items-center gap-2">
+                        <Label className="text-base">Class Votes</Label>
+                        <Badge variant={flowSettings.classVotesEnabled ? "default" : "secondary"}>
+                          {flowSettings.classVotesEnabled ? "Visible to students" : "Hidden"}
+                        </Badge>
+                      </div>
                       <p className="text-sm text-muted-foreground">
-                        Allow students to see submitted count and class percentage.
+                        Shows Class Votes after each consequence. Students continue to reflection after
+                        the final vote.
                       </p>
                     </div>
                     <button
                       type="button"
                       role="switch"
-                      aria-checked={flowSettings.showVoteSubmissionStatus}
+                      aria-checked={flowSettings.classVotesEnabled}
                       disabled={!isOwner}
                       onClick={() =>
                         setSimulation((prev) => ({
                           ...prev,
                           preferences: setSimulationFlowSettings(prev.preferences, {
                             ...getSimulationFlowSettings(prev.preferences),
-                            showVoteSubmissionStatus:
-                              !getSimulationFlowSettings(prev.preferences)
-                                .showVoteSubmissionStatus,
+                            classVotesEnabled:
+                              !getSimulationFlowSettings(prev.preferences).classVotesEnabled,
                           }),
                         }))
                       }
                       className={`relative h-6 w-11 shrink-0 rounded-full transition-colors ${
-                        flowSettings.showVoteSubmissionStatus ? "bg-primary" : "bg-input"
+                        flowSettings.classVotesEnabled ? "bg-primary" : "bg-input"
                       }`}
                     >
                       <span
                         className={`absolute left-1 top-1 h-4 w-4 rounded-full bg-background shadow transition-transform ${
-                          flowSettings.showVoteSubmissionStatus
-                            ? "translate-x-5"
-                            : "translate-x-0"
+                          flowSettings.classVotesEnabled ? "translate-x-5" : "translate-x-0"
                         }`}
                       />
                     </button>
                   </div>
+                  {flowSettings.classVotesEnabled ? (
+                    <div className="space-y-3 border-t pt-3">
+                      <div className="flex items-center justify-between gap-4">
+                        <div>
+                          <Label>Show submission status</Label>
+                          <p className="text-sm text-muted-foreground">
+                            Allow students to see submitted count and class percentage.
+                          </p>
+                        </div>
+                        <button
+                          type="button"
+                          role="switch"
+                          aria-checked={flowSettings.showVoteSubmissionStatus}
+                          disabled={!isOwner}
+                          onClick={() =>
+                            setSimulation((prev) => ({
+                              ...prev,
+                              preferences: setSimulationFlowSettings(prev.preferences, {
+                                ...getSimulationFlowSettings(prev.preferences),
+                                showVoteSubmissionStatus:
+                                  !getSimulationFlowSettings(prev.preferences)
+                                    .showVoteSubmissionStatus,
+                              }),
+                            }))
+                          }
+                          className={`relative h-6 w-11 shrink-0 rounded-full transition-colors ${
+                            flowSettings.showVoteSubmissionStatus ? "bg-primary" : "bg-input"
+                          }`}
+                        >
+                          <span
+                            className={`absolute left-1 top-1 h-4 w-4 rounded-full bg-background shadow transition-transform ${
+                              flowSettings.showVoteSubmissionStatus
+                                ? "translate-x-5"
+                                : "translate-x-0"
+                            }`}
+                          />
+                        </button>
+                      </div>
+                      <div className="flex items-center justify-between gap-4 border-t pt-3">
+                        <div>
+                          <Label>Share anonymous justifications</Label>
+                          <p className="text-sm text-muted-foreground">
+                            Show class reasoning grouped by answer without student names.
+                          </p>
+                        </div>
+                        <button
+                          type="button"
+                          role="switch"
+                          aria-checked={flowSettings.showAnonymousJustifications}
+                          disabled={!isOwner}
+                          onClick={() =>
+                            setSimulation((prev) => ({
+                              ...prev,
+                              preferences: setSimulationFlowSettings(prev.preferences, {
+                                ...getSimulationFlowSettings(prev.preferences),
+                                showAnonymousJustifications:
+                                  !getSimulationFlowSettings(prev.preferences)
+                                    .showAnonymousJustifications,
+                              }),
+                            }))
+                          }
+                          className={`relative h-6 w-11 shrink-0 rounded-full transition-colors ${
+                            flowSettings.showAnonymousJustifications ? "bg-primary" : "bg-input"
+                          }`}
+                        >
+                          <span
+                            className={`absolute left-1 top-1 h-4 w-4 rounded-full bg-background shadow transition-transform ${
+                              flowSettings.showAnonymousJustifications
+                                ? "translate-x-5"
+                                : "translate-x-0"
+                            }`}
+                          />
+                        </button>
+                      </div>
+                    </div>
+                  ) : null}
+
                   <div className="flex items-center justify-between gap-4 border-t pt-3">
                     <div>
-                      <Label>Share anonymous justifications</Label>
+                      <div className="flex items-center gap-2">
+                        <Label htmlFor="leaderboard-enabled" className="text-base">
+                          Leaderboard
+                        </Label>
+                        <Badge variant={flowSettings.leaderboardEnabled ? "default" : "secondary"}>
+                          {flowSettings.leaderboardEnabled ? "Visible to students" : "Hidden"}
+                        </Badge>
+                      </div>
                       <p className="text-sm text-muted-foreground">
-                        Show class reasoning grouped by answer without student names.
+                        Show students how their decision quality ranks within the class.
                       </p>
                     </div>
                     <button
+                      id="leaderboard-enabled"
                       type="button"
                       role="switch"
-                      aria-checked={flowSettings.showAnonymousJustifications}
+                      aria-checked={flowSettings.leaderboardEnabled}
+                      aria-label="Enable student leaderboard"
                       disabled={!isOwner}
                       onClick={() =>
                         setSimulation((prev) => ({
                           ...prev,
                           preferences: setSimulationFlowSettings(prev.preferences, {
                             ...getSimulationFlowSettings(prev.preferences),
-                            showAnonymousJustifications:
-                              !getSimulationFlowSettings(prev.preferences)
-                                .showAnonymousJustifications,
+                            leaderboardEnabled:
+                              !getSimulationFlowSettings(prev.preferences).leaderboardEnabled,
                           }),
                         }))
                       }
-                      className={`relative h-6 w-11 shrink-0 rounded-full transition-colors ${
-                        flowSettings.showAnonymousJustifications ? "bg-primary" : "bg-input"
+                      className={`relative h-6 w-11 shrink-0 rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60 ${
+                        flowSettings.leaderboardEnabled ? "bg-primary" : "bg-input"
                       }`}
                     >
                       <span
                         className={`absolute left-1 top-1 h-4 w-4 rounded-full bg-background shadow transition-transform ${
-                          flowSettings.showAnonymousJustifications
-                            ? "translate-x-5"
-                            : "translate-x-0"
+                          flowSettings.leaderboardEnabled ? "translate-x-5" : "translate-x-0"
                         }`}
                       />
                     </button>
                   </div>
-                  </div>
-                ) : null}
-              </div>
-
-              <div className="space-y-3 rounded-xl border-2 border-primary/30 bg-primary/5 p-4">
-                <div className="flex items-center justify-between gap-4">
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <Label htmlFor="leaderboard-enabled" className="text-base">
-                        Leaderboard
-                      </Label>
-                      <Badge variant={flowSettings.leaderboardEnabled ? "default" : "secondary"}>
-                        {flowSettings.leaderboardEnabled ? "Visible to students" : "Hidden"}
-                      </Badge>
+                  {flowSettings.leaderboardEnabled ? (
+                    <div className="space-y-3 border-t pt-3">
+                      <div className="flex items-center justify-between gap-4">
+                        <div>
+                          <Label htmlFor="leaderboard-anonymous">Anonymous leaderboard</Label>
+                          <p className="text-sm text-muted-foreground">
+                            {flowSettings.leaderboardAnonymous
+                              ? "Students see anonymous labels such as Anon Student 01."
+                              : "Students see participant names on the leaderboard."}
+                          </p>
+                        </div>
+                        <button
+                          id="leaderboard-anonymous"
+                          type="button"
+                          role="switch"
+                          aria-checked={flowSettings.leaderboardAnonymous}
+                          aria-label="Use anonymous labels on the student leaderboard"
+                          disabled={!isOwner}
+                          onClick={() =>
+                            setSimulation((prev) => ({
+                              ...prev,
+                              preferences: setSimulationFlowSettings(prev.preferences, {
+                                ...getSimulationFlowSettings(prev.preferences),
+                                leaderboardAnonymous:
+                                  !getSimulationFlowSettings(prev.preferences)
+                                    .leaderboardAnonymous,
+                              }),
+                            }))
+                          }
+                          className={`relative h-6 w-11 shrink-0 rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60 ${
+                            flowSettings.leaderboardAnonymous ? "bg-primary" : "bg-input"
+                          }`}
+                        >
+                          <span
+                            className={`absolute left-1 top-1 h-4 w-4 rounded-full bg-background shadow transition-transform ${
+                              flowSettings.leaderboardAnonymous
+                                ? "translate-x-5"
+                                : "translate-x-0"
+                            }`}
+                          />
+                        </button>
+                      </div>
+                      <div className="flex items-center justify-between gap-4 border-t pt-3">
+                        <div>
+                          <Label htmlFor="rank-chip-enabled">Rank chip</Label>
+                          <p className="text-sm text-muted-foreground">
+                            Keep each student&apos;s current rank available during the simulation.
+                          </p>
+                        </div>
+                        <button
+                          id="rank-chip-enabled"
+                          type="button"
+                          role="switch"
+                          aria-checked={flowSettings.rankChipEnabled}
+                          aria-label="Show rank chip"
+                          disabled={!isOwner}
+                          onClick={() =>
+                            setSimulation((prev) => ({
+                              ...prev,
+                              preferences: setSimulationFlowSettings(prev.preferences, {
+                                ...getSimulationFlowSettings(prev.preferences),
+                                rankChipEnabled:
+                                  !getSimulationFlowSettings(prev.preferences).rankChipEnabled,
+                              }),
+                            }))
+                          }
+                          className={`relative h-6 w-11 shrink-0 rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60 ${
+                            flowSettings.rankChipEnabled ? "bg-primary" : "bg-input"
+                          }`}
+                        >
+                          <span
+                            className={`absolute left-1 top-1 h-4 w-4 rounded-full bg-background shadow transition-transform ${
+                              flowSettings.rankChipEnabled ? "translate-x-5" : "translate-x-0"
+                            }`}
+                          />
+                        </button>
+                      </div>
                     </div>
-                    <p className="text-sm text-muted-foreground">
-                      Show students how their decision quality ranks within the class.
-                    </p>
-                  </div>
-                  <button
-                    id="leaderboard-enabled"
-                    type="button"
-                    role="switch"
-                    aria-checked={flowSettings.leaderboardEnabled}
-                    aria-label="Enable student leaderboard"
-                    disabled={!isOwner}
-                    onClick={() =>
-                      setSimulation((prev) => ({
-                        ...prev,
-                        preferences: setSimulationFlowSettings(prev.preferences, {
-                          ...getSimulationFlowSettings(prev.preferences),
-                          leaderboardEnabled:
-                            !getSimulationFlowSettings(prev.preferences).leaderboardEnabled,
-                        }),
-                      }))
-                    }
-                    className={`relative h-6 w-11 shrink-0 rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60 ${
-                      flowSettings.leaderboardEnabled ? "bg-primary" : "bg-input"
-                    }`}
-                  >
-                    <span
-                      className={`absolute left-1 top-1 h-4 w-4 rounded-full bg-background shadow transition-transform ${
-                        flowSettings.leaderboardEnabled ? "translate-x-5" : "translate-x-0"
-                      }`}
-                    />
-                  </button>
+                  ) : null}
                 </div>
-                {flowSettings.leaderboardEnabled ? (
-                  <div className="space-y-3 border-t pt-3">
-                    <div className="flex items-center justify-between gap-4">
-                      <div>
-                        <Label htmlFor="rank-chip-enabled">Rank chip</Label>
-                        <p className="text-sm text-muted-foreground">
-                          Keep each student&apos;s current rank available during the simulation.
-                        </p>
-                      </div>
-                      <button
-                        id="rank-chip-enabled"
-                        type="button"
-                        role="switch"
-                        aria-checked={flowSettings.rankChipEnabled}
-                        aria-label="Show rank chip"
-                        disabled={!isOwner}
-                        onClick={() =>
-                          setSimulation((prev) => ({
-                            ...prev,
-                            preferences: setSimulationFlowSettings(prev.preferences, {
-                              ...getSimulationFlowSettings(prev.preferences),
-                              rankChipEnabled:
-                                !getSimulationFlowSettings(prev.preferences).rankChipEnabled,
-                            }),
-                          }))
-                        }
-                        className={`relative h-6 w-11 shrink-0 rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60 ${
-                          flowSettings.rankChipEnabled ? "bg-primary" : "bg-input"
-                        }`}
-                      >
-                        <span
-                          className={`absolute left-1 top-1 h-4 w-4 rounded-full bg-background shadow transition-transform ${
-                            flowSettings.rankChipEnabled ? "translate-x-5" : "translate-x-0"
-                          }`}
-                        />
-                      </button>
-                    </div>
-                    <div className="flex items-center justify-between gap-4 border-t pt-3">
-                      <div>
-                        <Label htmlFor="podium-enabled">End-of-simulation podium</Label>
-                        <p className="text-sm text-muted-foreground">
-                          Reveal the top three students after the final consequence.
-                        </p>
-                      </div>
-                      <button
-                        id="podium-enabled"
-                        type="button"
-                        role="switch"
-                        aria-checked={flowSettings.podiumEnabled}
-                        aria-label="Show end-of-simulation podium"
-                        disabled={!isOwner}
-                        onClick={() =>
-                          setSimulation((prev) => ({
-                            ...prev,
-                            preferences: setSimulationFlowSettings(prev.preferences, {
-                              ...getSimulationFlowSettings(prev.preferences),
-                              podiumEnabled:
-                                !getSimulationFlowSettings(prev.preferences).podiumEnabled,
-                            }),
-                          }))
-                        }
-                        className={`relative h-6 w-11 shrink-0 rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60 ${
-                          flowSettings.podiumEnabled ? "bg-primary" : "bg-input"
-                        }`}
-                      >
-                        <span
-                          className={`absolute left-1 top-1 h-4 w-4 rounded-full bg-background shadow transition-transform ${
-                            flowSettings.podiumEnabled ? "translate-x-5" : "translate-x-0"
-                          }`}
-                        />
-                      </button>
-                    </div>
-                    <div className="flex items-center justify-between gap-4 border-t pt-3">
-                      <div>
-                        <Label htmlFor="leaderboard-anonymous">Anonymous leaderboard</Label>
-                        <p className="text-sm text-muted-foreground">
-                          {flowSettings.leaderboardAnonymous
-                            ? "Students see anonymous labels such as Anon Student 01."
-                            : "Students see participant names on the leaderboard."}
-                        </p>
-                      </div>
-                      <button
-                        id="leaderboard-anonymous"
-                        type="button"
-                        role="switch"
-                        aria-checked={flowSettings.leaderboardAnonymous}
-                        aria-label="Use anonymous labels on the student leaderboard"
-                        disabled={!isOwner}
-                        onClick={() =>
-                          setSimulation((prev) => ({
-                            ...prev,
-                            preferences: setSimulationFlowSettings(prev.preferences, {
-                              ...getSimulationFlowSettings(prev.preferences),
-                              leaderboardAnonymous:
-                                !getSimulationFlowSettings(prev.preferences)
-                                  .leaderboardAnonymous,
-                            }),
-                          }))
-                        }
-                        className={`relative h-6 w-11 shrink-0 rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60 ${
-                          flowSettings.leaderboardAnonymous ? "bg-primary" : "bg-input"
-                        }`}
-                      >
-                        <span
-                          className={`absolute left-1 top-1 h-4 w-4 rounded-full bg-background shadow transition-transform ${
-                            flowSettings.leaderboardAnonymous
-                              ? "translate-x-5"
-                              : "translate-x-0"
-                          }`}
-                        />
-                      </button>
-                    </div>
-                  </div>
-                ) : null}
               </div>
 
               {simulation.mode === "individual" && (
