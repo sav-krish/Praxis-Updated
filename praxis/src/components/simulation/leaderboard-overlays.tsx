@@ -24,8 +24,16 @@ export type LeaderboardRow = {
   averageXp: number | null;
   completedDecisions: number;
   totalDecisions: number;
+  perfectCount: number;
   percentile: number | null;
   percentileLabel: string | null;
+};
+
+export type TieInfo = {
+  tiedCount: number;
+  tiedNames: string[];
+  tieBreakReason: string | null;
+  tieBreakAboveName: string | null;
 };
 
 export type LeaderboardPayload = {
@@ -33,6 +41,7 @@ export type LeaderboardPayload = {
   topThree: LeaderboardRow[];
   viewer: LeaderboardRow;
   above: (LeaderboardRow & { gapXp: number }) | null;
+  tieInfo: TieInfo;
   latestDecision: {
     decisionId: string;
     decisionNumber: number;
@@ -101,6 +110,7 @@ function copyPayload(payload: LeaderboardPayload): LeaderboardPayload {
     topThree: payload.topThree.map((row) => ({ ...row })),
     viewer: { ...payload.viewer },
     above: payload.above ? { ...payload.above } : null,
+    tieInfo: { ...payload.tieInfo },
     latestDecision: payload.latestDecision
       ? { ...payload.latestDecision }
       : null,
@@ -663,13 +673,25 @@ export function LeaderboardOverlays({
 
             <span className="mt-4 block border-t border-border pt-3 text-sm text-muted-foreground">
               {rankUpdateViewer.rank === 1
-                ? `You’re leading the ${rankUpdate.snapshot.scopeLabel}.`
-                : rankUpdate.snapshot.above
-                  ? `${formatScore(rankUpdate.snapshot.above.gapXp)} XP behind ${rankUpdate.snapshot.above.displayName}`
-                  : rankUpdateViewer.rank === null
-                    ? "Complete a decision to join the rankings."
-                    : "No ranked student is directly above you."}
+                ? `You're leading the ${rankUpdate.snapshot.scopeLabel}.`
+                : rankUpdate.snapshot.tieInfo?.tieBreakReason
+                  ? `0 XP behind ${rankUpdate.snapshot.tieInfo.tieBreakAboveName ?? "the student above"}, tied, but below rank due to ${rankUpdate.snapshot.tieInfo.tieBreakReason}.`
+                  : rankUpdate.snapshot.above
+                    ? `${formatScore(rankUpdate.snapshot.above.gapXp)} XP behind ${rankUpdate.snapshot.above.displayName}`
+                    : rankUpdateViewer.rank === null
+                      ? "Complete a decision to join the rankings."
+                      : "No ranked student is directly above you."}
             </span>
+            {rankUpdate.snapshot.tieInfo?.tiedCount &&
+            rankUpdate.snapshot.tieInfo.tiedCount > 0 ? (
+              <span className="mt-2 block text-sm text-muted-foreground">
+                You're tied with{" "}
+                {rankUpdate.snapshot.tieInfo.tiedNames.length === 1
+                  ? `${rankUpdate.snapshot.tieInfo.tiedNames[0]}`
+                  : `${rankUpdate.snapshot.tieInfo.tiedNames.slice(0, -1).join(", ")} and ${rankUpdate.snapshot.tieInfo.tiedNames[rankUpdate.snapshot.tieInfo.tiedNames.length - 1]}`}
+                .
+              </span>
+            ) : null}
           </button>
         </aside>
       ) : null}

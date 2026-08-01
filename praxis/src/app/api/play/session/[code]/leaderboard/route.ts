@@ -3,11 +3,14 @@ import { getSimulationFlowSettings } from "@/lib/simulation-flow";
 import {
   assignLeaderboardRanks,
   calculateLeaderboardMetrics,
+  isFullyTied,
   optionScoreToTier,
   percentileForRank,
   percentileLabel,
+  tieBreakReason,
   tierToXp,
   type LeaderboardTier,
+  type TieBreakReason,
 } from "@/lib/student/leaderboard";
 import { createServiceRoleClient } from "@/lib/supabase/server";
 import type { Json } from "@/types/database";
@@ -302,6 +305,7 @@ export async function GET(request: NextRequest, { params }: RouteContext) {
         row.averageXp === null ? null : roundForDisplay(row.averageXp),
       completedDecisions: row.completedDecisions,
       totalDecisions: row.totalDecisions,
+      perfectCount: row.perfectCount,
       percentile: percentileForRank(row.rank, rankedParticipantCount),
       percentileLabel: percentileLabel(
         row.rank,
@@ -329,6 +333,7 @@ export async function GET(request: NextRequest, { params }: RouteContext) {
         : roundForDisplay(viewerRow.averageXp),
     completedDecisions: viewerRow.completedDecisions,
     totalDecisions: viewerRow.totalDecisions,
+    perfectCount: viewerRow.perfectCount,
     percentile: percentileForRank(viewerRow.rank, rankedParticipantCount),
     percentileLabel: percentileLabel(
       viewerRow.rank,
@@ -336,6 +341,46 @@ export async function GET(request: NextRequest, { params }: RouteContext) {
       isIndividualMode ? "all completers" : "class",
     ),
   };
+
+  // --- Tie detection ---
+  // Find all ranked rows that share the same rank as the viewer (fully tied).
+  const tiedWithViewer = viewerRow.rank === null
+    ? []
+    : rankedRows.filter(
+        (row) =>
+          row.rank !== null &&
+          row.rank === viewerRow.rank &&
+          row.participantId !== viewerRow.participantId &&
+          isFullyTied(row, viewerRow),
+      );
+
+  // Find the row directly above the viewer in sorted order that has the same
+  // completion-weighted score but is NOT fully tied (tie-broken below).
+  const sortedRanked = rankedRows.filter((row) => row.rank !== null);
+  const viewerSortedIndex = sortedRanked.findIndex(
+    (row) => row.participantId === viewerRow.participantId,
+  );
+  let tieBreakAboveReason: TieBreakReason | null = null;
+  let tieBreakAboveName: string | null = null;
+  if (viewerSortedIndex > 0 && viewerRow.completedDecisions > 0) {
+    const aboveSorted = sortedRanked[viewerSortedIndex - 1];
+    if (aboveSorted && aboveSorted.score === viewerRow.score) {
+      const reason = tieBreakReason(aboveSorted, viewerRow);
+      if (reason) {
+        tieBreakAboveReason = reason;
+        const aboveParticipant = participants.find(
+          (p) => p.id === aboveSorted.participantId,
+        );
+        tieBreakAboveName =
+          aboveParticipant?.id === participantId ||
+          revealFinalNames ||
+          !flowSettings.leaderboardAnonymous
+            ? aboveParticipant?.name ?? null
+            : `Anon Student ${String(anonymousNumbers.get(aboveSorted.participantId) ?? 0).padStart(2, "0")}`;
+      }
+    }
+  }
+
   const rankAbove = viewer.rank === null ? null : viewer.rank - 1;
   const aboveRankedRow =
     rankAbove === null
@@ -372,6 +417,19 @@ export async function GET(request: NextRequest, { params }: RouteContext) {
     topThree: rows.slice(0, 3),
     viewer,
     above,
+    tieInfo: {
+      tiedCount: tiedWithViewer.length,
+      tiedNames: tiedWithViewer.map((row) => {
+        const p = participants.find((pp) => pp.id === row.participantId);
+        return p?.id === participantId ||
+          revealFinalNames ||
+          !flowSettings.leaderboardAnonymous
+          ? p?.name ?? null
+          : `Anon Student ${String(anonymousNumbers.get(row.participantId) ?? 0).padStart(2, "0")}`;
+      }).filter((name): name is string => name !== null),
+      tieBreakReason: tieBreakAboveReason,
+      tieBreakAboveName,
+    },
     latestDecision:
       latestDecision === null
         ? null

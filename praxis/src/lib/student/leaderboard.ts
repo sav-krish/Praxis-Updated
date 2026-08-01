@@ -16,6 +16,7 @@ export type LeaderboardMetrics = {
   totalDecisions: number;
   averageXp: number | null;
   score: number;
+  perfectCount: number;
 };
 
 export type LeaderboardSortableRow = {
@@ -23,7 +24,13 @@ export type LeaderboardSortableRow = {
   completedDecisions: number;
   averageXp: number | null;
   score: number;
+  perfectCount: number;
 };
+
+export type TieBreakReason =
+  | "higher average XP"
+  | "more decisions completed"
+  | "more Perfect outcomes";
 
 /**
  * Existing simulations use integer option scores from 1–3. A half-step is
@@ -80,12 +87,14 @@ export function calculateLeaderboardMetrics(
     normalizedTotal,
     validXpValues.length,
   );
+  const usedXpValues = validXpValues.slice(0, completedDecisions);
   const averageXp =
     completedDecisions > 0
-      ? validXpValues
-          .slice(0, completedDecisions)
-          .reduce((sum, xp) => sum + xp, 0) / completedDecisions
+      ? usedXpValues.reduce((sum, xp) => sum + xp, 0) / completedDecisions
       : null;
+  const perfectCount = usedXpValues.filter(
+    (xp) => xp >= LEADERBOARD_XP.Perfect,
+  ).length;
 
   return {
     completedDecisions,
@@ -96,6 +105,7 @@ export function calculateLeaderboardMetrics(
       completedDecisions,
       normalizedTotal,
     ),
+    perfectCount,
   };
 }
 
@@ -115,7 +125,59 @@ export function compareLeaderboardRows(
   const rightAverage = right.averageXp ?? Number.NEGATIVE_INFINITY;
   if (leftAverage !== rightAverage) return rightAverage - leftAverage;
 
+  if (left.completedDecisions !== right.completedDecisions) {
+    return right.completedDecisions - left.completedDecisions;
+  }
+
+  if (left.perfectCount !== right.perfectCount) {
+    return right.perfectCount - left.perfectCount;
+  }
+
   return compareParticipantIds(left.participantId, right.participantId);
+}
+
+/**
+ * Returns true when two rows are identical across all ranking criteria
+ * (score, averageXp, completedDecisions, perfectCount). Such rows share
+ * the same rank.
+ */
+export function isFullyTied(
+  left: LeaderboardSortableRow,
+  right: LeaderboardSortableRow,
+): boolean {
+  return (
+    left.score === right.score &&
+    (left.averageXp ?? Number.NEGATIVE_INFINITY) ===
+      (right.averageXp ?? Number.NEGATIVE_INFINITY) &&
+    left.completedDecisions === right.completedDecisions &&
+    left.perfectCount === right.perfectCount
+  );
+}
+
+/**
+ * When two rows share the same completion-weighted score but are NOT fully
+ * tied, this returns the reason the `higher` row is ranked above the `lower`
+ * row. Returns null when the rows are fully tied or have different scores.
+ */
+export function tieBreakReason(
+  higher: LeaderboardSortableRow,
+  lower: LeaderboardSortableRow,
+): TieBreakReason | null {
+  if (higher.score !== lower.score) return null;
+
+  const higherAvg = higher.averageXp ?? Number.NEGATIVE_INFINITY;
+  const lowerAvg = lower.averageXp ?? Number.NEGATIVE_INFINITY;
+  if (higherAvg > lowerAvg) return "higher average XP";
+
+  if (higher.completedDecisions > lower.completedDecisions) {
+    return "more decisions completed";
+  }
+
+  if (higher.perfectCount > lower.perfectCount) {
+    return "more Perfect outcomes";
+  }
+
+  return null;
 }
 
 export function sortLeaderboardRows<T extends LeaderboardSortableRow>(
@@ -127,12 +189,25 @@ export function sortLeaderboardRows<T extends LeaderboardSortableRow>(
 export function assignLeaderboardRanks<T extends LeaderboardSortableRow>(
   rows: readonly T[],
 ): Array<T & { rank: number | null }> {
-  let nextRank = 1;
+  const sorted = sortLeaderboardRows(rows);
+  let rank = 0;
+  let prevRanked: T | null = null;
+  let rankedCount = 0;
 
-  return sortLeaderboardRows(rows).map((row) => ({
-    ...row,
-    rank: row.completedDecisions > 0 ? nextRank++ : null,
-  }));
+  return sorted.map((row) => {
+    if (row.completedDecisions <= 0) {
+      return { ...row, rank: null };
+    }
+
+    rankedCount++;
+
+    if (prevRanked === null || !isFullyTied(prevRanked, row)) {
+      rank = rankedCount;
+    }
+
+    prevRanked = row;
+    return { ...row, rank };
+  });
 }
 
 export function rankForParticipant(
