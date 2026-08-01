@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
 import { Loader2 } from "lucide-react";
 import {
@@ -11,12 +11,14 @@ import {
 import { SimulationAssistant } from "@/components/simulation/simulation-assistant";
 import { LeaderboardOverlays } from "@/components/simulation/leaderboard-overlays";
 import { getSimulationFlowSettings } from "@/lib/simulation-flow";
+import { createClient } from "@/lib/supabase/client";
 import type { Json } from "@/types/database";
 
 interface StudentExperiencePayload {
   session: {
     id: string;
     status: string;
+    student_flow_settings?: Json | null;
     simulation: {
       id: string;
       title: string;
@@ -38,7 +40,6 @@ interface StudentExperiencePayload {
 
 const GLOBAL_SUPPRESSION_PREFIX = "praxis_onboarding_suppressed";
 const SIMULATION_SEEN_PREFIX = "praxis_onboarding_seen";
-const DONT_SHOW_AGAIN_KEY = "praxis_onboarding_dont_show_ready";
 
 function summarizeScenario(background: string | null): string {
   if (!background?.trim()) {
@@ -76,6 +77,7 @@ export function StudentExperienceShell({
   const [payload, setPayload] = useState<StudentExperiencePayload | null>(null);
   const [participantId, setParticipantId] = useState<string | null>(null);
   const [individualMode, setIndividualMode] = useState(false);
+  const [entryIsNew, setEntryIsNew] = useState(false);
   const [entryOpen, setEntryOpen] = useState(false);
   const [onboardingOpen, setOnboardingOpen] = useState(false);
   const [onboardingStartScreen, setOnboardingStartScreen] =
@@ -84,6 +86,7 @@ export function StudentExperienceShell({
     useState<HTMLDivElement | null>(null);
   const [onboardingHelpPortalTarget, setOnboardingHelpPortalTarget] =
     useState<HTMLDivElement | null>(null);
+  const persistedSeenRef = useRef<string | null>(null);
 
   const loadExperience = useCallback(async () => {
     if (onRoleSelectionPage) {
@@ -132,11 +135,31 @@ export function StudentExperienceShell({
       const identity = studentStorageIdentity(fullPayload.participant.name);
       const suppressionKey = `${GLOBAL_SUPPRESSION_PREFIX}_${identity}`;
       const seenKey = `${SIMULATION_SEEN_PREFIX}_${identity}_${fullPayload.session.simulation.id}`;
+      const onboardingResponse = await fetch(
+        `/api/play/session/${normalizedCode}/onboarding?participantId=${encodeURIComponent(storedParticipantId)}`,
+        { cache: "no-store" },
+      );
+      const onboardingState = (await onboardingResponse.json().catch(() => null)) as
+        | {
+            persistent?: boolean;
+            studentOnboardingSeen?: boolean;
+            studentSkipOnboardingGlobally?: boolean;
+          }
+        | null;
+      const persistedOnboardingSeen =
+        onboardingState?.persistent === true &&
+        onboardingState.studentOnboardingSeen === true;
+      const persistedGlobalSkip =
+        onboardingState?.persistent === true &&
+        onboardingState.studentSkipOnboardingGlobally === true;
       const alreadyStarted =
-        fullPayload.responses.length > 0 || localStorage.getItem(seenKey) === "1";
-      const suppressFuture = localStorage.getItem(suppressionKey) === "1";
-      const dontShowAgain = localStorage.getItem(DONT_SHOW_AGAIN_KEY) === "1";
-      setEntryOpen(!alreadyStarted && !suppressFuture && !dontShowAgain);
+        fullPayload.responses.length > 0 ||
+        persistedOnboardingSeen ||
+        localStorage.getItem(seenKey) === "1";
+      const suppressFuture =
+        persistedGlobalSkip || localStorage.getItem(suppressionKey) === "1";
+      setEntryIsNew(!alreadyStarted);
+      setEntryOpen(!alreadyStarted && !suppressFuture);
     } finally {
       setLoading(false);
     }
@@ -149,7 +172,10 @@ export function StudentExperienceShell({
   const participant = payload?.participant ?? null;
   const simulation = payload?.session.simulation ?? null;
   const sessionId = payload?.session.id ?? null;
-  const flowSettings = getSimulationFlowSettings(simulation?.preferences);
+  const flowSettings = getSimulationFlowSettings(
+    simulation?.preferences,
+    payload?.session.student_flow_settings,
+  );
   const identity = participant
     ? studentStorageIdentity(participant.name)
     : "student";
@@ -158,9 +184,39 @@ export function StudentExperienceShell({
     ? `${SIMULATION_SEEN_PREFIX}_${identity}_${simulation.id}`
     : null;
 
+  const persistOnboardingState = useCallback(
+    (state: {
+      studentOnboardingSeen?: boolean;
+      studentSkipOnboardingGlobally?: boolean;
+    }) => {
+      if (!participantId) return;
+
+      void fetch(`/api/play/session/${normalizedCode}/onboarding`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ participantId, ...state }),
+      });
+    },
+    [normalizedCode, participantId],
+  );
+
+  useEffect(() => {
+    if (!participantId || !simulation) return;
+
+    const persistenceKey = `${participantId}:${simulation.id}`;
+    if (persistedSeenRef.current === persistenceKey) return;
+    persistedSeenRef.current = persistenceKey;
+
+    persistOnboardingState({ studentOnboardingSeen: true });
+  }, [participantId, persistOnboardingState, simulation]);
+
   const rememberEntryChoice = (suppressFuture: boolean) => {
     if (seenKey) localStorage.setItem(seenKey, "1");
     if (suppressFuture) localStorage.setItem(suppressionKey, "1");
+    persistOnboardingState({
+      studentOnboardingSeen: true,
+      studentSkipOnboardingGlobally: suppressFuture || undefined,
+    });
   };
 
   const startDirectly = (suppressFuture: boolean) => {
@@ -196,6 +252,39 @@ export function StudentExperienceShell({
     [simulation?.background_content],
   );
 
+  useEffect(() => {
+    if (!sessionId) return;
+
+    const supabase = createClient();
+    const channel = supabase
+      .channel(`student-flow-settings-${sessionId}`)
+      .on(
+        "postgres_changes",
+        { event: "UPDATE", schema: "public", table: "sessions", filter: `id=eq.${sessionId}` },
+        (event) => {
+          const nextSettings = (
+            event.new as { student_flow_settings?: Json | null }
+          ).student_flow_settings;
+          setPayload((current) =>
+            current
+              ? {
+                  ...current,
+                  session: {
+                    ...current.session,
+                    student_flow_settings: nextSettings ?? null,
+                  },
+                }
+              : current,
+          );
+        },
+      )
+      .subscribe();
+
+    return () => {
+      void supabase.removeChannel(channel);
+    };
+  }, [sessionId]);
+
   if (onRoleSelectionPage) return children;
 
   return (
@@ -217,7 +306,7 @@ export function StudentExperienceShell({
             roleLabel={roleLabel}
             decisionCount={payload?.decisions.length ?? 0}
             estimatedMinutes={simulation.estimated_minutes ?? 25}
-            isNew={(payload?.responses.length ?? 0) === 0}
+            isNew={entryIsNew}
             onStart={startDirectly}
             onReview={reviewOnboarding}
             onHelpPortalTargetChange={setEntryHelpPortalTarget}

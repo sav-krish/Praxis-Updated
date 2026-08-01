@@ -33,6 +33,9 @@ CREATE TABLE IF NOT EXISTS student_profiles (
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
+ALTER TABLE student_profiles
+  ADD COLUMN IF NOT EXISTS student_skip_onboarding_globally BOOLEAN NOT NULL DEFAULT false;
+
 -- Simulations table
 CREATE TABLE IF NOT EXISTS simulations (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
@@ -162,6 +165,9 @@ CREATE TABLE IF NOT EXISTS sessions (
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
+ALTER TABLE sessions
+  ADD COLUMN IF NOT EXISTS student_flow_settings JSONB;
+
 -- Teams table (for team mode)
 CREATE TABLE IF NOT EXISTS teams (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
@@ -210,6 +216,18 @@ CREATE TABLE IF NOT EXISTS student_simulation_attempts (
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
+
+CREATE TABLE IF NOT EXISTS student_simulation_onboarding (
+  student_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  simulation_id UUID NOT NULL REFERENCES simulations(id) ON DELETE CASCADE,
+  student_onboarding_seen BOOLEAN NOT NULL DEFAULT false,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  PRIMARY KEY (student_id, simulation_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_student_simulation_onboarding_simulation
+  ON student_simulation_onboarding(simulation_id);
 
 -- Responses table (decision submissions)
 CREATE TABLE IF NOT EXISTS responses (
@@ -380,7 +398,7 @@ DO $$
 DECLARE
   tbl TEXT;
 BEGIN
-  FOREACH tbl IN ARRAY '{professors,student_profiles,simulations,decisions,options,reflection_questions,sessions,teams,participants,student_simulation_assignments,student_simulation_attempts,responses,response_videos,reflection_responses,simulation_data_blocks,simulation_scenario_images,simulation_uploaded_files,feedback,simulation_favorites,knowledge_chunks,simulation_profiles}'::TEXT[]
+  FOREACH tbl IN ARRAY '{professors,student_profiles,simulations,decisions,options,reflection_questions,sessions,teams,participants,student_simulation_assignments,student_simulation_attempts,student_simulation_onboarding,responses,response_videos,reflection_responses,simulation_data_blocks,simulation_scenario_images,simulation_uploaded_files,feedback,simulation_favorites,knowledge_chunks,simulation_profiles}'::TEXT[]
   LOOP
     IF EXISTS (
       SELECT 1 FROM pg_class c
@@ -417,6 +435,18 @@ CREATE POLICY "Students can insert own student profile" ON student_profiles
 DROP POLICY IF EXISTS "Students can update own student profile" ON student_profiles;
 CREATE POLICY "Students can update own student profile" ON student_profiles
   FOR UPDATE USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
+
+DROP POLICY IF EXISTS "Students can view own onboarding state" ON student_simulation_onboarding;
+CREATE POLICY "Students can view own onboarding state" ON student_simulation_onboarding
+  FOR SELECT USING (auth.uid() = student_id);
+
+DROP POLICY IF EXISTS "Students can insert own onboarding state" ON student_simulation_onboarding;
+CREATE POLICY "Students can insert own onboarding state" ON student_simulation_onboarding
+  FOR INSERT WITH CHECK (auth.uid() = student_id);
+
+DROP POLICY IF EXISTS "Students can update own onboarding state" ON student_simulation_onboarding;
+CREATE POLICY "Students can update own onboarding state" ON student_simulation_onboarding
+  FOR UPDATE USING (auth.uid() = student_id) WITH CHECK (auth.uid() = student_id);
 
 -- Note: No "Admins can view all professors" - it caused infinite recursion (policy
 -- queried professors to check is_admin). "Professors can view own profile" suffices.
@@ -691,6 +721,12 @@ CREATE TRIGGER update_simulations_updated_at
 DROP TRIGGER IF EXISTS update_student_profiles_updated_at ON student_profiles;
 CREATE TRIGGER update_student_profiles_updated_at
   BEFORE UPDATE ON student_profiles
+  FOR EACH ROW
+  EXECUTE FUNCTION update_updated_at_column();
+
+DROP TRIGGER IF EXISTS update_student_simulation_onboarding_updated_at ON student_simulation_onboarding;
+CREATE TRIGGER update_student_simulation_onboarding_updated_at
+  BEFORE UPDATE ON student_simulation_onboarding
   FOR EACH ROW
   EXECUTE FUNCTION update_updated_at_column();
 

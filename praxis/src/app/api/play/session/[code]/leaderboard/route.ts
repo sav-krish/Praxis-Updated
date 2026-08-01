@@ -20,8 +20,6 @@ const NO_STORE_HEADERS = {
   Pragma: "no-cache",
 } as const;
 
-const SCOPE_LABEL = "class";
-
 interface RouteContext {
   params: Promise<{ code: string }>;
 }
@@ -83,13 +81,27 @@ export async function GET(request: NextRequest, { params }: RouteContext) {
   }
 
   const supabase = createServiceRoleClient();
-  const { data: session, error: sessionError } = await supabase
+  let { data: session, error: sessionError } = await supabase
     .from("sessions")
     .select(
-      "id, simulation_id, simulation:simulations(preferences)",
+      "id, simulation_id, student_flow_settings, simulation:simulations(preferences)",
     )
     .eq("join_code", code.trim().toUpperCase())
     .single();
+
+  // Keep active sessions usable while a production database is receiving the
+  // additive session-settings migration. New deployments use the first query.
+  if (sessionError?.message?.includes("student_flow_settings")) {
+    const legacySession = await supabase
+      .from("sessions")
+      .select("id, simulation_id, simulation:simulations(preferences)")
+      .eq("join_code", code.trim().toUpperCase())
+      .single();
+    session = legacySession.data
+      ? { ...legacySession.data, student_flow_settings: null }
+      : null;
+    sessionError = legacySession.error;
+  }
 
   if (sessionError || !session) {
     return json({ error: "Session not found" }, 404);
@@ -106,6 +118,35 @@ export async function GET(request: NextRequest, { params }: RouteContext) {
     return json({ error: "Participant not found" }, 404);
   }
 
+  const { data: individualAttempt } = await supabase
+    .from("student_simulation_attempts")
+    .select("id")
+    .eq("session_id", session.id)
+    .eq("participant_id", participantId)
+    .maybeSingle();
+  const isIndividualMode = Boolean(individualAttempt);
+
+  let participantScopeIds: string[] | null = null;
+  let sessionScopeIds: string[] | null = null;
+  if (isIndividualMode) {
+    const { data: attempts, error: attemptsError } = await supabase
+      .from("student_simulation_attempts")
+      .select("session_id, participant_id")
+      .eq("simulation_id", session.simulation_id)
+      .not("participant_id", "is", null);
+
+    if (attemptsError) {
+      return json({ error: "Failed to load leaderboard" }, 500);
+    }
+
+    participantScopeIds = [...new Set(
+      (attempts ?? []).flatMap((attempt) =>
+        attempt.participant_id ? [attempt.participant_id] : [],
+      ),
+    )];
+    sessionScopeIds = [...new Set((attempts ?? []).map((attempt) => attempt.session_id))];
+  }
+
   const [
     { data: decisionData, error: decisionError },
     { data: participantData, error: participantError },
@@ -116,15 +157,26 @@ export async function GET(request: NextRequest, { params }: RouteContext) {
       .select("id, order_num, options(id, decision_id, score)")
       .eq("simulation_id", session.simulation_id)
       .order("order_num", { ascending: true }),
-    supabase
-      .from("participants")
-      .select("id, name, joined_at")
-      .eq("session_id", session.id)
-      .order("joined_at", { ascending: true }),
-    supabase
-      .from("responses")
-      .select("participant_id, decision_id, option_id, submitted_at")
-      .eq("session_id", session.id),
+    isIndividualMode && participantScopeIds
+      ? supabase
+          .from("participants")
+          .select("id, name, joined_at")
+          .in("id", participantScopeIds)
+          .order("joined_at", { ascending: true })
+      : supabase
+          .from("participants")
+          .select("id, name, joined_at")
+          .eq("session_id", session.id)
+          .order("joined_at", { ascending: true }),
+    isIndividualMode && sessionScopeIds
+      ? supabase
+          .from("responses")
+          .select("participant_id, decision_id, option_id, submitted_at")
+          .in("session_id", sessionScopeIds)
+      : supabase
+          .from("responses")
+          .select("participant_id, decision_id, option_id, submitted_at")
+          .eq("session_id", session.id),
   ]);
 
   if (decisionError || participantError || responseError) {
@@ -154,6 +206,13 @@ export async function GET(request: NextRequest, { params }: RouteContext) {
     string,
     Map<string, ScoredDecision>
   >();
+  const simulation = session.simulation as
+    | { preferences: Json | null }
+    | null;
+  const flowSettings = getSimulationFlowSettings(
+    simulation?.preferences,
+    (session as { student_flow_settings?: Json | null }).student_flow_settings,
+  );
 
   for (const response of responses) {
     if (!response.participant_id) continue;
@@ -213,7 +272,7 @@ export async function GET(request: NextRequest, { params }: RouteContext) {
       return {
         participantId: participant.id,
         displayName:
-          participant.id === participantId
+          participant.id === participantId || !flowSettings.leaderboardAnonymous
             ? participant.name
             : `Anon Student ${String(anonymousNumber).padStart(2, "0")}`,
         isViewer: participant.id === participantId,
@@ -240,7 +299,7 @@ export async function GET(request: NextRequest, { params }: RouteContext) {
       percentileLabel: percentileLabel(
         row.rank,
         rankedParticipantCount,
-        SCOPE_LABEL,
+        isIndividualMode ? "all completers" : "class",
       ),
     }));
   const viewerRow = rankedRows.find(
@@ -267,7 +326,7 @@ export async function GET(request: NextRequest, { params }: RouteContext) {
     percentileLabel: percentileLabel(
       viewerRow.rank,
       rankedParticipantCount,
-      SCOPE_LABEL,
+      isIndividualMode ? "all completers" : "class",
     ),
   };
   const rankAbove = viewer.rank === null ? null : viewer.rank - 1;
@@ -301,11 +360,6 @@ export async function GET(request: NextRequest, { params }: RouteContext) {
         }
         return right.submittedAt.localeCompare(left.submittedAt);
       })[0] ?? null;
-  const simulation = session.simulation as
-    | { preferences: Json | null }
-    | null;
-  const flowSettings = getSimulationFlowSettings(simulation?.preferences);
-
   return json({
     rows,
     topThree: rows.slice(0, 3),
@@ -321,7 +375,8 @@ export async function GET(request: NextRequest, { params }: RouteContext) {
             xp: latestDecision.xp,
           },
     totalDecisions,
-    scopeLabel: SCOPE_LABEL,
+    scopeLabel: isIndividualMode ? "all completers" : "class",
+    scope: isIndividualMode ? "individual" : "class",
     settings: {
       leaderboardEnabled: flowSettings.leaderboardEnabled,
       rankChipEnabled: flowSettings.rankChipEnabled,

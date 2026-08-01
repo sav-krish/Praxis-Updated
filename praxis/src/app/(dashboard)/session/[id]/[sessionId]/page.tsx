@@ -33,7 +33,8 @@ export default async function SessionPage({ params }: PageProps) {
 
   if (
     error?.message?.includes("video_gallery_share_id") ||
-    error?.message?.includes("response_gallery_access_code")
+    error?.message?.includes("response_gallery_access_code") ||
+    error?.message?.includes("student_flow_settings")
   ) {
     const legacyResult = await supabase
       .from("sessions")
@@ -49,6 +50,7 @@ export default async function SessionPage({ params }: PageProps) {
           ...legacyResult.data,
           video_gallery_share_id: sessionId,
           response_gallery_access_code: legacyResult.data.join_code,
+          student_flow_settings: null,
         }
       : null;
     error = legacyResult.error;

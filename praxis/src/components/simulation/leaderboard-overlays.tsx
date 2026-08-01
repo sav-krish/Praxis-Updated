@@ -41,6 +41,7 @@ export type LeaderboardPayload = {
   } | null;
   totalDecisions: number;
   scopeLabel: string;
+  scope: "class" | "individual";
   settings: {
     leaderboardEnabled: boolean;
     rankChipEnabled: boolean;
@@ -133,15 +134,22 @@ function percentileText(row: LeaderboardRow): string | null {
   return row.percentileLabel;
 }
 
-function PodiumStanding({ row }: { row: LeaderboardRow }) {
+function PodiumStanding({
+  row,
+  index,
+}: {
+  row: LeaderboardRow;
+  index: number;
+}) {
   const placementIndex = Math.max(0, Math.min(2, (row.rank ?? 1) - 1));
 
   return (
     <article
       className={cn(
-        "flex min-w-0 flex-1 flex-col rounded-xl border p-4 text-left",
+        "flex min-w-0 flex-1 animate-in fade-in-0 slide-in-from-bottom-3 flex-col rounded-xl border p-4 text-left duration-500 motion-reduce:animate-none",
         PODIUM_STYLES[placementIndex],
       )}
+      style={{ animationDelay: `${index * 120}ms` }}
     >
       <div className="flex items-center justify-between gap-2">
         <span className="inline-flex items-center gap-1.5 font-semibold text-foreground">
@@ -208,8 +216,8 @@ function EndLeaderboardReveal({
 
         {podiumRows.length > 0 ? (
           <div className="flex flex-col gap-3 sm:flex-row">
-            {podiumRows.map((row) => (
-              <PodiumStanding key={row.participantId} row={row} />
+            {podiumRows.map((row, index) => (
+              <PodiumStanding key={row.participantId} row={row} index={index} />
             ))}
           </div>
         ) : (
@@ -220,7 +228,7 @@ function EndLeaderboardReveal({
 
         {!viewerInTopThree ? (
           <section
-            className="rounded-xl border border-primary/30 bg-primary/5 p-4"
+            className="animate-in fade-in-0 slide-in-from-bottom-2 rounded-xl border border-primary/30 bg-primary/5 p-4 duration-500 motion-reduce:animate-none"
             aria-label="Your final standing"
           >
             <div className="flex flex-wrap items-center justify-between gap-2">
@@ -358,12 +366,29 @@ export function LeaderboardOverlays({
         { event: "DELETE", schema: "public", table: "responses", filter },
         refetch,
       )
+      .on(
+        "postgres_changes",
+        { event: "UPDATE", schema: "public", table: "sessions", filter: `id=eq.${sessionId}` },
+        refetch,
+      )
       .subscribe();
 
     return () => {
       void supabase.removeChannel(channel);
     };
   }, [loadLeaderboard, participantId, sessionId]);
+
+  // An individual run is compared with completions from separate sessions, so
+  // its changes cannot be covered by a single session-scoped realtime filter.
+  // Refreshing keeps the open rank card and podium current without caching it.
+  useEffect(() => {
+    if (payload?.scope !== "individual") return;
+
+    const intervalId = window.setInterval(() => {
+      void loadLeaderboard();
+    }, 5_000);
+    return () => window.clearInterval(intervalId);
+  }, [loadLeaderboard, payload?.scope]);
 
   useEffect(() => {
     const handleDecisionConsequence = (event: Event) => {
@@ -435,6 +460,25 @@ export function LeaderboardOverlays({
   }, [loadLeaderboard, sessionId]);
 
   useEffect(() => {
+    if (!payload) return;
+
+    setRevealSnapshot((current) => {
+      if (!current) return current;
+      if (!payload.settings.leaderboardEnabled || !payload.settings.podiumEnabled) {
+        return null;
+      }
+      return copyPayload(payload);
+    });
+  }, [payload]);
+
+  useEffect(() => {
+    if (payload?.settings.leaderboardEnabled !== false) return;
+    setChipExpanded(false);
+    setRankUpdate(null);
+    setRevealSnapshot(null);
+  }, [payload?.settings.leaderboardEnabled]);
+
+  useEffect(() => {
     if (!chipExpanded) return;
 
     const handlePointerDown = (event: PointerEvent) => {
@@ -461,6 +505,10 @@ export function LeaderboardOverlays({
 
   const dismissRankUpdate = useCallback(() => {
     if (!rankUpdate) return;
+
+    if (rankUpdate.isFinal && rankUpdate.snapshot.settings.canShowPodium) {
+      setRevealSnapshot(copyPayload(rankUpdate.snapshot));
+    }
     setRankUpdate(null);
   }, [rankUpdate]);
 

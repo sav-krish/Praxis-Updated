@@ -6,6 +6,7 @@ import {
   getLiveConsequenceSnapshot,
   getSimulationFlowSettings,
   setLiveConsequenceSnapshot,
+  withSessionFlowSettings,
 } from "@/lib/simulation-flow";
 
 const SESSION_SIMULATION_SELECT =
@@ -14,6 +15,7 @@ const SESSION_SIMULATION_SELECT =
     status,
     current_step,
     is_preview,
+    student_flow_settings,
     simulation:simulations(id, title, background_content, mode, team_assignment, team_size, justification_type, estimated_minutes, hidden_profiles_enabled, preferences)
   ` as const;
 
@@ -44,7 +46,10 @@ export async function GET(request: NextRequest, { params }: RouteContext) {
     .eq("join_code", code.toUpperCase())
     .single();
 
-  if (error?.message?.includes("justification_type")) {
+  if (
+    error?.message?.includes("justification_type") ||
+    error?.message?.includes("student_flow_settings")
+  ) {
     const legacyResult = await supabase
       .from("sessions")
       .select(SESSION_SIMULATION_SELECT_LEGACY)
@@ -102,6 +107,9 @@ export async function GET(request: NextRequest, { params }: RouteContext) {
     status: sessionData.status,
     current_step: sessionData.current_step,
     is_preview: (sessionData as { is_preview?: boolean }).is_preview ?? false,
+    student_flow_settings:
+      (sessionData as { student_flow_settings?: Json | null })
+        .student_flow_settings ?? null,
     simulation: simulationData,
   };
 
@@ -248,6 +256,11 @@ export async function GET(request: NextRequest, { params }: RouteContext) {
       .update({ preferences: simulationData.preferences })
       .eq("id", simulationData.id);
   }
+
+  simulationData.preferences = withSessionFlowSettings(
+    simulationData.preferences,
+    (sessionData as { student_flow_settings?: Json | null }).student_flow_settings,
+  );
 
   const flowSettings = getSimulationFlowSettings(simulationData.preferences);
   const { data: reflectionResponseData } = participantId

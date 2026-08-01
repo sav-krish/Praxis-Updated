@@ -51,6 +51,7 @@ export interface Database {
           graduation_year: number | null
           major: string | null
           career_interests: string[]
+          student_skip_onboarding_globally: boolean
           created_at: string
           updated_at: string
         }
@@ -62,6 +63,7 @@ export interface Database {
           graduation_year?: number | null
           major?: string | null
           career_interests?: string[]
+          student_skip_onboarding_globally?: boolean
           created_at?: string
           updated_at?: string
         }
@@ -73,10 +75,43 @@ export interface Database {
           graduation_year?: number | null
           major?: string | null
           career_interests?: string[]
+          student_skip_onboarding_globally?: boolean
           created_at?: string
           updated_at?: string
         }
         Relationships: []
+      }
+      student_simulation_onboarding: {
+        Row: {
+          student_id: string
+          simulation_id: string
+          student_onboarding_seen: boolean
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          student_id: string
+          simulation_id: string
+          student_onboarding_seen?: boolean
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          student_id?: string
+          simulation_id?: string
+          student_onboarding_seen?: boolean
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "student_simulation_onboarding_simulation_id_fkey"
+            columns: ["simulation_id"]
+            isOneToOne: false
+            referencedRelation: "simulations"
+            referencedColumns: ["id"]
+          }
+        ]
       }
       simulations: {
         Row: {
@@ -274,6 +309,7 @@ export interface Database {
           debrief_guide: Json | null
           video_gallery_share_id: string
           is_preview: boolean
+          student_flow_settings: Json | null
           created_at: string
         }
         Insert: {
@@ -288,6 +324,7 @@ export interface Database {
           debrief_guide?: Json | null
           video_gallery_share_id?: string
           is_preview?: boolean
+          student_flow_settings?: Json | null
           created_at?: string
         }
         Update: {
@@ -302,6 +339,7 @@ export interface Database {
           debrief_guide?: Json | null
           video_gallery_share_id?: string
           is_preview?: boolean
+          student_flow_settings?: Json | null
           created_at?: string
         }
         Relationships: [

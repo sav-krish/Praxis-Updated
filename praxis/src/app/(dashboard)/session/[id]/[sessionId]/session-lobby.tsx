@@ -30,7 +30,11 @@ import {
 import type { Session, Simulation, Participant, Team, SimulationProfile } from "@/types/database";
 import { formatScheduleDateTime, getSimulationSessionSchedule } from "@/lib/session-schedule";
 import { clearSimulationScheduleForSession } from "@/app/(dashboard)/session/[id]/actions";
-import { getSimulationFlowSettings, setSimulationFlowSettings } from "@/lib/simulation-flow";
+import {
+  getSimulationFlowSettings,
+  sessionFlowSettings,
+  type SimulationFlowSettings,
+} from "@/lib/simulation-flow";
 
 type LobbySimulation = Pick<
   Simulation,
@@ -421,29 +425,46 @@ export function SessionLobby({
   };
 
   const totalGroups = simulation.mode === "teams" ? teams.length : participants.length;
-  const [flowSettings, setFlowSettings] = useState(() => getSimulationFlowSettings(simulation.preferences));
+  const [flowSettings, setFlowSettings] = useState(() =>
+    getSimulationFlowSettings(
+      simulation.preferences,
+      initialSession.student_flow_settings,
+    ),
+  );
   const hasFutureScheduledStart =
     session.status === "lobby" &&
     !!sessionSchedule.start_at &&
     new Date(sessionSchedule.start_at).getTime() > Date.now();
 
-  const toggleLeaderboard = async () => {
+  useEffect(() => {
+    setFlowSettings(
+      getSimulationFlowSettings(
+        simulation.preferences,
+        session.student_flow_settings,
+      ),
+    );
+  }, [session.student_flow_settings, simulation.preferences]);
+
+  const updateFlowSettings = async (updates: Partial<SimulationFlowSettings>) => {
     const supabase = createClient();
-    const newEnabled = !flowSettings.leaderboardEnabled;
-    const newPreferences = setSimulationFlowSettings(simulation.preferences, {
+    const nextSettings = {
       ...flowSettings,
-      leaderboardEnabled: newEnabled,
-    });
+      ...updates,
+    };
+    const nextSessionSettings = sessionFlowSettings(nextSettings);
     const { error } = await supabase
-      .from("simulations")
-      .update({ preferences: newPreferences })
-      .eq("id", simulation.id);
+      .from("sessions")
+      .update({ student_flow_settings: nextSessionSettings })
+      .eq("id", session.id);
     if (error) {
-      toast.error("Failed to update leaderboard setting");
+      toast.error("Failed to update student experience settings");
       return;
     }
-    setFlowSettings(prev => ({ ...prev, leaderboardEnabled: newEnabled }));
-    toast.success(newEnabled ? "Leaderboard enabled" : "Leaderboard disabled");
+    setFlowSettings(nextSettings);
+    setSession((previous) => ({
+      ...previous,
+      student_flow_settings: nextSessionSettings,
+    }));
   };
 
   const profileMap = new Map(profiles.map(p => [p.id, p]));
@@ -598,11 +619,13 @@ export function SessionLobby({
             </CardContent>
           </Card>
 
-          {session.status === "lobby" && (
+          {session.status !== "complete" && (
             <Card>
               <CardHeader className="px-4 sm:px-6">
-                <CardTitle className="text-lg sm:text-xl">Simulation Settings</CardTitle>
-                <CardDescription className="text-sm">Configure student experience options</CardDescription>
+                <CardTitle className="text-lg sm:text-xl">Student leaderboard</CardTitle>
+                <CardDescription className="text-sm">
+                  These controls apply to this live session only and update students in real time.
+                </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4 px-4 sm:px-6">
                 <div className="flex items-center justify-between gap-4">
@@ -619,7 +642,11 @@ export function SessionLobby({
                     role="switch"
                     aria-checked={flowSettings.leaderboardEnabled}
                     aria-label="Enable student leaderboard"
-                    onClick={toggleLeaderboard}
+                    onClick={() =>
+                      void updateFlowSettings({
+                        leaderboardEnabled: !flowSettings.leaderboardEnabled,
+                      })
+                    }
                     className={`relative h-6 w-11 shrink-0 rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ${
                       flowSettings.leaderboardEnabled ? "bg-primary" : "bg-input"
                     }`}
@@ -631,6 +658,99 @@ export function SessionLobby({
                     />
                   </button>
                 </div>
+
+                {flowSettings.leaderboardEnabled ? (
+                  <div className="space-y-4 border-t border-border pt-4">
+                    <div className="flex items-center justify-between gap-4">
+                      <div>
+                        <p className="text-sm font-medium text-foreground">Rank chip</p>
+                        <p className="text-xs text-muted-foreground">
+                          Keep each student&apos;s rank available during the simulation.
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        role="switch"
+                        aria-checked={flowSettings.rankChipEnabled}
+                        aria-label="Show student rank chip"
+                        onClick={() =>
+                          void updateFlowSettings({
+                            rankChipEnabled: !flowSettings.rankChipEnabled,
+                          })
+                        }
+                        className={`relative h-6 w-11 shrink-0 rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ${
+                          flowSettings.rankChipEnabled ? "bg-primary" : "bg-input"
+                        }`}
+                      >
+                        <span
+                          className={`absolute left-1 top-1 h-4 w-4 rounded-full bg-background shadow transition-transform ${
+                            flowSettings.rankChipEnabled ? "translate-x-5" : "translate-x-0"
+                          }`}
+                        />
+                      </button>
+                    </div>
+
+                    <div className="flex items-center justify-between gap-4 border-t border-border pt-4">
+                      <div>
+                        <p className="text-sm font-medium text-foreground">Final podium</p>
+                        <p className="text-xs text-muted-foreground">
+                          Reveal final standings after the last decision.
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        role="switch"
+                        aria-checked={flowSettings.podiumEnabled}
+                        aria-label="Show final leaderboard podium"
+                        onClick={() =>
+                          void updateFlowSettings({
+                            podiumEnabled: !flowSettings.podiumEnabled,
+                          })
+                        }
+                        className={`relative h-6 w-11 shrink-0 rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ${
+                          flowSettings.podiumEnabled ? "bg-primary" : "bg-input"
+                        }`}
+                      >
+                        <span
+                          className={`absolute left-1 top-1 h-4 w-4 rounded-full bg-background shadow transition-transform ${
+                            flowSettings.podiumEnabled ? "translate-x-5" : "translate-x-0"
+                          }`}
+                        />
+                      </button>
+                    </div>
+
+                    <div className="flex items-center justify-between gap-4 border-t border-border pt-4">
+                      <div>
+                        <p className="text-sm font-medium text-foreground">Student display mode</p>
+                        <p className="text-xs text-muted-foreground">
+                          {flowSettings.leaderboardAnonymous
+                            ? "Students see anonymous labels; you always see real names."
+                            : "Students can see participant names on the leaderboard."}
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        role="switch"
+                        aria-checked={!flowSettings.leaderboardAnonymous}
+                        aria-label="Show participant names to students"
+                        onClick={() =>
+                          void updateFlowSettings({
+                            leaderboardAnonymous: !flowSettings.leaderboardAnonymous,
+                          })
+                        }
+                        className={`relative h-6 w-11 shrink-0 rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ${
+                          !flowSettings.leaderboardAnonymous ? "bg-primary" : "bg-input"
+                        }`}
+                      >
+                        <span
+                          className={`absolute left-1 top-1 h-4 w-4 rounded-full bg-background shadow transition-transform ${
+                            !flowSettings.leaderboardAnonymous ? "translate-x-5" : "translate-x-0"
+                          }`}
+                        />
+                      </button>
+                    </div>
+                  </div>
+                ) : null}
               </CardContent>
             </Card>
           )}

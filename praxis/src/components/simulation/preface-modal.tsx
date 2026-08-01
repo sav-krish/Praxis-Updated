@@ -361,11 +361,11 @@ const outcomeTiers = [
     label: "Decent",
     value: "50 XP",
     icon: Meh,
-    color: "amber",
-    borderClass: "border-amber-400",
-    textClass: "text-amber-600 dark:text-amber-400",
-    bgClass: "bg-amber-50 dark:bg-amber-950/30",
-    iconBgClass: "bg-amber-100 text-amber-600 dark:bg-amber-900/50 dark:text-amber-300",
+    color: "lime",
+    borderClass: "border-lime-400",
+    textClass: "text-lime-700 dark:text-lime-300",
+    bgClass: "bg-lime-50 dark:bg-lime-950/30",
+    iconBgClass: "bg-lime-100 text-lime-700 dark:bg-lime-900/50 dark:text-lime-200",
   },
   {
     label: "Good",
@@ -398,13 +398,13 @@ const exampleImpacts = [
 
 const barColorMap: Record<string, string> = {
   good: "bg-emerald-500",
-  decent: "bg-amber-500",
+  decent: "bg-lime-500",
   poor: "bg-red-500",
 };
 
 const pillColorMap: Record<string, string> = {
   good: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900 dark:text-emerald-300",
-  decent: "bg-amber-100 text-amber-700 dark:bg-amber-900 dark:text-amber-300",
+  decent: "bg-lime-100 text-lime-800 dark:bg-lime-900 dark:text-lime-200",
   poor: "bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300",
 };
 
@@ -593,34 +593,35 @@ function VotesScreen({
 }
 
 const rankExplanations = [
-  {
-    icon: Scale,
-    title: "Quality over quantity",
-    description: "We consider your average XP per decision and how many decisions you’ve completed.",
-  },
-  {
-    icon: TrendingUp,
-    title: "Keep improving",
-    description: "Completing more decisions at a similar level of quality will rank you higher.",
-  },
-  {
-    icon: UsersRound,
-    title: "See how you compare",
-    description: "You’re ranked against your classmates in this simulation.",
-  },
+  "Considers your average XP and the number of decisions you've completed.",
+  "Completing more decisions at a similar level of quality will rank higher.",
+  "Don't rush! Quality decisions matter more than speed.",
 ] as const;
 
-function LeaderboardScreen() {
+function LeaderboardScreen({
+  individualMode,
+  showStepNumber = false,
+}: {
+  individualMode: boolean;
+  showStepNumber?: boolean;
+}) {
+  const modeTitle = individualMode ? "Individual Mode" : "Class Mode";
+  const modeDescription = individualMode
+    ? "You're ranked against all previous completers."
+    : "You're ranked against your classmates.";
+
   return (
     <div className="mx-auto w-full max-w-5xl">
       <div className="flex items-center gap-3">
-        <span className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-violet-600 text-white dark:bg-violet-500">
-          <Trophy className="h-5 w-5" aria-hidden />
-        </span>
-        <h2 className="text-2xl font-bold text-foreground sm:text-3xl">Leaderboard</h2>
+        {showStepNumber ? (
+          <span className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-violet-600 text-lg font-bold text-white dark:bg-violet-500">
+            4
+          </span>
+        ) : null}
+        <h2 className="text-2xl font-bold text-foreground sm:text-3xl">Leaderboard.</h2>
       </div>
       <p className="mt-3 text-sm text-muted-foreground sm:text-base">
-        Earn XP for every decision outcome and see how you rank against your classmates.
+        Earn XP for every decision outcome.
       </p>
 
       <div className="mt-6 grid gap-5 lg:grid-cols-2">
@@ -630,13 +631,13 @@ function LeaderboardScreen() {
             {[...outcomeTiers].reverse().map((tier) => (
               <div
                 key={tier.label}
-                className="flex items-center justify-between gap-3 rounded-xl border border-border bg-card px-3 py-2.5 text-card-foreground"
+                className={`flex items-center justify-between gap-3 rounded-xl border px-3 py-2.5 ${tier.borderClass} ${tier.bgClass}`}
               >
-                <span className="flex items-center gap-2 text-sm font-medium">
-                  <Medal className="h-4 w-4 text-primary" aria-hidden />
+                <span className={`flex items-center gap-2 text-sm font-medium ${tier.textClass}`}>
+                  <Medal className="h-4 w-4" aria-hidden />
                   {tier.label} decision
                 </span>
-                <span className="text-sm font-bold text-violet-700 dark:text-violet-300">
+                <span className={`text-sm font-bold ${tier.textClass}`}>
                   {tier.value}
                 </span>
               </div>
@@ -645,34 +646,27 @@ function LeaderboardScreen() {
         </section>
 
         <section className="rounded-2xl border border-border bg-card p-4 text-card-foreground sm:p-5">
-          <h3 className="font-bold text-foreground">How your rank is calculated</h3>
+          <h3 className="font-bold text-foreground">
+            Your leaderboard rank is based on a completion-weighted score.
+          </h3>
           <div className="mt-4 space-y-4">
-            {rankExplanations.map((item) => {
-              const Icon = item.icon;
-              return (
-                <div key={item.title} className="flex gap-3">
-                  <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-violet-100 text-violet-700 dark:bg-violet-950 dark:text-violet-200">
-                    <Icon className="h-4 w-4" aria-hidden />
-                  </span>
-                  <div>
-                    <p className="text-sm font-semibold text-foreground">{item.title}</p>
-                    <p className="mt-0.5 text-xs leading-relaxed text-muted-foreground">
-                      {item.description}
-                    </p>
-                  </div>
-                </div>
-              );
-            })}
+            <ul className="space-y-3 text-sm leading-relaxed text-muted-foreground">
+              {rankExplanations.map((item) => (
+                <li key={item} className="flex gap-3">
+                  <Check className="mt-0.5 h-4 w-4 shrink-0 text-violet-600 dark:text-violet-300" aria-hidden />
+                  <span>{item}</span>
+                </li>
+              ))}
+            </ul>
           </div>
         </section>
       </div>
 
       <section className="mt-5 flex flex-col gap-4 rounded-2xl border border-violet-300 bg-violet-50 p-4 text-violet-950 dark:border-violet-800 dark:bg-violet-950 dark:text-violet-100 sm:flex-row sm:items-center sm:justify-between sm:p-5">
         <div>
-          <p className="font-bold">Class Mode</p>
+          <p className="font-bold">{modeTitle}</p>
           <p className="mt-1 text-sm">
-            You're ranked only against your classmates. Work together, learn together, and
-            climb the leaderboard!
+            {modeDescription}
           </p>
         </div>
         <div className="flex shrink-0 items-end justify-center gap-2" aria-hidden>
@@ -731,7 +725,7 @@ function ComparisonHelpScreen({
     <div className="space-y-8">
       {classVotesEnabled ? <VotesScreen individualMode={false} showStepNumber={showStepNumber} /> : null}
       {classVotesEnabled && leaderboardEnabled ? <Separator /> : null}
-      {leaderboardEnabled ? <LeaderboardScreen /> : null}
+      {leaderboardEnabled ? <LeaderboardScreen individualMode={false} /> : null}
     </div>
   );
 }
@@ -766,22 +760,10 @@ export function SimulationHelpTopic({
     );
   }
   if (topic === "votes") return <VotesScreen individualMode={individualMode} showStepNumber={showStepNumber} />;
-  return <LeaderboardScreen />;
+  return <LeaderboardScreen individualMode={individualMode} showStepNumber={showStepNumber} />;
 }
 
-const DONT_SHOW_AGAIN_KEY = "praxis_onboarding_dont_show_ready";
-
 function ReadyScreen({ onStart }: { onStart: () => void }) {
-  const checkboxId = useId();
-  const [dontShowAgain, setDontShowAgain] = useState(false);
-
-  const handleStart = () => {
-    if (dontShowAgain) {
-      localStorage.setItem(DONT_SHOW_AGAIN_KEY, "1");
-    }
-    onStart();
-  };
-
   return (
     <div className="mx-auto w-full max-w-5xl">
       <div className="flex items-center gap-3">
@@ -789,7 +771,7 @@ function ReadyScreen({ onStart }: { onStart: () => void }) {
           <Trophy className="h-5 w-5" aria-hidden />
         </span>
         <h2 className="text-2xl font-bold text-foreground sm:text-3xl">
-          Congratulations!
+          You&apos;re ready! 🎉
         </h2>
       </div>
       <p className="mt-3 max-w-2xl text-sm leading-relaxed text-muted-foreground sm:text-base">
@@ -798,7 +780,7 @@ function ReadyScreen({ onStart }: { onStart: () => void }) {
 
       <div className="mt-7 grid items-stretch gap-5 md:grid-cols-2">
         <section className="rounded-2xl border border-border bg-card p-5 text-card-foreground sm:p-6">
-          <h3 className="font-bold text-foreground">During the simulation</h3>
+          <h3 className="font-bold text-foreground">During the Simulation</h3>
           <Separator className="my-4" />
           <div className="flex gap-3">
             <span className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-violet-100 text-violet-700 dark:bg-violet-950 dark:text-violet-200">
@@ -820,23 +802,8 @@ function ReadyScreen({ onStart }: { onStart: () => void }) {
         </div>
       </div>
 
-      <label
-        htmlFor={checkboxId}
-        className="mx-auto mt-5 flex w-fit cursor-pointer items-center gap-3 text-left text-sm font-medium text-foreground"
-      >
-        <input
-          id={checkboxId}
-          type="checkbox"
-          checked={dontShowAgain}
-          onChange={(event) => setDontShowAgain(event.target.checked)}
-          className="h-5 w-5 rounded border-border accent-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-        />
-        <span>Don't show this again</span>
-      </label>
-
-      <Button type="button" className="mt-4 min-h-13 w-full text-base" onClick={handleStart}>
-        Start simulation
-        <ArrowRight className="h-5 w-5" aria-hidden />
+      <Button type="button" className="mt-7 min-h-13 w-full text-base" onClick={onStart}>
+        Start simulation →
       </Button>
       <p className="mt-3 text-center text-sm text-muted-foreground">
         You can skip onboarding next time you access this simulation.
@@ -858,7 +825,7 @@ export function SimulationOnboardingCarousel({
   const screens = useMemo<OnboardingScreenId[]>(() => {
     const next: OnboardingScreenId[] = ["how-it-works", "consequences"];
     if (individualMode || classVotesEnabled) next.push("votes");
-    if (!individualMode && leaderboardEnabled) next.push("leaderboard");
+    if (individualMode || leaderboardEnabled) next.push("leaderboard");
     next.push("ready");
     return next;
   }, [classVotesEnabled, individualMode, leaderboardEnabled]);

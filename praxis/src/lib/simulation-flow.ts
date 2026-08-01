@@ -7,6 +7,7 @@ export type SimulationFlowSettings = {
   leaderboardEnabled: boolean;
   rankChipEnabled: boolean;
   podiumEnabled: boolean;
+  leaderboardAnonymous: boolean;
 };
 
 export type ConsequenceSnapshot = Record<string, string | null>;
@@ -19,8 +20,12 @@ function asRecord(value: Json | undefined | null): Record<string, Json | undefin
 
 export function getSimulationFlowSettings(
   preferences: Json | undefined | null,
+  sessionSettings?: Json | undefined | null,
 ): SimulationFlowSettings {
-  const flow = asRecord(asRecord(preferences).simulation_flow);
+  const flow = {
+    ...asRecord(asRecord(preferences).simulation_flow),
+    ...asRecord(sessionSettings),
+  };
   return {
     classVotesEnabled: flow.class_votes_enabled !== false,
     showVoteSubmissionStatus: flow.show_vote_submission_status !== false,
@@ -28,7 +33,36 @@ export function getSimulationFlowSettings(
     leaderboardEnabled: flow.leaderboard_enabled !== false,
     rankChipEnabled: flow.rank_chip_enabled !== false,
     podiumEnabled: flow.podium_enabled !== false,
+    leaderboardAnonymous: flow.leaderboard_anonymous !== false,
   };
+}
+
+export function sessionFlowSettings(
+  settings: SimulationFlowSettings,
+): Json {
+  return {
+    class_votes_enabled: settings.classVotesEnabled,
+    show_vote_submission_status:
+      settings.classVotesEnabled && settings.showVoteSubmissionStatus,
+    show_anonymous_justifications:
+      settings.classVotesEnabled && settings.showAnonymousJustifications,
+    leaderboard_enabled: settings.leaderboardEnabled,
+    rank_chip_enabled: settings.rankChipEnabled,
+    podium_enabled: settings.podiumEnabled,
+    leaderboard_anonymous: settings.leaderboardAnonymous,
+  };
+}
+
+export function withSessionFlowSettings(
+  preferences: Json | undefined | null,
+  sessionSettings: Json | undefined | null,
+): Json {
+  const base = asRecord(preferences);
+  base.simulation_flow = {
+    ...asRecord(base.simulation_flow),
+    ...asRecord(sessionSettings),
+  };
+  return base;
 }
 
 export function setSimulationFlowSettings(
@@ -46,6 +80,7 @@ export function setSimulationFlowSettings(
     leaderboard_enabled: settings.leaderboardEnabled,
     rank_chip_enabled: settings.rankChipEnabled,
     podium_enabled: settings.podiumEnabled,
+    leaderboard_anonymous: settings.leaderboardAnonymous,
   };
   return base;
 }
