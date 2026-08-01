@@ -364,7 +364,11 @@ export async function GET(request: NextRequest, { params }: RouteContext) {
   let tieBreakAboveName: string | null = null;
   if (viewerSortedIndex > 0 && viewerRow.completedDecisions > 0) {
     const aboveSorted = sortedRanked[viewerSortedIndex - 1];
-    if (aboveSorted && aboveSorted.score === viewerRow.score) {
+    const sameCompletionWeightedScore =
+      aboveSorted &&
+      (aboveSorted.score === viewerRow.score ||
+        roundForDisplay(aboveSorted.score) === roundForDisplay(viewerRow.score));
+    if (sameCompletionWeightedScore) {
       const reason = tieBreakReason(aboveSorted, viewerRow);
       if (reason) {
         tieBreakAboveReason = reason;

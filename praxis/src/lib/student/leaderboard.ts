@@ -28,7 +28,7 @@ export type LeaderboardSortableRow = {
 };
 
 export type TieBreakReason =
-  | "higher average XP"
+  | "higher raw average XP"
   | "more decisions completed"
   | "more Perfect outcomes";
 
@@ -167,7 +167,7 @@ export function tieBreakReason(
 
   const higherAvg = higher.averageXp ?? Number.NEGATIVE_INFINITY;
   const lowerAvg = lower.averageXp ?? Number.NEGATIVE_INFINITY;
-  if (higherAvg > lowerAvg) return "higher average XP";
+  if (higherAvg > lowerAvg) return "higher raw average XP";
 
   if (higher.completedDecisions > lower.completedDecisions) {
     return "more decisions completed";
