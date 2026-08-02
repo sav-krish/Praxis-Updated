@@ -426,6 +426,12 @@ export function LeaderboardOverlays({
           return;
         }
 
+        if (detail.isFinal && currentPayload.settings.canShowPodium) {
+          setRankUpdate(null);
+          setRevealSnapshot(copyPayload(currentPayload));
+          return;
+        }
+
         setRankUpdate({
           decisionId: detail.decisionId,
           isFinal: detail.isFinal,
@@ -492,10 +498,6 @@ export function LeaderboardOverlays({
 
   const dismissRankUpdate = useCallback(() => {
     if (!rankUpdate) return;
-
-    if (rankUpdate.isFinal && rankUpdate.snapshot.settings.canShowPodium) {
-      setRevealSnapshot(copyPayload(rankUpdate.snapshot));
-    }
     setRankUpdate(null);
   }, [rankUpdate]);
 

@@ -381,7 +381,6 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
   const [responseInputMode, setResponseInputMode] = useState<"text" | "video">("text");
   const [studentAttemptId, setStudentAttemptId] = useState<string | null>(null);
   const [completedReportId, setCompletedReportId] = useState<string | null>(null);
-  const [, setLoadingConsequence] = useState(false);
   const [aiJustificationFeedback, setAiJustificationFeedback] = useState<string | null>(null);
   const [selectedRoleLabel, setSelectedRoleLabel] = useState("Decision maker");
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -1178,7 +1177,6 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
 
     // Wait for the scenario-specific result before showing the consequence.
     // This avoids briefly rendering a generic result and replacing it seconds later.
-    setLoadingConsequence(true);
     try {
       const response = await fetch("/api/generate-consequence", {
         method: "POST",
@@ -1211,7 +1209,6 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
           "Your choice has been recorded. The consequences of your decision are outlined below.",
       );
     } finally {
-      setLoadingConsequence(false);
       setShowConsequence(true);
       setSubmitting(false);
       window.setTimeout(() => {
@@ -1845,7 +1842,7 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
     }
 
     return (
-      <div className="flex min-h-dvh flex-col">
+      <div className="flex min-h-dvh flex-col bg-muted/50">
         {previewBar}
         <div className="flex min-h-0 flex-1 flex-col overflow-y-auto bg-muted/50">
           <div className="px-3 py-4 sm:px-4 sm:py-6">
