@@ -1,6 +1,6 @@
 "use client";
 
-import { Medal, TrendingUp, Trophy } from "lucide-react";
+import { TrendingUp, Trophy, UserRound } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   Dialog,
@@ -87,11 +87,28 @@ const TIER_STYLES: Record<LeaderboardTier, string> = {
     "border-rose-200 bg-rose-50 text-rose-800 dark:border-rose-700 dark:bg-rose-950 dark:text-rose-200",
 };
 
-const PODIUM_STYLES = [
-  "border-amber-300 bg-amber-50/80 dark:border-amber-700 dark:bg-amber-950/40",
-  "border-slate-300 bg-slate-50/80 dark:border-slate-600 dark:bg-slate-900/60",
-  "border-orange-300 bg-orange-50/80 dark:border-orange-800 dark:bg-orange-950/40",
-] as const;
+const PODIUM_STYLES = {
+  1: {
+    avatar:
+      "bg-amber-100 text-amber-700 ring-amber-50 dark:bg-amber-950/70 dark:text-amber-300 dark:ring-card",
+    platform:
+      "h-32 border-amber-300 bg-gradient-to-b from-amber-200 to-amber-500 text-amber-950 shadow-lg shadow-amber-500/20 dark:border-amber-500/70 dark:from-amber-400 dark:to-amber-700 dark:text-amber-50",
+  },
+  2: {
+    avatar:
+      "bg-slate-100 text-slate-700 ring-slate-50 dark:bg-slate-800 dark:text-slate-200 dark:ring-card",
+    platform:
+      "h-24 border-slate-300 bg-gradient-to-b from-slate-100 to-slate-300 text-slate-700 shadow-lg shadow-slate-400/15 dark:border-slate-500 dark:from-slate-500 dark:to-slate-700 dark:text-slate-50",
+  },
+  3: {
+    avatar:
+      "bg-orange-100 text-orange-700 ring-orange-50 dark:bg-orange-950/70 dark:text-orange-300 dark:ring-card",
+    platform:
+      "h-20 border-orange-300 bg-gradient-to-b from-orange-200 to-orange-500 text-orange-950 shadow-lg shadow-orange-500/20 dark:border-orange-500/70 dark:from-orange-400 dark:to-orange-700 dark:text-orange-50",
+  },
+} as const;
+
+type PodiumPlacement = 1 | 2 | 3;
 
 function formatScore(score: number): string {
   return new Intl.NumberFormat(undefined, {
@@ -146,61 +163,80 @@ function isDecisionConsequenceDetail(
   );
 }
 
-function percentileText(row: LeaderboardRow): string | null {
-  return row.percentileLabel;
-}
-
 function PodiumStanding({
   row,
-  index,
+  placement,
 }: {
   row: LeaderboardRow;
-  index: number;
+  placement: PodiumPlacement;
 }) {
-  const placementIndex = Math.max(0, Math.min(2, (row.rank ?? 1) - 1));
+  const style = PODIUM_STYLES[placement];
 
   return (
     <article
-      className={cn(
-        "flex min-w-0 flex-1 animate-in fade-in-0 slide-in-from-bottom-3 flex-col rounded-xl border p-4 text-left duration-500 motion-reduce:animate-none",
-        PODIUM_STYLES[placementIndex],
-      )}
-      style={{ animationDelay: `${index * 120}ms` }}
+      className="flex min-w-0 animate-in fade-in-0 slide-in-from-bottom-3 flex-col items-center text-center duration-500 motion-reduce:animate-none"
     >
-      <div className="flex items-center justify-between gap-2">
-        <span className="inline-flex items-center gap-1.5 font-semibold text-foreground">
-          <Medal className="h-4 w-4" aria-hidden />
-          {row.rank === null ? "Not ranked" : `#${row.rank}`}
-        </span>
-        {row.isViewer ? (
-          <span className="rounded-full bg-primary px-2 py-0.5 text-[0.65rem] font-bold tracking-wide text-primary-foreground">
-            YOU
-          </span>
-        ) : null}
+      <div
+        className={cn(
+          "grid h-12 w-12 place-items-center rounded-full ring-4 sm:h-14 sm:w-14",
+          style.avatar,
+        )}
+      >
+        {placement === 1 ? (
+          <Trophy className="h-6 w-6 sm:h-7 sm:w-7" aria-hidden />
+        ) : (
+          <UserRound className="h-6 w-6 sm:h-7 sm:w-7" aria-hidden />
+        )}
       </div>
-      <p className="mt-3 truncate font-medium text-card-foreground">
+      <p className="mt-2 w-full truncate text-xs font-semibold text-foreground sm:text-sm">
         {row.displayName}
       </p>
-      <dl className="mt-3 space-y-1.5 text-xs">
-        <div className="flex justify-between gap-3">
-          <dt className="text-muted-foreground">Decisions</dt>
-          <dd className="font-medium text-foreground">
-            {row.completedDecisions}/{row.totalDecisions}
-          </dd>
-        </div>
-        <div className="flex justify-between gap-3">
-          <dt className="text-muted-foreground">Weighted score</dt>
-          <dd className="font-medium text-foreground">
-            {formatScore(row.score)} XP
-          </dd>
-        </div>
-      </dl>
-      {percentileText(row) ? (
-        <p className="mt-3 text-xs text-muted-foreground">
-          {percentileText(row)}
-        </p>
+      <p className="mt-0.5 text-sm font-bold tabular-nums text-foreground sm:text-base">
+        {formatScore(row.score)}
+      </p>
+      {row.isViewer ? (
+        <span className="mt-1 rounded-full bg-primary px-2 py-0.5 text-[0.625rem] font-bold tracking-wide text-primary-foreground">
+          YOU
+        </span>
       ) : null}
+      <div
+        className={cn(
+          "mt-3 flex w-full items-center justify-center rounded-t-xl border-x border-t text-2xl font-black tabular-nums sm:text-3xl",
+          style.platform,
+        )}
+      >
+        {row.rank ?? placement}
+      </div>
     </article>
+  );
+}
+
+function FinalViewerStanding({ row }: { row: LeaderboardRow }) {
+  return (
+    <section
+      className="flex flex-wrap items-center gap-3 rounded-2xl border-2 border-primary/30 bg-primary/5 p-4 sm:flex-nowrap sm:gap-5"
+      aria-label="Your final standing"
+    >
+      <div className="grid h-12 w-12 shrink-0 place-items-center rounded-full bg-primary text-primary-foreground shadow-sm">
+        <UserRound className="h-7 w-7" aria-hidden />
+      </div>
+      <div className="min-w-0 flex-1">
+        <p className="text-xs font-bold uppercase tracking-wide text-primary">You</p>
+        <p className="mt-0.5 text-lg font-black text-foreground">
+          {row.rank === null ? "Not ranked yet" : `#${row.rank}`}
+        </p>
+      </div>
+      <div className="ml-auto grid grid-cols-2 gap-x-5 gap-y-1 text-right text-sm sm:gap-x-8">
+        <p className="text-xs text-muted-foreground">Your score</p>
+        <p className="text-xs text-muted-foreground">Decisions</p>
+        <p className="font-bold tabular-nums text-foreground">
+          {formatScore(row.score)}
+        </p>
+        <p className="font-bold tabular-nums text-foreground">
+          {row.completedDecisions}/{row.totalDecisions}
+        </p>
+      </div>
+    </section>
   );
 }
 
@@ -219,108 +255,74 @@ function EndLeaderboardReveal({
 
   return (
     <Dialog open onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="max-h-[90dvh] overflow-y-auto sm:max-w-3xl">
-        <DialogHeader>
-          <DialogTitle className="flex items-center justify-center gap-2 text-xl sm:justify-start">
-            <Trophy className="h-5 w-5 text-primary" aria-hidden />
-            Final leaderboard
-          </DialogTitle>
-          <DialogDescription>
-            Your completion-weighted result compared with the{" "}
-            {snapshot.scopeLabel}.
+      <DialogContent className="max-h-[94dvh] w-[calc(100%-1rem)] gap-0 overflow-y-auto rounded-3xl border-border/80 bg-card p-0 shadow-2xl sm:max-w-4xl">
+        <DialogHeader className="border-b border-border/70 bg-gradient-to-b from-primary/10 to-transparent px-5 pb-5 pt-6 sm:px-8 sm:pt-8">
+          <div className="flex flex-wrap items-center justify-center gap-2 sm:justify-start">
+            <DialogTitle className="flex items-center gap-2 text-2xl font-black sm:text-3xl">
+              <Trophy className="h-6 w-6 text-primary sm:h-7 sm:w-7" aria-hidden />
+              Final leaderboard <span aria-hidden>🎉</span>
+            </DialogTitle>
+            <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-300 bg-emerald-50 px-2.5 py-1 text-xs font-bold tracking-wide text-emerald-700 dark:border-emerald-600 dark:bg-emerald-950/70 dark:text-emerald-300">
+              <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" aria-hidden />
+              LIVE
+            </span>
+          </div>
+          <DialogDescription className="mt-1 text-center text-sm sm:text-left sm:text-base">
+            Updates in real time as students finish.
           </DialogDescription>
         </DialogHeader>
 
-        {showPodium && podiumRows.length > 0 ? (
-          <div className="flex flex-col gap-3 sm:flex-row">
-            {podiumRows.map((row, index) => (
-              <PodiumStanding key={row.participantId} row={row} index={index} />
-            ))}
-          </div>
-        ) : snapshot.rows.length > 0 ? (
-          <section
-            className="divide-y overflow-hidden rounded-xl border bg-card"
-            aria-label="Final leaderboard standings"
-          >
-            {snapshot.rows.map((row) => (
-              <div
-                key={row.participantId}
-                className={cn(
-                  "flex items-center gap-3 px-4 py-3 text-sm",
-                  row.isViewer && "bg-primary/5",
-                )}
-              >
-                <span className="w-8 font-semibold text-foreground">
-                  #{row.rank}
-                </span>
-                <span className="min-w-0 flex-1 truncate font-medium text-foreground">
-                  {row.displayName}
-                  {row.isViewer ? " (You)" : ""}
-                </span>
-                <span className="shrink-0 font-semibold text-foreground">
-                  {formatScore(row.score)} XP
-                </span>
-              </div>
-            ))}
-          </section>
-        ) : (
-          <p className="rounded-xl border border-dashed border-border bg-muted/40 p-5 text-center text-sm text-muted-foreground">
-            No ranked finishers yet.
-          </p>
-        )}
-
-        {showPodium && !viewerInTopThree ? (
-          <section
-            className="animate-in fade-in-0 slide-in-from-bottom-2 rounded-xl border border-primary/30 bg-primary/5 p-4 duration-500 motion-reduce:animate-none"
-            aria-label="Your final standing"
-          >
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <div>
-                <p className="text-xs font-semibold uppercase tracking-wide text-primary">
-                  Your result
-                </p>
-                <p className="mt-1 font-semibold text-foreground">
-                  {snapshot.viewer.rank === null
-                    ? "Not ranked yet"
-                    : `#${snapshot.viewer.rank}`}
-                </p>
-              </div>
-              <span className="rounded-full bg-primary px-2.5 py-1 text-xs font-bold text-primary-foreground">
-                YOU
-              </span>
+        <div className="space-y-6 px-5 py-6 sm:px-8 sm:py-8" aria-live="polite">
+          {showPodium && podiumRows.length > 0 ? (
+            <div className="grid grid-cols-3 items-end gap-2 sm:gap-5">
+              {podiumRows[1] ? (
+                <PodiumStanding row={podiumRows[1]} placement={2} />
+              ) : <div />}
+              {podiumRows[0] ? (
+                <PodiumStanding row={podiumRows[0]} placement={1} />
+              ) : <div />}
+              {podiumRows[2] ? (
+                <PodiumStanding row={podiumRows[2]} placement={3} />
+              ) : <div />}
             </div>
-            <div
-              className={cn(
-                "mt-4 grid grid-cols-1 gap-2 text-sm",
-                snapshot.viewer.percentileLabel ? "sm:grid-cols-3" : "sm:grid-cols-2",
-              )}
+          ) : snapshot.rows.length > 0 ? (
+            <section
+              className="divide-y overflow-hidden rounded-2xl border bg-card"
+              aria-label="Final leaderboard standings"
             >
-              <p className="rounded-lg bg-background/80 p-3 text-foreground">
-                <span className="block text-xs text-muted-foreground">
-                  Decisions
-                </span>
-                {snapshot.viewer.completedDecisions}/
-                {snapshot.viewer.totalDecisions}
-              </p>
-              <p className="rounded-lg bg-background/80 p-3 text-foreground">
-                <span className="block text-xs text-muted-foreground">
-                  Weighted score
-                </span>
-                {formatScore(snapshot.viewer.score)} XP
-              </p>
-              {snapshot.viewer.percentileLabel ? (
-                <p className="rounded-lg bg-background/80 p-3 text-foreground">
-                  <span className="block text-xs text-muted-foreground">
-                    Percentile
+              {snapshot.rows.map((row) => (
+                <div
+                  key={row.participantId}
+                  className={cn(
+                    "flex items-center gap-3 px-4 py-4 text-sm sm:px-5 sm:text-base",
+                    row.isViewer && "bg-primary/5",
+                  )}
+                >
+                  <span className="w-9 font-black tabular-nums text-foreground">
+                    #{row.rank}
                   </span>
-                  {snapshot.viewer.percentileLabel}
-                </p>
-              ) : null}
-            </div>
-          </section>
-        ) : null}
+                  <span className="min-w-0 flex-1 truncate font-semibold text-foreground">
+                    {row.displayName}
+                    {row.isViewer ? " (You)" : ""}
+                  </span>
+                  <span className="shrink-0 font-bold tabular-nums text-foreground">
+                    {formatScore(row.score)} XP
+                  </span>
+                </div>
+              ))}
+            </section>
+          ) : (
+            <p className="rounded-2xl border border-dashed border-border bg-muted/40 p-6 text-center text-sm text-muted-foreground">
+              No ranked finishers yet.
+            </p>
+          )}
 
-        <DialogFooter showCloseButton />
+          {showPodium && !viewerInTopThree ? (
+            <FinalViewerStanding row={snapshot.viewer} />
+          ) : null}
+        </div>
+
+        <DialogFooter className="border-t border-border/70 px-5 py-4 sm:px-8" showCloseButton />
       </DialogContent>
     </Dialog>
   );
@@ -484,7 +486,7 @@ export function LeaderboardOverlays({
 
     setRevealSnapshot((current) => {
       if (!current) return current;
-      if (!payload.settings.canShowPodium) {
+      if (!payload.settings.leaderboardEnabled) {
         return null;
       }
       return copyPayload(payload);
@@ -553,7 +555,7 @@ export function LeaderboardOverlays({
           <button
             ref={chipButtonRef}
             type="button"
-            className="grid h-11 w-11 place-items-center rounded-full border border-border bg-card text-card-foreground shadow-lg transition-colors hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+            className="inline-flex h-12 items-center gap-2 whitespace-nowrap rounded-full border border-border bg-card px-4 text-sm font-semibold text-card-foreground shadow-lg transition-colors hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
             aria-label={
               chipExpanded ? "Hide my leaderboard rank" : "Show my leaderboard rank"
             }
@@ -561,7 +563,8 @@ export function LeaderboardOverlays({
             aria-controls="student-rank-chip-details"
             onClick={() => setChipExpanded((expanded) => !expanded)}
           >
-            <Trophy className="h-5 w-5 text-primary" aria-hidden />
+            <Trophy className="h-6 w-6 text-primary" aria-hidden />
+            <span>{chipExpanded ? "Hide Your Rank" : "View Your Rank"}</span>
           </button>
 
           {chipExpanded ? (
