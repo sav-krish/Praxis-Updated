@@ -51,20 +51,25 @@ interface StudentExperiencePayload {
 const GLOBAL_SUPPRESSION_PREFIX = "praxis_onboarding_suppressed";
 const SIMULATION_SEEN_PREFIX = "praxis_onboarding_seen";
 
-const StudentLeaderboardVisibilityContext = createContext<
-  Dispatch<SetStateAction<boolean>> | null
+export type StudentLeaderboardPhase =
+  | "decision"
+  | "reflection"
+  | "completion";
+
+const StudentLeaderboardPhaseContext = createContext<
+  Dispatch<SetStateAction<StudentLeaderboardPhase>> | null
 >(null);
 
-export function useStudentLeaderboardVisibility(): Dispatch<
-  SetStateAction<boolean>
+export function useStudentLeaderboardPhase(): Dispatch<
+  SetStateAction<StudentLeaderboardPhase>
 > {
-  const setLeaderboardVisible = useContext(StudentLeaderboardVisibilityContext);
-  if (!setLeaderboardVisible) {
+  const setLeaderboardPhase = useContext(StudentLeaderboardPhaseContext);
+  if (!setLeaderboardPhase) {
     throw new Error(
-      "useStudentLeaderboardVisibility must be used inside StudentExperienceShell",
+      "useStudentLeaderboardPhase must be used inside StudentExperienceShell",
     );
   }
-  return setLeaderboardVisible;
+  return setLeaderboardPhase;
 }
 
 function summarizeScenario(background: string | null): string {
@@ -112,7 +117,8 @@ export function StudentExperienceShell({
     useState<HTMLDivElement | null>(null);
   const [onboardingHelpPortalTarget, setOnboardingHelpPortalTarget] =
     useState<HTMLDivElement | null>(null);
-  const [leaderboardVisible, setLeaderboardVisible] = useState(false);
+  const [leaderboardPhase, setLeaderboardPhase] =
+    useState<StudentLeaderboardPhase>("reflection");
   const persistedSeenRef = useRef<string | null>(null);
 
   const loadExperience = useCallback(async () => {
@@ -315,7 +321,7 @@ export function StudentExperienceShell({
   if (onRoleSelectionPage) return children;
 
   return (
-    <StudentLeaderboardVisibilityContext.Provider value={setLeaderboardVisible}>
+    <StudentLeaderboardPhaseContext.Provider value={setLeaderboardPhase}>
       {children}
 
       {loading ? (
@@ -370,15 +376,16 @@ export function StudentExperienceShell({
                   : undefined
             }
           />
-          {participantId && leaderboardVisible ? (
+          {participantId && leaderboardPhase !== "reflection" ? (
             <LeaderboardOverlays
               code={normalizedCode}
               sessionId={sessionId}
               participantId={participantId}
+              phase={leaderboardPhase}
             />
           ) : null}
         </>
       ) : null}
-    </StudentLeaderboardVisibilityContext.Provider>
+    </StudentLeaderboardPhaseContext.Provider>
   );
 }

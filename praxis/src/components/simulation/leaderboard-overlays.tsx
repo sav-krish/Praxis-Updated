@@ -63,11 +63,16 @@ type LeaderboardOverlaysProps = {
   code: string;
   sessionId: string;
   participantId: string;
+  phase: "decision" | "completion";
 };
 
 type DecisionConsequenceDetail = {
   decisionId: string;
   isFinal: boolean;
+};
+
+type SessionScopedDetail = {
+  sessionId: string;
 };
 
 type RankUpdate = {
@@ -163,12 +168,26 @@ function isDecisionConsequenceDetail(
   );
 }
 
+function isSessionScopedDetail(detail: unknown): detail is SessionScopedDetail {
+  if (!detail || typeof detail !== "object") return false;
+
+  const candidate = detail as Partial<SessionScopedDetail>;
+  return typeof candidate.sessionId === "string" && candidate.sessionId.length > 0;
+}
+
+function podiumPlacementForRank(rank: number | null): PodiumPlacement {
+  if (rank === 1 || rank === 2) return rank;
+  return 3;
+}
+
 function PodiumStanding({
   row,
   placement,
+  isTied,
 }: {
   row: LeaderboardRow;
   placement: PodiumPlacement;
+  isTied: boolean;
 }) {
   const style = PODIUM_STYLES[placement];
 
@@ -206,6 +225,7 @@ function PodiumStanding({
         )}
       >
         {row.rank ?? placement}
+        {isTied ? " (tie)" : ""}
       </div>
     </article>
   );
@@ -249,6 +269,12 @@ function EndLeaderboardReveal({
 }) {
   const showPodium = snapshot.settings.canShowPodium;
   const podiumRows = snapshot.topThree.slice(0, 3);
+  const podiumRankCounts = new Map<number, number>();
+  for (const row of snapshot.rows) {
+    if (row.rank !== null) {
+      podiumRankCounts.set(row.rank, (podiumRankCounts.get(row.rank) ?? 0) + 1);
+    }
+  }
   const viewerInTopThree = showPodium && podiumRows.some(
     (row) => row.participantId === snapshot.viewer.participantId,
   );
@@ -276,13 +302,34 @@ function EndLeaderboardReveal({
           {showPodium && podiumRows.length > 0 ? (
             <div className="grid grid-cols-3 items-end gap-2 sm:gap-5">
               {podiumRows[1] ? (
-                <PodiumStanding row={podiumRows[1]} placement={2} />
+                <PodiumStanding
+                  row={podiumRows[1]}
+                  placement={podiumPlacementForRank(podiumRows[1].rank)}
+                  isTied={
+                    podiumRows[1].rank !== null &&
+                    (podiumRankCounts.get(podiumRows[1].rank) ?? 0) > 1
+                  }
+                />
               ) : <div />}
               {podiumRows[0] ? (
-                <PodiumStanding row={podiumRows[0]} placement={1} />
+                <PodiumStanding
+                  row={podiumRows[0]}
+                  placement={podiumPlacementForRank(podiumRows[0].rank)}
+                  isTied={
+                    podiumRows[0].rank !== null &&
+                    (podiumRankCounts.get(podiumRows[0].rank) ?? 0) > 1
+                  }
+                />
               ) : <div />}
               {podiumRows[2] ? (
-                <PodiumStanding row={podiumRows[2]} placement={3} />
+                <PodiumStanding
+                  row={podiumRows[2]}
+                  placement={podiumPlacementForRank(podiumRows[2].rank)}
+                  isTied={
+                    podiumRows[2].rank !== null &&
+                    (podiumRankCounts.get(podiumRows[2].rank) ?? 0) > 1
+                  }
+                />
               ) : <div />}
             </div>
           ) : snapshot.rows.length > 0 ? (
@@ -332,6 +379,7 @@ export function LeaderboardOverlays({
   code,
   sessionId,
   participantId,
+  phase,
 }: LeaderboardOverlaysProps) {
   const [payload, setPayload] = useState<LeaderboardPayload | null>(null);
   const [chipExpanded, setChipExpanded] = useState(false);
@@ -342,6 +390,7 @@ export function LeaderboardOverlays({
   const chipButtonRef = useRef<HTMLButtonElement>(null);
   const mountedRef = useRef(false);
   const requestNumberRef = useRef(0);
+  const completedSessionRef = useRef<string | null>(null);
 
   const loadLeaderboard =
     useCallback(async (
@@ -438,26 +487,25 @@ export function LeaderboardOverlays({
     return () => window.clearInterval(intervalId);
   }, [loadLeaderboard, payload?.scope, revealSnapshot]);
 
+  const showFinalPodium = useCallback(async () => {
+    const snapshot = await loadLeaderboard(undefined, true);
+    if (!mountedRef.current || !snapshot?.settings.canShowPodium) return;
+
+    setRankUpdate(null);
+    setRevealSnapshot(copyPayload(snapshot));
+  }, [loadLeaderboard]);
+
   useEffect(() => {
     const handleDecisionConsequence = (event: Event) => {
       const detail = (event as CustomEvent<unknown>).detail;
       if (!isDecisionConsequenceDetail(detail)) return;
 
       void (async () => {
-        const currentPayload = await loadLeaderboard(
-          detail.decisionId,
-          detail.isFinal,
-        );
+        const currentPayload = await loadLeaderboard(detail.decisionId);
         if (
           !mountedRef.current ||
           !currentPayload?.settings.leaderboardEnabled
         ) {
-          return;
-        }
-
-        if (detail.isFinal) {
-          setRankUpdate(null);
-          setRevealSnapshot(copyPayload(currentPayload));
           return;
         }
 
@@ -480,6 +528,38 @@ export function LeaderboardOverlays({
       );
     };
   }, [loadLeaderboard]);
+
+  useEffect(() => {
+    if (
+      phase !== "completion" ||
+      completedSessionRef.current === sessionId
+    ) {
+      return;
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      if (completedSessionRef.current === sessionId) return;
+      completedSessionRef.current = sessionId;
+      void showFinalPodium();
+    }, 250);
+    return () => window.clearTimeout(timeoutId);
+  }, [phase, sessionId, showFinalPodium]);
+
+  useEffect(() => {
+    const handleViewPodium = (event: Event) => {
+      const detail = (event as CustomEvent<unknown>).detail;
+      if (!isSessionScopedDetail(detail) || detail.sessionId !== sessionId) {
+        return;
+      }
+
+      void showFinalPodium();
+    };
+
+    window.addEventListener("praxis:view-podium", handleViewPodium);
+    return () => {
+      window.removeEventListener("praxis:view-podium", handleViewPodium);
+    };
+  }, [sessionId, showFinalPodium]);
 
   useEffect(() => {
     if (!payload) return;

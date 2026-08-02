@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useLayoutEffect, useState, useRef, use } from "react";
+import { useEffect, useState, useRef, use } from "react";
 import dynamic from "next/dynamic";
 import Image from "next/image";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -61,7 +61,7 @@ import {
 } from "@/lib/student/qualitative-impact";
 import { getSimulationFlowSettings } from "@/lib/simulation-flow";
 import { PraxisLogo } from "@/components/praxis-logo";
-import { useStudentLeaderboardVisibility } from "@/components/simulation/student-experience-shell";
+import { useStudentLeaderboardPhase } from "@/components/simulation/student-experience-shell";
 
 const MarkdownBody = dynamic(
   () =>
@@ -139,6 +139,7 @@ interface Session {
   status: string;
   current_step: number;
   is_preview?: boolean;
+  student_flow_settings?: Json | null;
   simulation: {
     id: string;
     title: string;
@@ -330,7 +331,7 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
   const { code } = use(params);
   const router = useRouter();
   const searchParams = useSearchParams();
-  const setLeaderboardVisible = useStudentLeaderboardVisibility();
+  const setLeaderboardPhase = useStudentLeaderboardPhase();
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [session, setSession] = useState<Session | null>(null);
@@ -393,28 +394,21 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
   const currentStepRef = useRef(currentStep);
   const sessionIdRef = useRef<string | null>(null);
   const transitionRef = useRef(false);
-  const hasEnteredReflectionRef = useRef(false);
-
-  useLayoutEffect(() => {
-    if (currentStep >= 6 || session?.status === "complete") {
-      hasEnteredReflectionRef.current = true;
-    }
-  }, [currentStep, session?.status]);
-
-  // Leaderboard updates are part of the decision phase only. Unmounting the
-  // overlay at reflection also cancels any pending final-decision reveal.
-  const showLeaderboard =
-    session !== null &&
-    session.status !== "complete" &&
-    currentStep < 6 &&
-    !hasEnteredReflectionRef.current;
-  useLayoutEffect(() => {
-    setLeaderboardVisible(showLeaderboard);
-  }, [setLeaderboardVisible, showLeaderboard]);
 
   useEffect(() => {
-    return () => setLeaderboardVisible(false);
-  }, [setLeaderboardVisible]);
+    if (currentStep === 7 || session?.status === "complete") {
+      setLeaderboardPhase("completion");
+      return;
+    }
+
+    setLeaderboardPhase(
+      currentStep >= 1 && currentStep < 6 ? "decision" : "reflection",
+    );
+  }, [currentStep, session?.status, setLeaderboardPhase]);
+
+  useEffect(() => {
+    return () => setLeaderboardPhase("reflection");
+  }, [setLeaderboardPhase]);
 
   useEffect(() => {
     currentStepRef.current = currentStep;
@@ -1407,6 +1401,13 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
   const totalScore = myResponses.reduce((sum, r) => sum + r.score, 0);
   const maxScore = decisions.length * 3;
   const displayScorePercent = scorePercent(totalScore, maxScore);
+  const finalFlowSettings = getSimulationFlowSettings(
+    session?.simulation.preferences,
+    session?.student_flow_settings,
+  );
+  const canViewPodium =
+    finalFlowSettings.leaderboardEnabled &&
+    !finalFlowSettings.leaderboardAnonymous;
 
   const outcomeLabel = outcomeTier ? `${outcomeTier} Outcome` : null;
   const outcomeTierStyle = outcomeTier
@@ -2532,6 +2533,26 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
                     </>
                   )}
                 </div>
+
+                {canViewPodium && session ? (
+                  <div className="mb-4 flex justify-center">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="min-h-[44px]"
+                      onClick={() => {
+                        window.dispatchEvent(
+                          new CustomEvent("praxis:view-podium", {
+                            detail: { sessionId: session.id },
+                          }),
+                        );
+                      }}
+                    >
+                      <Trophy className="mr-2 h-4 w-4" aria-hidden />
+                      View podium
+                    </Button>
+                  </div>
+                ) : null}
 
                 {(completedReportId || studentAttemptId) && (
                   <div className="mb-4 flex justify-center">
