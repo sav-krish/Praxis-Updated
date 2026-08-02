@@ -211,8 +211,9 @@ function EndLeaderboardReveal({
   snapshot: LeaderboardPayload;
   onClose: () => void;
 }) {
+  const showPodium = snapshot.settings.canShowPodium;
   const podiumRows = snapshot.topThree.slice(0, 3);
-  const viewerInTopThree = podiumRows.some(
+  const viewerInTopThree = showPodium && podiumRows.some(
     (row) => row.participantId === snapshot.viewer.participantId,
   );
 
@@ -230,19 +231,45 @@ function EndLeaderboardReveal({
           </DialogDescription>
         </DialogHeader>
 
-        {podiumRows.length > 0 ? (
+        {showPodium && podiumRows.length > 0 ? (
           <div className="flex flex-col gap-3 sm:flex-row">
             {podiumRows.map((row, index) => (
               <PodiumStanding key={row.participantId} row={row} index={index} />
             ))}
           </div>
+        ) : snapshot.rows.length > 0 ? (
+          <section
+            className="divide-y overflow-hidden rounded-xl border bg-card"
+            aria-label="Final leaderboard standings"
+          >
+            {snapshot.rows.map((row) => (
+              <div
+                key={row.participantId}
+                className={cn(
+                  "flex items-center gap-3 px-4 py-3 text-sm",
+                  row.isViewer && "bg-primary/5",
+                )}
+              >
+                <span className="w-8 font-semibold text-foreground">
+                  #{row.rank}
+                </span>
+                <span className="min-w-0 flex-1 truncate font-medium text-foreground">
+                  {row.displayName}
+                  {row.isViewer ? " (You)" : ""}
+                </span>
+                <span className="shrink-0 font-semibold text-foreground">
+                  {formatScore(row.score)} XP
+                </span>
+              </div>
+            ))}
+          </section>
         ) : (
           <p className="rounded-xl border border-dashed border-border bg-muted/40 p-5 text-center text-sm text-muted-foreground">
             No ranked finishers yet.
           </p>
         )}
 
-        {!viewerInTopThree ? (
+        {showPodium && !viewerInTopThree ? (
           <section
             className="animate-in fade-in-0 slide-in-from-bottom-2 rounded-xl border border-primary/30 bg-primary/5 p-4 duration-500 motion-reduce:animate-none"
             aria-label="Your final standing"
@@ -426,7 +453,7 @@ export function LeaderboardOverlays({
           return;
         }
 
-        if (detail.isFinal && currentPayload.settings.canShowPodium) {
+        if (detail.isFinal) {
           setRankUpdate(null);
           setRevealSnapshot(copyPayload(currentPayload));
           return;
