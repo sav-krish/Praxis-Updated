@@ -280,12 +280,15 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
         >
           {simulations.map((simulation) => {
             const activeSession = sessionBySimulation[simulation.id];
+            const hasReports =
+              simulationsWithReports.has(simulation.id) ||
+              activeSession?.status === "running";
             return (
               <div key={simulation.id} className={SIMULATION_CARD_GRID_ITEM_CLASS}>
                 <DashboardSimulationCard
                   simulation={simulation as DashboardSimulationRow}
                   activeSession={activeSession}
-                  hasReports={simulationsWithReports.has(simulation.id)}
+                  hasReports={hasReports}
                 />
               </div>
             );

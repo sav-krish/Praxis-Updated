@@ -1778,10 +1778,10 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
                       <Button onClick={continueToNext} className="w-full sm:w-auto min-h-[48px]">
                         {getSimulationFlowSettings(session?.simulation.preferences)
                           .classVotesEnabled
-                          ? `Proceed to ${votesTitle} →`
+                          ? `Proceed to ${votesTitle}`
                           : decisionIndex < decisions.length - 1
-                            ? "Proceed to Next Decision →"
-                            : "Next: Reflection →"}
+                            ? "Proceed to Next Decision"
+                            : "Next: Reflection"}
                         <ArrowRight className="ml-2 h-4 w-4 shrink-0" />
                       </Button>
                     </div>
@@ -2325,7 +2325,7 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
                   }}
                   className="min-h-[48px]"
                 >
-                  {decisionIndex < decisions.length - 1 ? "Continue →" : "Reflection →"}
+                  {decisionIndex < decisions.length - 1 ? "Continue" : "Reflection"}
                   <ArrowRight className="ml-2 h-4 w-4 shrink-0" />
                 </Button>
               </div>
