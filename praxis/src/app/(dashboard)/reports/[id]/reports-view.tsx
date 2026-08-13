@@ -375,7 +375,7 @@ export function ReportsView({
   }));
 
   return (
-    <div className="max-w-6xl mx-auto px-0 sm:px-4">
+    <div className="mx-auto max-w-6xl px-4 sm:px-6">
       {/* Header */}
       <div className="mb-4 space-y-3 sm:mb-6">
         <div className="flex items-center gap-3 min-w-0">
@@ -482,11 +482,11 @@ export function ReportsView({
       <div className="h-4 sm:h-6" />
 
       <Tabs defaultValue="distribution" className="space-y-4 sm:space-y-6">
-        <TabsList className="grid h-auto min-h-[44px] w-full grid-cols-4 p-1">
-          <TabsTrigger value="distribution" className="text-xs sm:text-sm py-2">Distribution</TabsTrigger>
-          <TabsTrigger value="response-gallery" className="text-xs sm:text-sm py-2">Response Gallery</TabsTrigger>
-          <TabsTrigger value="scores" className="text-xs sm:text-sm py-2">Leaderboard</TabsTrigger>
-          <TabsTrigger value="debrief" className="text-xs sm:text-sm py-2">Debrief</TabsTrigger>
+        <TabsList className="grid h-auto min-h-[44px] w-full grid-cols-2 p-1 sm:grid-cols-4">
+          <TabsTrigger value="distribution" className="min-h-[40px] whitespace-normal px-2 text-xs sm:text-sm">Distribution</TabsTrigger>
+          <TabsTrigger value="response-gallery" className="min-h-[40px] whitespace-normal px-2 text-xs sm:text-sm">Response Gallery</TabsTrigger>
+          <TabsTrigger value="scores" className="min-h-[40px] whitespace-normal px-2 text-xs sm:text-sm">Leaderboard</TabsTrigger>
+          <TabsTrigger value="debrief" className="min-h-[40px] whitespace-normal px-2 text-xs sm:text-sm">Debrief</TabsTrigger>
         </TabsList>
 
         {/* Distribution Tab */}
@@ -550,6 +550,7 @@ export function ReportsView({
             </div>
             <Button
               variant="outline"
+              className="w-full sm:w-auto"
               onClick={async () => {
                 const fullUrl = `${window.location.origin}${galleryUrl}`;
                 await navigator.clipboard.writeText(fullUrl);
@@ -574,6 +575,7 @@ export function ReportsView({
             </div>
             <Button
               variant="outline"
+              className="w-full sm:w-auto"
               onClick={async () => {
                 const fullUrl = `${window.location.origin}${reflectionGalleryUrl}`;
                 await navigator.clipboard.writeText(fullUrl);
@@ -600,17 +602,17 @@ export function ReportsView({
             <CardContent>
               <div className="space-y-3">
                 {scores.map((score, index) => (
-                  <div key={index} className="flex items-center gap-4">
-                    <div className="w-8 text-center">
+                  <div key={index} className="flex items-start gap-2 sm:items-center sm:gap-4">
+                    <div className="w-7 shrink-0 pt-1 text-center sm:w-8 sm:pt-0">
                       {index === 0 && <Trophy className="h-5 w-5 text-yellow-500 mx-auto" />}
                       {index === 1 && <span className="text-muted-foreground">2</span>}
                       {index === 2 && <span className="text-muted-foreground">3</span>}
                       {index > 2 && <span className="text-muted-foreground">{index + 1}</span>}
                     </div>
-                    <div className="flex-1">
-                      <div className="flex justify-between mb-1">
-                        <span className="font-medium">{score.name}</span>
-                        <span className="font-bold">{score.total}</span>
+                    <div className="min-w-0 flex-1">
+                      <div className="mb-1 flex justify-between gap-2">
+                        <span className="truncate font-medium">{score.name}</span>
+                        <span className="shrink-0 font-bold">{score.total}</span>
                       </div>
                       <div className="h-2 bg-muted rounded-full overflow-hidden">
                         <div 
@@ -619,9 +621,9 @@ export function ReportsView({
                         />
                       </div>
                     </div>
-                    <div className="flex gap-1">
+                    <div className="flex shrink-0 gap-1 pt-0.5 sm:pt-0">
                       {score.scores.map((s, i) => (
-                        <Badge key={i} variant={s === 3 ? "default" : "secondary"} className="w-6 justify-center">
+                        <Badge key={i} variant={s === 3 ? "default" : "secondary"} className="w-5 justify-center px-1 sm:w-6">
                           {s}
                         </Badge>
                       ))}
