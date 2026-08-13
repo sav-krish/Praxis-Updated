@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
-import { streamJsonText, getOpenAIModel } from "@/lib/openai-generate";
+import { generateStructured, getOpenAIModel } from "@/lib/openai-generate";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -105,7 +105,7 @@ export async function POST(request: NextRequest) {
         });
 
         const system =
-          "You are an expert classroom facilitator. Generate a concise, actionable debrief guide. Use specific, decision-aware language; cite Decision 1/2/3 by number when relevant.";
+          "You are an expert classroom facilitator. Generate a concise, actionable debrief guide. Use specific, decision-aware language; cite Decision 1/2/3 by number when relevant. Return a valid JSON object only.";
         const user = `Generate a facilitator debrief guide for this simulation.
 
 **Title:** ${simulation.title}
@@ -124,7 +124,6 @@ ${decisionSummaries
   )
   .join("\n\n")}`;
 
-        let buffer = "";
         const fieldOrder: (keyof Debrief)[] = [
           "correctCourseOfAction",
           "keyDiscussionPoints",
@@ -132,41 +131,16 @@ ${decisionSummaries
           "connectionToObjectives",
           "facilitatorTips",
         ];
-        const announced = new Set<string>();
-
-        await streamJsonText({
+        const parsed = await generateStructured({
           system,
           user,
+          schema: DebriefSchema,
           model: getOpenAIModel(),
           temperature: 0.5,
-          onDelta: (delta) => {
-            buffer += delta;
-            for (const f of fieldOrder) {
-              if (announced.has(f)) continue;
-              const idx = buffer.indexOf(`"${f}"`);
-              if (idx !== -1) {
-                announced.add(f);
-                send("field", { name: f });
-              }
-            }
-          },
         });
 
-        // Validate + persist the final structured payload.
-        let parsed: Debrief | null = null;
-        try {
-          // Strip any leading/trailing whitespace
-          const trimmed = buffer.trim();
-          parsed = DebriefSchema.parse(JSON.parse(trimmed));
-        } catch (e) {
-          send("error", {
-            message: e instanceof Error ? e.message : "Failed to parse debrief JSON",
-          });
-          controller.close();
-          return;
-        }
-
         for (const f of fieldOrder) {
+          send("field", { name: f });
           send("field-done", { name: f, value: parsed[f] });
         }
 

@@ -112,7 +112,6 @@ export function ReportsView({
   const router = useRouter();
   const galleryUrl = `/response-gallery/${selectedSession.video_gallery_share_id}`;
   const reflectionGalleryUrl = `/reflection-gallery/${selectedSession.video_gallery_share_id}`;
-  const galleryAccessCode = selectedSession.response_gallery_access_code || selectedSession.join_code;
   const isLiveSession = selectedSession.status === "running";
   const [debrief, setDebrief] = useState<DebriefGuide | null>(initialDebrief as DebriefGuide | null);
   const [generatingDebrief, setGeneratingDebrief] = useState(false);
@@ -483,11 +482,10 @@ export function ReportsView({
       <div className="h-4 sm:h-6" />
 
       <Tabs defaultValue="distribution" className="space-y-4 sm:space-y-6">
-        <TabsList className="grid h-auto min-h-[44px] w-full grid-cols-5 p-1">
+        <TabsList className="grid h-auto min-h-[44px] w-full grid-cols-4 p-1">
           <TabsTrigger value="distribution" className="text-xs sm:text-sm py-2">Distribution</TabsTrigger>
           <TabsTrigger value="response-gallery" className="text-xs sm:text-sm py-2">Response Gallery</TabsTrigger>
-          <TabsTrigger value="scores" className="text-xs sm:text-sm py-2">Scores</TabsTrigger>
-          <TabsTrigger value="reflections" className="text-xs sm:text-sm py-2">Reflections</TabsTrigger>
+          <TabsTrigger value="scores" className="text-xs sm:text-sm py-2">Leaderboard</TabsTrigger>
           <TabsTrigger value="debrief" className="text-xs sm:text-sm py-2">Debrief</TabsTrigger>
         </TabsList>
 
@@ -516,11 +514,6 @@ export function ReportsView({
                             >
                               {optionScoreToTier(option.score)}
                             </Badge>
-                            {option.score === 3 ? (
-                              <Badge variant="outline" className="shrink-0 border-primary/40 text-primary">
-                                Perfect outcome
-                              </Badge>
-                            ) : null}
                           </div>
                           <span className="text-muted-foreground shrink-0">{option.count} ({option.percentage}%)</span>
                         </div>
@@ -550,43 +543,47 @@ export function ReportsView({
         <TabsContent value="response-gallery" className="space-y-4 sm:space-y-6">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <h3 className="text-lg font-semibold">Response Gallery</h3>
+              <h3 className="text-lg font-semibold">Justifications</h3>
               <p className="text-sm text-muted-foreground">
-                Organized by decision and selected option. Share the gallery link and access code with students to compare reasoning.
+                Justifications, organized by decision and selected option.
               </p>
             </div>
-            <div className="flex flex-col gap-2 sm:items-end">
-              <div className="rounded-md border border-border/70 bg-muted/20 px-3 py-2 text-sm">
-                Access code: <span className="font-mono font-semibold tracking-wide">{galleryAccessCode}</span>
-              </div>
-              <div className="flex flex-wrap justify-end gap-2">
-                <Button
-                  variant="outline"
-                  onClick={async () => {
-                    await navigator.clipboard.writeText(galleryAccessCode);
-                    toast.success("Gallery access code copied");
-                  }}
-                >
-                  Copy Access Code
-                </Button>
-                <Button
-                  variant="outline"
-                  onClick={async () => {
-                    const fullUrl = `${window.location.origin}${galleryUrl}`;
-                    await navigator.clipboard.writeText(fullUrl);
-                    toast.success("Gallery link copied");
-                  }}
-                >
-                  Copy Gallery Link
-                </Button>
-              </div>
-            </div>
+            <Button
+              variant="outline"
+              onClick={async () => {
+                const fullUrl = `${window.location.origin}${galleryUrl}`;
+                await navigator.clipboard.writeText(fullUrl);
+                toast.success("Justifications gallery link copied");
+              }}
+            >
+              Copy Justifications Gallery Link
+            </Button>
           </div>
           <ResponseGallery
             decisions={decisions}
             items={responseGalleryItems}
             responses={simulation.mode === "teams" ? teamDecisionSubmissions : responses}
           />
+          <Separator />
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <h3 className="text-lg font-semibold">Reflections</h3>
+              <p className="text-sm text-muted-foreground">
+                Reflection responses, organized by question.
+              </p>
+            </div>
+            <Button
+              variant="outline"
+              onClick={async () => {
+                const fullUrl = `${window.location.origin}${reflectionGalleryUrl}`;
+                await navigator.clipboard.writeText(fullUrl);
+                toast.success("Reflection gallery link copied");
+              }}
+            >
+              Copy Reflection Gallery Link
+            </Button>
+          </div>
+          <ReflectionGallery items={reflectionGalleryItems} />
         </TabsContent>
 
         {/* Scores Tab */}
@@ -634,45 +631,6 @@ export function ReportsView({
               </div>
             </CardContent>
           </Card>
-        </TabsContent>
-
-        {/* Reflections Tab */}
-        <TabsContent value="reflections" className="space-y-4 sm:space-y-6">
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <div>
-              <h3 className="text-lg font-semibold">Reflection Gallery</h3>
-              <p className="text-sm text-muted-foreground">
-                Share the reflection gallery link and access code with students to review post-session thinking by question.
-              </p>
-            </div>
-            <div className="flex flex-col gap-2 sm:items-end">
-              <div className="rounded-md border border-border/70 bg-muted/20 px-3 py-2 text-sm">
-                Access code: <span className="font-mono font-semibold tracking-wide">{galleryAccessCode}</span>
-              </div>
-              <div className="flex flex-wrap justify-end gap-2">
-                <Button
-                  variant="outline"
-                  onClick={async () => {
-                    await navigator.clipboard.writeText(galleryAccessCode);
-                    toast.success("Gallery access code copied");
-                  }}
-                >
-                  Copy Access Code
-                </Button>
-                <Button
-                  variant="outline"
-                  onClick={async () => {
-                    const fullUrl = `${window.location.origin}${reflectionGalleryUrl}`;
-                    await navigator.clipboard.writeText(fullUrl);
-                    toast.success("Reflection gallery link copied");
-                  }}
-                >
-                  Copy Reflection Gallery Link
-                </Button>
-              </div>
-            </div>
-          </div>
-          <ReflectionGallery items={reflectionGalleryItems} />
         </TabsContent>
 
         {/* Debrief Tab */}
