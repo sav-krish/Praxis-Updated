@@ -87,6 +87,7 @@ import {
   preserveLiveConsequenceSnapshots,
   setSimulationFlowSettings,
 } from "@/lib/simulation-flow";
+import { OPTION_OUTCOME_SCORES } from "@/lib/student/leaderboard";
 
 interface DecisionWithOptions extends Decision {
   options: Option[];
@@ -1492,19 +1493,21 @@ export function SimulationEditor({
                                   disabled={!isOwner}
                                 />
                                 <div className="flex items-center gap-2 shrink-0">
-                                  <Label className="text-sm whitespace-nowrap">Score:</Label>
+                                  <Label className="text-sm whitespace-nowrap">Outcome:</Label>
                                   <Select
                                     value={String(option.score)}
-                                    onValueChange={(value) => updateOption(dIndex, oIndex, "score", parseInt(value))}
+                                    onValueChange={(value) => updateOption(dIndex, oIndex, "score", Number(value))}
                                     disabled={!isOwner}
                                   >
-                                    <SelectTrigger className="w-20">
+                                    <SelectTrigger className="w-28">
                                       <SelectValue />
                                     </SelectTrigger>
                                     <SelectContent>
-                                      <SelectItem value="1">1</SelectItem>
-                                      <SelectItem value="2">2</SelectItem>
-                                      <SelectItem value="3">3</SelectItem>
+                                      {OPTION_OUTCOME_SCORES.map((outcome) => (
+                                        <SelectItem key={outcome.value} value={String(outcome.value)}>
+                                          {outcome.label}
+                                        </SelectItem>
+                                      ))}
                                     </SelectContent>
                                   </Select>
                                 </div>

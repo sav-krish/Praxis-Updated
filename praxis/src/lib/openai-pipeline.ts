@@ -252,7 +252,7 @@ async function generateDecisions(
   outline: SimulationOutline
 ): Promise<DecisionsResult["decisions"]> {
   const system = commonSystem(input, outline);
-  const user = `Write the three decision points and their three options each (A, B, C). One option must score 3 (optimal), one 2, one 1. Consequences should be plausible and discipline-specific. Output JSON.
+  const user = `Write the three decision points and their three options each (A, B, C). Score each option with exactly one of: 3 (Perfect), 2.5 (Good), 2 (Decent), or 1 (Poor). Include a meaningful range of outcomes. Consequences should be plausible and discipline-specific. Output JSON.
 
 ${requestContext(input)}`;
 

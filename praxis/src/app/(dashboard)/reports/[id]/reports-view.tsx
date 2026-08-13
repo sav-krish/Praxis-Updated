@@ -27,6 +27,7 @@ import { FeedbackCard } from "@/components/simulation/FeedbackCard";
 import type { Simulation, Session, Decision, Option, Participant, Team, Response } from "@/types/database";
 import { ResponseGallery, type ResponseGalleryItem } from "@/components/reports/response-gallery";
 import { ReflectionGallery, type ReflectionGalleryItem } from "@/components/reports/reflection-gallery";
+import { optionScoreToTier } from "@/lib/student/leaderboard";
 
 // Lazy-load the recharts-heavy metrics panel so the initial /reports route
 // bundle stays small. In dev mode, this keeps the route compile fast and lets
@@ -513,11 +514,11 @@ export function ReportsView({
                               variant={option.score === 3 ? "default" : "secondary"}
                               className="shrink-0"
                             >
-                              {option.score} pts
+                              {optionScoreToTier(option.score)}
                             </Badge>
                             {option.score === 3 ? (
                               <Badge variant="outline" className="shrink-0 border-primary/40 text-primary">
-                                Correct
+                                Perfect outcome
                               </Badge>
                             ) : null}
                           </div>

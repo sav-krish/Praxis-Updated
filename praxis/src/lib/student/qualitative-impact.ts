@@ -62,6 +62,8 @@ export function calculateQualitativeImpact(
   const directions: QualitativeDirection[] =
     quality >= 3
       ? ["up", "up", "neutral", "cost"]
+      : quality >= 2.5
+        ? ["up", "neutral", "neutral", "cost"]
       : quality === 2
         ? ["up", "neutral", "down", "cost"]
         : quality === 1

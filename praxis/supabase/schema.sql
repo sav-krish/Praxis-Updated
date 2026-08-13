@@ -92,7 +92,7 @@ CREATE TABLE IF NOT EXISTS options (
   title TEXT NOT NULL,
   description TEXT,
   consequence TEXT,
-  score INTEGER DEFAULT 1 CHECK (score BETWEEN 1 AND 3),
+  score NUMERIC(3,1) DEFAULT 1 CHECK (score IN (1, 2, 2.5, 3)),
   created_at TIMESTAMPTZ DEFAULT NOW(),
   UNIQUE(decision_id, label)
 );
