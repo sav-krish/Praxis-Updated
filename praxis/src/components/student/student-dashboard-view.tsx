@@ -126,10 +126,11 @@ export function StudentDashboardView({
                 key={track.id}
                 type="button"
                 onClick={() => setActiveTrack(track.id)}
+                aria-pressed={activeTrack === track.id}
                 className={`rounded-full px-4 py-2 text-sm font-medium transition ${
                   activeTrack === track.id
-                    ? "bg-accent text-white shadow-subtle"
-                    : "bg-white/80 text-ink border border-line hover:bg-accentSoft"
+                    ? "bg-primary text-white shadow-subtle"
+                    : "bg-card text-ink border border-line hover:bg-accentSoft"
                 }`}
               >
                 {track.label}

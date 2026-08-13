@@ -85,7 +85,6 @@ export async function POST(request: NextRequest) {
     return new Response(sseDataString({ type: "error", error: "Invalid form data" }), { status: 400 });
   }
 
-  const title = formData.get("title") as string;
   const courseTopic = formData.get("courseTopic") as string;
   const difficulty = (formData.get("difficulty") as string) || "hard";
   const goal = formData.get("goal") as string;
@@ -169,9 +168,6 @@ export async function POST(request: NextRequest) {
           preferences,
           hiddenProfilesWanted,
         })) {
-          if (ev.type === "done" && title?.trim()) {
-            ev.simulation = { ...ev.simulation, title: title.trim() };
-          }
           send(ev);
         }
         send({ type: "uploaded", uploadedFilePaths: uploadedFilePaths as { path: string; originalName: string }[] });

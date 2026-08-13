@@ -2,7 +2,7 @@ import Link from "next/link";
 import { Suspense } from "react";
 import { createClient } from "@/lib/supabase/server";
 import { Button } from "@/components/ui/button";
-import { Plus, Sparkles, Library as LibraryIcon, ArrowRight } from "lucide-react";
+import { Sparkles, Library as LibraryIcon, ArrowRight } from "lucide-react";
 import { SIMULATION_DASHBOARD_LIST } from "@/lib/supabase-query-columns";
 import {
   DashboardSimulationCard,
@@ -204,11 +204,6 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
       icon: LibraryIcon,
       label: "Browse our ready-made simulation library",
     },
-    {
-      href: "/create",
-      icon: Plus,
-      label: "Create simulation",
-    },
   ];
 
   const hasActiveFilters =
@@ -227,7 +222,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
             Pick how you&apos;d like to start.
           </p>
 
-          <div className="mt-6 grid gap-3 grid-cols-1 sm:grid-cols-3">
+          <div className="mt-6 grid gap-3 grid-cols-1 sm:grid-cols-2">
             {quickActions.map(({ href, icon: Icon, label }) => (
               <Link key={label} href={href} className="group">
                 <div className="flex h-full items-center justify-between gap-4 rounded-2xl bg-white/85 p-4 sm:p-5 backdrop-blur-sm transition-all hover:-translate-y-0.5 hover:bg-white hover:shadow-soft">

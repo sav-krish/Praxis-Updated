@@ -39,7 +39,6 @@ export default function CreateSimulationPage() {
   const [files, setFiles] = useState<File[]>([]);
   
   const [formData, setFormData] = useState({
-    title: "",
     courseTopic: "",
     difficulty: "hard" as "easy" | "hard" | "challenge",
     goal: "",
@@ -54,7 +53,6 @@ export default function CreateSimulationPage() {
     focus: [],
     assessment: [],
   });
-  const [hiddenProfilesEnabled, setHiddenProfilesEnabled] = useState(false);
 
   const togglePreference = (category: string, option: string) => {
     setPreferences((prev) => {
@@ -98,13 +96,12 @@ export default function CreateSimulationPage() {
       professorEmail: user.email ?? "",
       professorName: (user.user_metadata?.name as string) ?? null,
       generated,
-      formTitle: formData.title,
       courseTopic: formData.courseTopic || "General",
       difficulty: formData.difficulty || "hard",
       goal: formData.goal || null,
       targetDecisions: formData.targetDecisions || null,
       aiNotes: formData.aiNotes || null,
-      hiddenProfilesEnabled,
+      hiddenProfilesEnabled: false,
       preferences: hasAnyPreferences ? (preferences as unknown as Json) : undefined,
       uploadedFilePaths,
       pastedText: formData.pastedText || null,
@@ -113,17 +110,11 @@ export default function CreateSimulationPage() {
 
   // Generate with AI (SSE: outline → streaming background → parallel sections → save)
   const handleGenerateWithAI = async () => {
-    if (!formData.title) {
-      toast.error("Please enter a title first");
-      return;
-    }
-
     setGeneratingAI(true);
     toast.info("Generating… you’ll see the title and background stream in first.");
 
     try {
       const formPayload = new FormData();
-      formPayload.append("title", formData.title);
       formPayload.append("courseTopic", formData.courseTopic);
       formPayload.append("difficulty", formData.difficulty);
       formPayload.append("goal", formData.goal);
@@ -134,7 +125,6 @@ export default function CreateSimulationPage() {
       if (hasAnyPreferences) {
         formPayload.append("preferences", JSON.stringify(preferences));
       }
-      formPayload.append("hiddenProfilesEnabled", hiddenProfilesEnabled ? "true" : "false");
 
       for (const file of files) {
         formPayload.append("files", file);
@@ -244,7 +234,7 @@ export default function CreateSimulationPage() {
         .from("simulations")
         .insert({
           professor_id: user.id,
-          title: formData.title,
+          title: "Untitled Simulation",
           course_topic: formData.courseTopic,
           difficulty: formData.difficulty || "hard",
           estimated_minutes: difficultyEstimates[formData.difficulty] ?? 25,
@@ -252,7 +242,7 @@ export default function CreateSimulationPage() {
           target_decisions: formData.targetDecisions,
           ai_notes: formData.aiNotes,
           status: "draft",
-          hidden_profiles_enabled: hiddenProfilesEnabled,
+          hidden_profiles_enabled: false,
         })
         .select()
         .single();
@@ -309,22 +299,6 @@ export default function CreateSimulationPage() {
         if (refError) throw new Error(refError.message || "Could not create reflection question");
       }
 
-      if (hiddenProfilesEnabled) {
-        const placeholders = [
-          { profile_name: "Role 1", private_briefing: "Edit this private briefing in Run Settings." },
-          { profile_name: "Role 2", private_briefing: "Edit this private briefing in Run Settings." },
-        ];
-        for (let i = 0; i < placeholders.length; i++) {
-          const { error: profErr } = await supabase.from("simulation_profiles").insert({
-            simulation_id: simulation.id,
-            profile_name: placeholders[i].profile_name,
-            private_briefing: placeholders[i].private_briefing,
-            order_num: i + 1,
-          });
-          if (profErr) throw new Error(profErr.message || "Could not create hidden roles");
-        }
-      }
-
       toast.success("Simulation created! Now let's edit the details.");
       router.push(`/edit/${simulation.id}`);
     } catch (error) {
@@ -362,16 +336,6 @@ export default function CreateSimulationPage() {
             </div>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="space-y-2" data-tour="create-title">
-              <Label htmlFor="title">Simulation Title</Label>
-              <Input
-                id="title"
-                placeholder="e.g., The Leadership Crisis at Acme Corp"
-                value={formData.title}
-                onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                required
-              />
-            </div>
             <div data-tour="create-subject">
               <SubjectSelector
                 value={formData.courseTopic}
@@ -423,31 +387,6 @@ export default function CreateSimulationPage() {
             </div>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="flex items-center gap-3 py-2">
-              <button
-                type="button"
-                id="hidden-roles-toggle"
-                role="switch"
-                aria-checked={hiddenProfilesEnabled}
-                onClick={() => setHiddenProfilesEnabled((v) => !v)}
-                className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ${
-                  hiddenProfilesEnabled ? "bg-primary" : "bg-input"
-                }`}
-              >
-                <span
-                  className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-background shadow ring-0 transition ${
-                    hiddenProfilesEnabled ? "translate-x-4" : "translate-x-0"
-                  }`}
-                />
-              </button>
-              <Label htmlFor="hidden-roles-toggle" className="text-sm cursor-pointer">
-                Hidden roles
-              </Label>
-              <FieldInfoHint>
-                AI generates distinct private briefings. Edit roles after generation.
-              </FieldInfoHint>
-            </div>
-
             <div
               data-tour="create-upload"
               className="border-2 border-dashed rounded-lg p-6 text-center hover:border-primary/50 transition-colors"
@@ -624,7 +563,7 @@ export default function CreateSimulationPage() {
                 variant="aiGradient"
                 size="sm"
                 onClick={handleGenerateWithAI}
-                disabled={loading || generatingAI || !formData.title}
+                disabled={loading || generatingAI}
                 className="h-auto min-h-[44px] w-full min-w-0 max-w-full shrink justify-center px-3 py-2.5 text-sm font-semibold leading-none @min-[36rem]:min-h-[38px] @min-[36rem]:px-1.5 @min-[36rem]:py-2 @min-[36rem]:text-[10px] @min-[36rem]:font-semibold @min-[42rem]:text-[11px] @min-[48rem]:min-h-[44px] @min-[48rem]:px-2.5 @min-[48rem]:text-xs @min-[56rem]:text-sm"
               >
                 <span className="relative z-1 inline-flex max-w-full min-w-0 items-center justify-center gap-1 @min-[36rem]:gap-0.5 @min-[48rem]:gap-1.5">
@@ -643,7 +582,7 @@ export default function CreateSimulationPage() {
                 variant="outline"
                 size="sm"
                 className="h-auto min-h-[44px] w-full min-w-0 max-w-full shrink justify-center px-3 py-2.5 text-sm font-semibold leading-none @min-[36rem]:min-h-[38px] @min-[36rem]:px-1.5 @min-[36rem]:py-2 @min-[36rem]:text-[10px] @min-[36rem]:font-semibold @min-[42rem]:text-[11px] @min-[48rem]:min-h-[44px] @min-[48rem]:px-2.5 @min-[48rem]:text-xs @min-[56rem]:text-sm"
-                disabled={loading || generatingAI || !formData.title}
+                disabled={loading || generatingAI}
               >
                 <span className="inline-flex max-w-full min-w-0 items-center justify-center gap-1 whitespace-nowrap @min-[36rem]:gap-0.5 @min-[48rem]:gap-1.5">
                   {loading ? (

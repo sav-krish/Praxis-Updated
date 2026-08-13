@@ -46,7 +46,7 @@ export async function POST(request: NextRequest, { params }: RouteContext) {
 
   let participantRecord = participant;
 
-  if (simulation?.mode === "teams" && simulation.team_assignment === "auto") {
+  if (simulation?.mode === "teams") {
     try {
       await rebalanceAutoTeamsForSession(session.id, Math.max(2, simulation.team_size ?? 4), supabase);
       const { data: refreshedParticipant } = await supabase

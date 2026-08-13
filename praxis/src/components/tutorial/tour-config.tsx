@@ -23,7 +23,6 @@ export const TOUR_ANCHOR = {
   newSim: "new-sim",
   libraryLink: "library-link",
   profileMenu: "profile-menu",
-  createTitle: "create-title",
   createSubject: "create-subject",
   createUpload: "create-upload",
   createGoal: "create-goal",
@@ -96,19 +95,6 @@ export function buildPraxisTour(options: TourBuildOptions): Tour[] {
         pointerRadius: 12,
         disableInteraction: true,
         nextRoute: "/create",
-      },
-      {
-        icon: "📝",
-        title: "Title your simulation",
-        content:
-          "Give it a memorable name — students see this on their lobby screen and in their reports.",
-        selector: sel(TOUR_ANCHOR.createTitle),
-        side: "bottom",
-        showControls: true,
-        showSkip: true,
-        pointerPadding: 8,
-        pointerRadius: 12,
-        disableInteraction: true,
       },
       {
         icon: "🎓",

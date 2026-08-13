@@ -1724,7 +1724,8 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
                         </Badge>
                       ) : null}
                     </div>
-                    {currentDataImpact && currentDataImpact.length > 0 ? (
+                    {getSimulationFlowSettings(session?.simulation.preferences).impactMetricsEnabled &&
+                    currentDataImpact && currentDataImpact.length > 0 ? (
                       <div className="rounded-2xl border bg-card px-4 sm:px-6">
                         <p className="py-4 font-bold">What happened as a result:</p>
                         <div>

@@ -137,7 +137,6 @@ export async function GET(request: NextRequest, { params }: RouteContext) {
   if (
     participantId &&
     simulationData.mode === "teams" &&
-    simulationData.team_assignment !== "self" &&
     participantData &&
     !participantData.team_id
   ) {
