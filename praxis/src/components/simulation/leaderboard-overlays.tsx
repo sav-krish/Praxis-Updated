@@ -467,6 +467,28 @@ export function LeaderboardOverlays({
   }, [loadLeaderboard, sessionId]);
 
   useEffect(() => {
+    const handlePodiumRequest = (event: Event) => {
+      const detail = (event as CustomEvent<unknown>).detail;
+      if (!isSimulationCompleteDetail(detail) || detail.sessionId !== sessionId) {
+        return;
+      }
+
+      void (async () => {
+        const snapshot = await loadLeaderboard(undefined, true);
+        if (!mountedRef.current || !snapshot?.settings.canShowPodium) return;
+
+        setRankUpdate(null);
+        setRevealSnapshot(copyPayload(snapshot));
+      })();
+    };
+
+    window.addEventListener("praxis:view-podium", handlePodiumRequest);
+    return () => {
+      window.removeEventListener("praxis:view-podium", handlePodiumRequest);
+    };
+  }, [loadLeaderboard, sessionId]);
+
+  useEffect(() => {
     if (!payload) return;
 
     setRevealSnapshot((current) => {

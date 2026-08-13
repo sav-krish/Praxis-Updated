@@ -9,7 +9,7 @@ export function PraxisLogo({
 }) {
   return (
     <Image
-      src="/new_praxis_logo.png"
+      src="/final_logo.png"
       alt="Praxis"
       width={300}
       height={73}
