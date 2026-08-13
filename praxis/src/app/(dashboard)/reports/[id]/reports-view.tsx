@@ -110,8 +110,6 @@ export function ReportsView({
   initialDebrief,
 }: ReportsViewProps) {
   const router = useRouter();
-  const galleryUrl = `/response-gallery/${selectedSession.video_gallery_share_id}`;
-  const reflectionGalleryUrl = `/reflection-gallery/${selectedSession.video_gallery_share_id}`;
   const isLiveSession = selectedSession.status === "running";
   const [debrief, setDebrief] = useState<DebriefGuide | null>(initialDebrief as DebriefGuide | null);
   const [generatingDebrief, setGeneratingDebrief] = useState(false);
@@ -484,7 +482,7 @@ export function ReportsView({
       <Tabs defaultValue="distribution" className="space-y-4 sm:space-y-6">
         <TabsList className="grid h-auto min-h-[44px] w-full grid-cols-2 p-1 sm:grid-cols-4">
           <TabsTrigger value="distribution" className="min-h-[40px] whitespace-normal px-2 text-xs sm:text-sm">Distribution</TabsTrigger>
-          <TabsTrigger value="response-gallery" className="min-h-[40px] whitespace-normal px-2 text-xs sm:text-sm">Response Gallery</TabsTrigger>
+          <TabsTrigger value="response-gallery" className="min-h-[40px] whitespace-normal px-2 text-xs sm:text-sm">Responses</TabsTrigger>
           <TabsTrigger value="scores" className="min-h-[40px] whitespace-normal px-2 text-xs sm:text-sm">Leaderboard</TabsTrigger>
           <TabsTrigger value="debrief" className="min-h-[40px] whitespace-normal px-2 text-xs sm:text-sm">Debrief</TabsTrigger>
         </TabsList>
@@ -541,24 +539,13 @@ export function ReportsView({
         </TabsContent>
 
         <TabsContent value="response-gallery" className="space-y-4 sm:space-y-6">
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div>
             <div>
               <h3 className="text-lg font-semibold">Justifications</h3>
               <p className="text-sm text-muted-foreground">
                 Justifications, organized by decision and selected option.
               </p>
             </div>
-            <Button
-              variant="outline"
-              className="w-full sm:w-auto"
-              onClick={async () => {
-                const fullUrl = `${window.location.origin}${galleryUrl}`;
-                await navigator.clipboard.writeText(fullUrl);
-                toast.success("Justifications gallery link copied");
-              }}
-            >
-              Copy Justifications Gallery Link
-            </Button>
           </div>
           <ResponseGallery
             decisions={decisions}
@@ -566,24 +553,13 @@ export function ReportsView({
             responses={simulation.mode === "teams" ? teamDecisionSubmissions : responses}
           />
           <Separator />
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div>
             <div>
               <h3 className="text-lg font-semibold">Reflections</h3>
               <p className="text-sm text-muted-foreground">
                 Reflection responses, organized by question.
               </p>
             </div>
-            <Button
-              variant="outline"
-              className="w-full sm:w-auto"
-              onClick={async () => {
-                const fullUrl = `${window.location.origin}${reflectionGalleryUrl}`;
-                await navigator.clipboard.writeText(fullUrl);
-                toast.success("Reflection gallery link copied");
-              }}
-            >
-              Copy Reflection Gallery Link
-            </Button>
           </div>
           <ReflectionGallery items={reflectionGalleryItems} />
         </TabsContent>
