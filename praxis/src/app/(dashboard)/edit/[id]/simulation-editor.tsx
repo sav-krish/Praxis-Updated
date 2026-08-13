@@ -367,15 +367,26 @@ export function SimulationEditor({
     if (activeSession && activeSession.status !== "complete") return activeSession;
 
     const supabase = createClient();
-    const { data: existingSession } = await supabase
+    const { data: candidateSessions } = await supabase
       .from("sessions")
       .select("id, join_code, status, created_at")
       .eq("simulation_id", simulation.id)
       .neq("status", "complete")
       .neq("is_preview", true)
-      .order("created_at", { ascending: false })
-      .limit(1)
-      .maybeSingle();
+      .order("created_at", { ascending: false });
+
+    const { data: studentAttemptSessions } = (candidateSessions?.length ?? 0) > 0
+      ? await supabase
+          .from("student_simulation_attempts")
+          .select("session_id")
+          .in("session_id", candidateSessions!.map((session) => session.id))
+      : { data: [] as { session_id: string }[] };
+    const studentAttemptSessionIds = new Set(
+      studentAttemptSessions?.map((attempt) => attempt.session_id) ?? [],
+    );
+    const existingSession = candidateSessions?.find(
+      (session) => !studentAttemptSessionIds.has(session.id),
+    );
 
     if (existingSession) {
       setActiveSession(existingSession);

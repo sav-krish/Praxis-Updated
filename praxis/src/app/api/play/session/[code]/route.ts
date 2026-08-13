@@ -262,13 +262,25 @@ export async function GET(request: NextRequest, { params }: RouteContext) {
   );
 
   const flowSettings = getSimulationFlowSettings(simulationData.preferences);
-  const { data: reflectionResponseData } = participantId
-    ? await supabase
-        .from("reflection_responses")
-        .select("question_id")
-        .eq("session_id", sessionData.id)
-        .eq("participant_id", participantId)
-    : { data: [] };
+  const [reflectionResponseResult, studentAttemptResult] = await Promise.all([
+    participantId
+      ? supabase
+          .from("reflection_responses")
+          .select("question_id")
+          .eq("session_id", sessionData.id)
+          .eq("participant_id", participantId)
+      : Promise.resolve({ data: [] as { question_id: string }[] }),
+    participantId
+      ? supabase
+          .from("student_simulation_attempts")
+          .select("source")
+          .eq("session_id", sessionData.id)
+          .eq("participant_id", participantId)
+          .maybeSingle()
+      : Promise.resolve({ data: null }),
+  ]);
+  const reflectionResponseData = reflectionResponseResult.data;
+  const studentAttemptSource = studentAttemptResult.data?.source ?? null;
   const answeredDecisionIds = new Set(
     (responsesData ?? []).map((response) => response.decision_id),
   );
@@ -293,6 +305,7 @@ export async function GET(request: NextRequest, { params }: RouteContext) {
   } | null = null;
 
   if (
+    studentAttemptSource !== "explore" &&
     flowSettings.classVotesEnabled &&
     flowSettings.showVoteSubmissionStatus &&
     activeDecision
@@ -378,6 +391,7 @@ export async function GET(request: NextRequest, { params }: RouteContext) {
   return NextResponse.json({
     session: sessionPayload,
     participantCount: count ?? 0,
+    studentAttemptSource,
     participant: participantData
       ? {
           id: participantData.id,

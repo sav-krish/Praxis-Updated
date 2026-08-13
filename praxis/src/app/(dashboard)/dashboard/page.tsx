@@ -172,8 +172,19 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
         .order("created_at", { ascending: false })
     : { data: [] as { id: string; simulation_id: string; status: string }[] };
 
+  const { data: studentAttemptSessions } = (runningSessions?.length ?? 0) > 0
+    ? await supabase
+        .from("student_simulation_attempts")
+        .select("session_id")
+        .in("session_id", runningSessions!.map((session) => session.id))
+    : { data: [] as { session_id: string }[] };
+  const studentAttemptSessionIds = new Set(
+    studentAttemptSessions?.map((attempt) => attempt.session_id) ?? [],
+  );
+
   const simulationById = new Map(rows.map((row) => [row.id, row]));
   const sessionBySimulation = (runningSessions || []).reduce<Record<string, { id: string; status: string }>>((acc, s) => {
+    if (studentAttemptSessionIds.has(s.id)) return acc;
     const simulation = simulationById.get(s.simulation_id);
     if (!simulation) return acc;
 

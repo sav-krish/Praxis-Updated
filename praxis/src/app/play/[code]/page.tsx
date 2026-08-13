@@ -186,6 +186,7 @@ interface ReflectionQuestion {
 interface PlaySessionPayload {
   session: Session;
   participantCount: number;
+  studentAttemptSource: "explore" | "classroom" | null;
   participant: {
     id: string;
     name: string;
@@ -350,6 +351,9 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
   const [videoError, setVideoError] = useState<string | null>(null);
   const [responseInputMode, setResponseInputMode] = useState<"text" | "video">("text");
   const [studentAttemptId, setStudentAttemptId] = useState<string | null>(null);
+  const [studentAttemptSource, setStudentAttemptSource] = useState<
+    PlaySessionPayload["studentAttemptSource"]
+  >(null);
   const [completedReportId, setCompletedReportId] = useState<string | null>(null);
   const [, setLoadingConsequence] = useState(false);
   const [aiJustificationFeedback, setAiJustificationFeedback] = useState<string | null>(null);
@@ -737,6 +741,7 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
     const sessionWithSimulation = payload.session;
     setSession(sessionWithSimulation);
     setParticipantCount(payload.participantCount ?? 0);
+    setStudentAttemptSource(payload.studentAttemptSource ?? null);
     setParticipantId(storedParticipantId);
     setParticipantName(existingParticipant.name || storedName || "");
     const participantTeamState = resolveParticipantTeamState(payload, storedParticipantId);
@@ -2046,6 +2051,7 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
 
               {getSimulationFlowSettings(session?.simulation.preferences).classVotesEnabled &&
               getSimulationFlowSettings(session?.simulation.preferences).showVoteSubmissionStatus &&
+              studentAttemptSource !== "explore" &&
               submissionStatus?.decisionId === decision.id ? (
                 <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border bg-muted/40 px-4 py-3 text-sm">
                   <span className="font-semibold">Live submission counter</span>
