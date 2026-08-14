@@ -628,14 +628,14 @@ export function SimulationAssistant({
       type="button"
       onClick={openHelp}
       className={cn(
-        "h-14 rounded-full shadow-xl",
-        helpPortalTarget ? "" : "fixed bottom-5 right-5 z-40",
-        helpUsed ? "w-14 px-0" : "px-5",
+        "h-12 rounded-full shadow-xl sm:h-14",
+        helpPortalTarget ? "" : "fixed bottom-4 right-4 z-40 sm:bottom-5 sm:right-5",
+        helpUsed ? "w-12 sm:w-14 px-0" : "px-4 sm:px-5",
       )}
       aria-label="Open help"
     >
-      <HelpCircle className={cn("h-6 w-6", !helpUsed && "mr-2")} />
-      {!helpUsed ? <span>Help</span> : null}
+      <HelpCircle className={cn("h-5 w-5 sm:h-6 sm:w-6", !helpUsed && "mr-2")} />
+      {!helpUsed ? <span className="text-sm sm:text-base">Help</span> : null}
     </Button>
   );
 

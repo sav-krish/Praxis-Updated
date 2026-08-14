@@ -1684,14 +1684,14 @@ export function SimulationEditor({
 
               <div className="space-y-4 rounded-xl border-2 border-primary/30 bg-primary/5 p-4">
                 <div>
-                  <Label className="text-base">Student engagement features</Label>
+                  <Label className="text-lg font-semibold sm:text-xl">Student Engagement Features</Label>
                   <p className="text-sm text-muted-foreground">
                     Choose which class-wide features students can use during the simulation.
                   </p>
                 </div>
 
                 <div className="space-y-3 border-t pt-3">
-                  <div className="flex items-center justify-between gap-4">
+                  <div className="flex items-start justify-between gap-4">
                     <div>
                       <div className="flex items-center gap-2">
                         <Label className="text-base">Class Votes</Label>
@@ -1732,7 +1732,7 @@ export function SimulationEditor({
                   </div>
                   {flowSettings.classVotesEnabled ? (
                     <div className="space-y-3 border-t pt-3">
-                      <div className="flex items-center justify-between gap-4">
+                      <div className="flex items-start justify-between gap-4">
                         <div>
                           <Label>Show submission status</Label>
                           <p className="text-sm text-muted-foreground">
@@ -1768,7 +1768,7 @@ export function SimulationEditor({
                           />
                         </button>
                       </div>
-                      <div className="flex items-center justify-between gap-4 border-t pt-3">
+                      <div className="flex items-start justify-between gap-4 border-t pt-3">
                         <div>
                           <Label>Share anonymous justifications</Label>
                           <p className="text-sm text-muted-foreground">
@@ -1807,7 +1807,7 @@ export function SimulationEditor({
                     </div>
                   ) : null}
 
-                  <div className="flex items-center justify-between gap-4 border-t pt-3">
+                  <div className="flex items-start justify-between gap-4 border-t pt-3">
                     <div>
                       <div className="flex items-center gap-2">
                         <Label htmlFor="leaderboard-enabled" className="text-base">
@@ -1851,7 +1851,7 @@ export function SimulationEditor({
                   </div>
                   {flowSettings.leaderboardEnabled ? (
                     <div className="space-y-3 border-t pt-3">
-                      <div className="flex items-center justify-between gap-4">
+                      <div className="flex items-start justify-between gap-4">
                         <div>
                           <Label htmlFor="leaderboard-anonymous">Anonymous leaderboard</Label>
                           <p className="text-sm text-muted-foreground">
@@ -1891,7 +1891,7 @@ export function SimulationEditor({
                           />
                         </button>
                       </div>
-                      <div className="flex items-center justify-between gap-4 border-t pt-3">
+                      <div className="flex items-start justify-between gap-4 border-t pt-3">
                         <div>
                           <Label htmlFor="rank-chip-enabled">Rank chip</Label>
                           <p className="text-sm text-muted-foreground">

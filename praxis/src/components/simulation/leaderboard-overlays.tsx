@@ -612,7 +612,7 @@ export function LeaderboardOverlays({
       {payload.settings.rankChipEnabled ? (
         <div
           ref={chipRef}
-          className="fixed left-3 top-3 z-40 flex flex-col items-start sm:left-4 sm:top-4"
+          className="fixed right-3 top-3 z-40 flex flex-col items-end sm:left-4 sm:top-4 sm:items-start"
         >
           <button
             ref={chipButtonRef}

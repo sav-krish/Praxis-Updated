@@ -622,13 +622,13 @@ export function SessionLobby({
           {session.status !== "complete" && (
             <Card>
               <CardHeader className="px-4 sm:px-6">
-                <CardTitle className="text-lg sm:text-xl">Student engagement features</CardTitle>
+                <CardTitle className="text-xl sm:text-2xl">Student Engagement Features</CardTitle>
                 <CardDescription className="text-sm">
                   These controls apply to this live session only and update students in real time.
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4 px-4 sm:px-6">
-                <div className="flex items-center justify-between gap-4">
+                <div className="flex items-start justify-between gap-4">
                   <div>
                     <p className="text-sm font-medium text-foreground">Class Votes</p>
                     <p className="text-xs text-muted-foreground">
@@ -659,7 +659,7 @@ export function SessionLobby({
                   </button>
                 </div>
 
-                <div className="flex items-center justify-between gap-4 border-t border-border pt-4">
+                <div className="flex items-start justify-between gap-4 border-t border-border pt-4">
                   <div>
                     <p className="text-sm font-medium text-foreground">Leaderboard</p>
                     <p className="text-xs text-muted-foreground">
@@ -692,7 +692,7 @@ export function SessionLobby({
 
                 {flowSettings.leaderboardEnabled ? (
                   <div className="space-y-4 border-t border-border pt-4">
-                    <div className="flex items-center justify-between gap-4">
+                    <div className="flex items-start justify-between gap-4">
                       <div>
                         <p className="text-sm font-medium text-foreground">Anonymous leaderboard</p>
                         <p className="text-xs text-muted-foreground">
@@ -723,7 +723,7 @@ export function SessionLobby({
                       </button>
                     </div>
 
-                    <div className="flex items-center justify-between gap-4 border-t border-border pt-4">
+                    <div className="flex items-start justify-between gap-4 border-t border-border pt-4">
                       <div>
                         <p className="text-sm font-medium text-foreground">Rank chip</p>
                         <p className="text-xs text-muted-foreground">

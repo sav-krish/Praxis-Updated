@@ -231,47 +231,6 @@ function roundedPercentages(counts: number[]): number[] {
   return floors;
 }
 
-function SimulationProgressTimeline({
-  activeStage,
-}: {
-  activeStage: string;
-}) {
-  const stages = [
-    { id: "background", label: "Background", shortLabel: "BG" },
-    { id: "consequence", label: "Consequence", shortLabel: "Result" },
-    { id: "class-votes", label: "Class Votes", shortLabel: "Votes" },
-    { id: "reflection", label: "Reflection", shortLabel: "Reflect" },
-    { id: "complete", label: "Complete", shortLabel: "Done" },
-  ];
-  const timelineStage = activeStage === "results"
-    ? "complete"
-    : activeStage.startsWith("decision-")
-      ? "consequence"
-      : activeStage;
-
-  return (
-    <nav aria-label="Simulation progress" className="w-full overflow-x-auto border-t border-[#fee2d2] px-2 dark:border-[#1f2937]">
-      <ol className="flex min-w-max items-center justify-center py-2 text-[11px] sm:text-xs">
-        {stages.map((stage, index) => (
-          <li key={stage.id} className="flex items-center">
-            {index > 0 ? <span className="mx-1.5 text-[#9ca3af]">›</span> : null}
-            <span
-              className={`whitespace-nowrap px-0.5 py-0.5 ${
-                timelineStage === stage.id
-                  ? "font-medium text-[#ea580c] dark:text-[#fb923c]"
-                  : "text-[#687280] dark:text-[#9ca3af]"
-              }`}
-            >
-              <span className="sm:hidden">{stage.shortLabel}</span>
-              <span className="hidden sm:inline">{stage.label}</span>
-            </span>
-          </li>
-        ))}
-      </ol>
-    </nav>
-  );
-}
-
 function SimulationTopHeader({
   decisionCount,
   activeStage,
@@ -288,7 +247,7 @@ function SimulationTopHeader({
   return (
     <div className="overflow-hidden rounded-xl border border-[#fee2d2] bg-white shadow-sm dark:border-[#1f2937] dark:bg-[#111827]">
       <div className="flex items-center justify-between gap-3 px-3 py-2.5 sm:px-4">
-        <PraxisLogo className="h-7 w-auto sm:h-8" priority />
+        <PraxisLogo size="compact" priority />
         <div className="flex min-w-0 flex-1 flex-col items-center gap-1" aria-label={`Decision ${currentDecision} of ${decisionCount}`}>
           <span className="text-[11px] font-medium text-[#374151] dark:text-[#e5e7eb] sm:text-xs">
             Decision {currentDecision} of {decisionCount}
@@ -313,7 +272,6 @@ function SimulationTopHeader({
           <ThemeToggle />
         </div>
       </div>
-      <SimulationProgressTimeline activeStage={activeStage} />
     </div>
   );
 }
@@ -1973,7 +1931,7 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
                       <div>
                         <div className="flex items-center justify-between gap-3">
                           <Label htmlFor="justification" className="text-sm font-medium text-[#374151] dark:text-[#e5e7eb]">
-                            Explain your reasoning <span className="font-normal text-[#9ca3af]">(optional)</span>
+                            Explain your reasoning
                           </Label>
                         </div>
                         {session?.simulation.mode === "teams" && waitingForTeamChoice && !canSelectTeamChoice ? (
@@ -2048,12 +2006,12 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
                                   id="justification"
                                   placeholder="What trade-offs influenced your decision?"
                                   value={justification}
-                                  onChange={(event) => setJustification(event.target.value.slice(0, 300))}
+                                  onChange={(event) => setJustification(event.target.value.slice(0, 1000))}
                                   rows={5}
-                                  maxLength={300}
+                                  maxLength={1000}
                                   className="mt-3 min-h-32 resize-none rounded-lg border-[#e5e7eb] bg-white text-sm text-[#111827] placeholder:text-[#9ca3af] focus-visible:border-[#ea580c] focus-visible:ring-[#fed7aa] dark:border-[#374151] dark:bg-[#111827] dark:text-[#f9fafb]"
                                 />
-                                <p className="mt-1.5 text-xs tabular-nums text-[#6b7280] dark:text-[#9ca3af]">{justification.length} / 300 characters</p>
+                                <p className="mt-1.5 text-xs tabular-nums text-[#6b7280] dark:text-[#9ca3af]">{justification.length} / 1000 characters</p>
                               </>
                             )}
                           </>
@@ -2222,23 +2180,18 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
                                 >
                                   {option.label}
                                 </span>
-                                <div className="min-w-0">
-                                  <div className="flex flex-wrap items-center gap-2">
-                                    <p className={`font-semibold ${isChosen ? "text-white" : "text-foreground"}`}>
-                                    {option.label}. {option.title}
-                                    </p>
-                                    {isChosen ? (
-                                      <Badge className="border border-white/30 bg-[#f97316] px-2 py-0.5 text-[11px] font-semibold text-white hover:bg-[#f97316]">
-                                        Your vote
-                                      </Badge>
-                                    ) : null}
-                                  </div>
-                                  {option.description ? (
-                                    <p className={`mt-1 text-sm leading-5 ${isChosen ? "text-white/90" : "text-muted-foreground"}`}>
-                                      {option.description}
-                                    </p>
-                                  ) : null}
-                                </div>
+                                 <div className="min-w-0">
+                                   <div className="flex flex-wrap items-center gap-2">
+                                     <p className={`font-semibold ${isChosen ? "text-white" : "text-foreground"}`}>
+                                     {option.label}. {option.title}
+                                     </p>
+                                     {isChosen ? (
+                                       <Badge className="border border-white/30 bg-[#f97316] px-2 py-0.5 text-[11px] font-semibold text-white hover:bg-[#f97316]">
+                                         <Check className="mr-1 h-3 w-3" /> Your vote
+                                       </Badge>
+                                     ) : null}
+                                   </div>
+                                 </div>
                               </div>
                               <span className={`shrink-0 text-base font-bold tabular-nums sm:text-lg ${isChosen ? "text-white" : "text-foreground"}`}>
                                 {pct}%
@@ -2411,9 +2364,10 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
                         value={reflectionAnswers[question.id] || ""}
                         onChange={(e) => setReflectionAnswers(prev => ({
                           ...prev,
-                          [question.id]: e.target.value
+                          [question.id]: e.target.value.slice(0, 1000)
                         }))}
                         rows={4}
+                        maxLength={1000}
                         className="min-h-[100px] text-base"
                       />
                     </div>

@@ -49,8 +49,8 @@ export function canShowLeaderboardPodium(
   return (
     settings.leaderboardEnabled &&
     !settings.leaderboardAnonymous &&
-    participantCount >= 2 &&
-    rankedParticipantCount >= 2
+    participantCount >= 1 &&
+    rankedParticipantCount >= 1
   );
 }
 
