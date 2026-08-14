@@ -116,7 +116,7 @@ export default async function DashboardLayout({
       <header className="bg-white border-b border-line/60 sticky top-0 z-50 safe-area-inset-top">
         <div className="container mx-auto px-3 sm:px-4 min-h-16 sm:min-h-18 flex items-center justify-between gap-2 py-2">
           <Link href="/dashboard" className="flex items-center min-w-0">
-            <span className="inline-flex h-12 shrink-0 items-center justify-center rounded-sm bg-white p-0.5 dark:bg-transparent sm:h-14">
+            <span className="inline-flex h-9 shrink-0 items-center justify-center rounded-sm bg-white p-0.5 dark:bg-transparent sm:h-10">
               <PraxisLogo className="h-full w-auto" priority />
             </span>
           </Link>
