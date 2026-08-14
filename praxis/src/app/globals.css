@@ -149,6 +149,16 @@
   }
 }
 
+/* Student experience type system. Keep this scoped so the professor dashboard
+   retains its existing visual language. */
+.praxis-student-ui {
+  font-family: var(--font-inter), Arial, sans-serif;
+}
+
+.praxis-join-heading {
+  font-family: var(--font-poppins), Arial, sans-serif;
+}
+
 /* Landing page container */
 .container {
   max-width: 1180px;

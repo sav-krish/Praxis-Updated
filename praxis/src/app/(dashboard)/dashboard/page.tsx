@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { Suspense } from "react";
-import { createClient } from "@/lib/supabase/server";
+import { createClient, createServiceRoleClient } from "@/lib/supabase/server";
 import { Button } from "@/components/ui/button";
 import { Sparkles, Library as LibraryIcon, ArrowRight } from "lucide-react";
 import { SIMULATION_DASHBOARD_LIST } from "@/lib/supabase-query-columns";
@@ -17,6 +17,14 @@ import {
 import { DashboardSimulationFilters } from "./dashboard-simulation-filters";
 import type { Json } from "@/types/database";
 import { getSimulationSessionSchedule } from "@/lib/session-schedule";
+import {
+  StudentDashboardView,
+  type AssignedStudentSimulation,
+  type CompletedStudentSimulation,
+  type ExploreStudentSimulation,
+  type StudentSimulationSummary,
+} from "@/components/student/student-dashboard-view";
+import { trackForSimulation } from "@/lib/student/tracks";
 
 /**
  * Friendly rotating greetings. We pick deterministically per-hour per-user so:
@@ -78,11 +86,154 @@ function filterDashboardSimulations(
 }
 
 interface DashboardPageProps {
-  searchParams: Promise<{ q?: string; subject?: string; difficulty?: string }>;
+  searchParams: Promise<{ q?: string; subject?: string; difficulty?: string; tab?: string }>;
+}
+
+type StudentProfileRow = {
+  first_name: string | null;
+  last_name: string | null;
+};
+
+type AssignmentRow = {
+  id: string;
+  due_date: string | null;
+  simulation: StudentSimulationSummary | StudentSimulationSummary[] | null;
+};
+
+type AttemptRow = {
+  id: string;
+  simulation_id: string;
+  assignment_id: string | null;
+  source: "classroom" | "explore";
+  status: "in_progress" | "completed";
+  score: number | null;
+  completed_at: string | null;
+  started_at: string;
+  simulation: StudentSimulationSummary | StudentSimulationSummary[] | null;
+};
+
+function normalizeStudentSimulation(
+  simulation: StudentSimulationSummary | StudentSimulationSummary[] | null
+): StudentSimulationSummary | null {
+  if (Array.isArray(simulation)) return simulation[0] ?? null;
+  return simulation;
+}
+
+async function loadStudentDashboardData(
+  userId: string,
+  fallbackName: string
+): Promise<{
+  studentName: string;
+  assigned: AssignedStudentSimulation[];
+  completed: CompletedStudentSimulation[];
+  explore: ExploreStudentSimulation[];
+}> {
+  const svc = createServiceRoleClient();
+
+  const [profileRes, assignmentsRes, attemptsRes, publicSimsRes] = await Promise.all([
+    svc
+      .from("student_profiles")
+      .select("first_name, last_name")
+      .eq("user_id", userId)
+      .maybeSingle(),
+    svc
+      .from("student_simulation_assignments")
+      .select("id, due_date, simulation:simulations(id, title, course_topic, difficulty, estimated_minutes)")
+      .eq("student_id", userId)
+      .order("due_date", { ascending: true, nullsFirst: false }),
+    svc
+      .from("student_simulation_attempts")
+      .select("id, simulation_id, assignment_id, source, status, score, completed_at, started_at, simulation:simulations(id, title, course_topic, difficulty, estimated_minutes)")
+      .eq("student_id", userId)
+      .order("started_at", { ascending: false }),
+    svc
+      .from("simulations")
+      .select("id, title, course_topic, difficulty, estimated_minutes")
+      .eq("is_public", true)
+      .order("is_pinned", { ascending: false })
+      .order("pinned_order", { ascending: true, nullsFirst: false })
+      .order("favorite_count", { ascending: false }),
+  ]);
+
+  const profile = profileRes.data as StudentProfileRow | null;
+  const studentName =
+    [profile?.first_name, profile?.last_name].filter(Boolean).join(" ").trim() ||
+    fallbackName ||
+    "there";
+
+  const attemptRows = (attemptsRes.data ?? []) as AttemptRow[];
+  const assignmentRows = (assignmentsRes.data ?? []) as AssignmentRow[];
+  const completedAssignmentIds = new Set(
+    attemptRows
+      .filter((attempt) => attempt.status === "completed" && attempt.assignment_id)
+      .map((attempt) => attempt.assignment_id as string)
+  );
+  const inProgressByAssignment = new Map(
+    attemptRows
+      .filter((attempt) => attempt.status === "in_progress" && attempt.assignment_id)
+      .map((attempt) => [attempt.assignment_id as string, attempt])
+  );
+
+  const assigned: AssignedStudentSimulation[] = assignmentRows
+    .filter((assignment) => !completedAssignmentIds.has(assignment.id))
+    .map((assignment) => {
+      const simulation = normalizeStudentSimulation(assignment.simulation);
+      if (!simulation) return null;
+      const inProgress = inProgressByAssignment.get(assignment.id);
+      return {
+        assignmentId: assignment.id,
+        simulation,
+        dueDate: assignment.due_date,
+        status: inProgress ? "in_progress" : "not_started",
+        attemptId: inProgress?.id ?? null,
+      } satisfies AssignedStudentSimulation;
+    })
+    .filter((item): item is AssignedStudentSimulation => Boolean(item));
+
+  const completed: CompletedStudentSimulation[] = attemptRows
+    .filter((attempt) => attempt.status === "completed")
+    .map((attempt) => {
+      const simulation = normalizeStudentSimulation(attempt.simulation);
+      if (!simulation) return null;
+      return {
+        attemptId: attempt.id,
+        simulation,
+        completedAt: attempt.completed_at,
+        score: attempt.score,
+        source: attempt.source,
+      } satisfies CompletedStudentSimulation;
+    })
+    .filter((item): item is CompletedStudentSimulation => Boolean(item));
+
+  const attemptsBySimulation = attemptRows.reduce<
+    Record<string, { completed?: AttemptRow; inProgress?: AttemptRow }>
+  >((acc, attempt) => {
+    acc[attempt.simulation_id] ??= {};
+    if (attempt.status === "completed" && !acc[attempt.simulation_id].completed) {
+      acc[attempt.simulation_id].completed = attempt;
+    }
+    if (attempt.status === "in_progress" && !acc[attempt.simulation_id].inProgress) {
+      acc[attempt.simulation_id].inProgress = attempt;
+    }
+    return acc;
+  }, {});
+
+  const explore: ExploreStudentSimulation[] = ((publicSimsRes.data ?? []) as StudentSimulationSummary[])
+    .map((simulation) => {
+      const attempts = attemptsBySimulation[simulation.id];
+      return {
+        simulation,
+        track: trackForSimulation(simulation),
+        completedAttemptId: attempts?.completed?.id ?? null,
+        inProgressAttemptId: attempts?.inProgress?.id ?? null,
+      };
+    });
+
+  return { studentName, assigned, completed, explore };
 }
 
 export default async function DashboardPage({ searchParams }: DashboardPageProps) {
-  const { q, subject, difficulty } = await searchParams;
+  const { q, subject, difficulty, tab } = await searchParams;
   const qTrim = (q ?? "").trim();
   const subjectParam = subject ?? "all";
   const difficultyParam = difficulty ?? "all";
@@ -98,8 +249,6 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
     .maybeSingle();
 
   if (professorRole?.active_role === "student") {
-    const { StudentDashboardView } = await import("@/components/student/student-dashboard-view");
-    const { fetchStudentDashboardData } = await import("@/lib/student/data");
     const { data: existingProfile } = await supabase
       .from("student_profiles")
       .select("user_id")
@@ -115,20 +264,19 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
       });
     }
 
-    const studentData = await fetchStudentDashboardData(user.id);
-    const displayName =
-      studentData.profile?.first_name?.trim() ||
+    const fallbackName =
       user.user_metadata?.name ||
       user.email?.split("@")[0] ||
       "there";
+    const studentData = await loadStudentDashboardData(user.id, fallbackName);
 
     return (
       <StudentDashboardView
-        displayName={displayName}
+        studentName={studentData.studentName}
         assigned={studentData.assigned}
         completed={studentData.completed}
-        exploreByTrack={studentData.exploreByTrack}
-        tracks={studentData.tracks}
+        explore={studentData.explore}
+        initialTab={tab === "explore" ? "explore" : "my"}
       />
     );
   }

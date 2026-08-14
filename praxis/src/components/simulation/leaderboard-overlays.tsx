@@ -379,7 +379,6 @@ export function LeaderboardOverlays({
   code,
   sessionId,
   participantId,
-  phase,
 }: LeaderboardOverlaysProps) {
   const [payload, setPayload] = useState<LeaderboardPayload | null>(null);
   const [chipExpanded, setChipExpanded] = useState(false);
@@ -390,7 +389,6 @@ export function LeaderboardOverlays({
   const chipButtonRef = useRef<HTMLButtonElement>(null);
   const mountedRef = useRef(false);
   const requestNumberRef = useRef(0);
-  const completedSessionRef = useRef<string | null>(null);
 
   const loadLeaderboard =
     useCallback(async (
@@ -528,22 +526,6 @@ export function LeaderboardOverlays({
       );
     };
   }, [loadLeaderboard]);
-
-  useEffect(() => {
-    if (
-      phase !== "completion" ||
-      completedSessionRef.current === sessionId
-    ) {
-      return;
-    }
-
-    const timeoutId = window.setTimeout(() => {
-      if (completedSessionRef.current === sessionId) return;
-      completedSessionRef.current = sessionId;
-      void showFinalPodium();
-    }, 250);
-    return () => window.clearTimeout(timeoutId);
-  }, [phase, sessionId, showFinalPodium]);
 
   useEffect(() => {
     const handleViewPodium = (event: Event) => {

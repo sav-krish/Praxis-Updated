@@ -8,13 +8,23 @@ export function PraxisLogo({
   priority?: boolean;
 }) {
   return (
-    <Image
-      src="/final_logo.png"
-      alt="Praxis"
-      width={300}
-      height={73}
-      className={className}
-      priority={priority}
-    />
+    <span className="inline-flex items-center">
+      <Image
+        src="/new_praxis_logo.png"
+        alt="Praxis"
+        width={1702}
+        height={646}
+        className={`${className ?? ""} dark:hidden`}
+        priority={priority}
+      />
+      <Image
+        src="/praxis-dark-logo.png"
+        alt=""
+        width={666}
+        height={375}
+        className={`${className ?? ""} hidden dark:block`}
+        priority={priority}
+      />
+    </span>
   );
 }

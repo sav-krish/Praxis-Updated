@@ -10,8 +10,10 @@ export default async function PlayLayout({
   const { code } = await params;
 
   return (
-    <StudentExperienceShell code={code}>
-      {children}
-    </StudentExperienceShell>
+    <div className="praxis-student-ui min-h-dvh">
+      <StudentExperienceShell code={code}>
+        {children}
+      </StudentExperienceShell>
+    </div>
   );
 }

@@ -1,170 +1,420 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import Link from "next/link";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useRouter } from "next/navigation";
+import {
+  ArrowRight,
+  BarChart3,
+  BookOpen,
+  CheckCircle2,
+  Clock,
+  Loader2,
+  Play,
+  Sparkles,
+} from "lucide-react";
+import { toast } from "sonner";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { FadeIn } from "@/components/landing/fade-in";
-import { APP_TILE_BACKGROUNDS } from "@/lib/app-tile-backgrounds";
-import { SIMULATION_CARD_GRID_CLASS } from "@/lib/simulation-card-layout";
-import { StudentSimulationTile } from "./student-simulation-card";
-import { FileText } from "lucide-react";
-import type {
-  StudentAssignmentRow,
-  StudentAttemptRow,
-  StudentSimulationCard,
-} from "@/lib/student/data";
-import type { StudentTrack, StudentTrackId } from "@/lib/student/tracks";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { APP_TILE_BACKGROUNDS, appTileBackgroundForDifficulty } from "@/lib/app-tile-backgrounds";
+import {
+  SIMULATION_CARD_ACTION_MIN_HEIGHT_CLASS,
+  SIMULATION_CARD_HEADER_CLASS,
+  SIMULATION_CARD_TILE_SURFACE_CLASS,
+  SIMULATION_CARD_TITLE_CLASS,
+} from "@/lib/simulation-card-layout";
+import {
+  type StudentTrack,
+  STUDENT_TRACKS,
+  studentDifficultyLabel,
+} from "@/lib/student/tracks";
 
-type StudentDashboardViewProps = {
-  displayName: string;
-  assigned: StudentAssignmentRow[];
-  completed: StudentAttemptRow[];
-  exploreByTrack: Record<StudentTrackId, (StudentSimulationCard & { completed: boolean })[]>;
-  tracks: StudentTrack[];
+export type StudentSimulationSummary = {
+  id: string;
+  title: string;
+  course_topic: string | null;
+  difficulty: string | null;
+  estimated_minutes: number | null;
 };
 
-export function StudentDashboardView({
-  displayName,
-  assigned,
-  completed,
-  exploreByTrack,
-  tracks,
-}: StudentDashboardViewProps) {
-  const [activeTrack, setActiveTrack] = useState<StudentTrackId>("consulting");
+export type AssignedStudentSimulation = {
+  assignmentId: string;
+  simulation: StudentSimulationSummary;
+  dueDate: string | null;
+  status: "not_started" | "in_progress";
+  attemptId: string | null;
+};
 
-  const completedBySimulation = new Map(
-    completed.map((attempt) => [attempt.simulation_id, attempt])
-  );
+export type CompletedStudentSimulation = {
+  attemptId: string;
+  simulation: StudentSimulationSummary;
+  completedAt: string | null;
+  score: number | null;
+  source: "classroom" | "explore";
+};
+
+export type ExploreStudentSimulation = {
+  simulation: StudentSimulationSummary;
+  track: StudentTrack;
+  completedAttemptId: string | null;
+  inProgressAttemptId: string | null;
+};
+
+type StudentDashboardViewProps = {
+  studentName: string;
+  assigned: AssignedStudentSimulation[];
+  completed: CompletedStudentSimulation[];
+  explore: ExploreStudentSimulation[];
+  initialTab?: "my" | "explore";
+};
+
+function formatDate(value: string | null): string {
+  if (!value) return "No date";
+  return new Date(value).toLocaleDateString(undefined, {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
+}
+
+function topic(simulation: StudentSimulationSummary): string {
+  return simulation.course_topic?.trim() || "Uncategorized";
+}
+
+function StudentSimCard({
+  simulation,
+  eyebrow,
+  meta,
+  status,
+  score,
+  primaryLabel,
+  reportHref,
+  reportDisabled,
+  onStart,
+  starting,
+}: {
+  simulation: StudentSimulationSummary;
+  eyebrow: string;
+  meta: string;
+  status?: string;
+  score?: number | null;
+  primaryLabel: string;
+  reportHref?: string;
+  reportDisabled?: boolean;
+  onStart: () => void;
+  starting: boolean;
+}) {
+  const tile = appTileBackgroundForDifficulty(simulation.difficulty);
 
   return (
-    <div className="space-y-6">
-      <FadeIn>
-        <section
-          className={`rounded-3xl border border-border p-6 sm:p-10 ${APP_TILE_BACKGROUNDS[0]} shadow-[0_12px_30px_rgba(128,52,20,0.08)]`}
-        >
-          <h1 className="text-3xl sm:text-4xl font-bold tracking-tight text-ink">
-            Welcome, {displayName}
-          </h1>
-          <p className="mt-2 max-w-2xl text-sm sm:text-base text-muted-text">
-            Practice real-world decisions, review your score, and learn from detailed feedback on every choice.
-          </p>
-        </section>
-      </FadeIn>
+    <Card className={`${SIMULATION_CARD_TILE_SURFACE_CLASS} ${tile}`}>
+      <CardHeader className={SIMULATION_CARD_HEADER_CLASS}>
+        <div className="min-w-0 space-y-2">
+          <div className="flex flex-wrap items-center gap-1.5">
+            <Badge className="border-0 bg-white/75 text-xs font-medium text-ink backdrop-blur-sm">
+              {eyebrow}
+            </Badge>
+            {status ? (
+              <Badge variant="outline" className="border-ink/15 bg-white/55 text-xs text-ink">
+                {status}
+              </Badge>
+            ) : null}
+          </div>
+          <CardTitle className={SIMULATION_CARD_TITLE_CLASS}>
+            {simulation.title}
+          </CardTitle>
+        </div>
+      </CardHeader>
+      <CardContent className="mt-auto flex flex-col gap-3 pt-0">
+        <div className="flex flex-wrap items-center gap-1.5">
+          <Badge variant="secondary" className="border-0 bg-white/70 text-xs font-medium text-ink">
+            {topic(simulation)}
+          </Badge>
+          <Badge variant="outline" className="border-ink/15 bg-white/55 text-xs font-medium text-ink">
+            {studentDifficultyLabel(simulation.difficulty)}
+          </Badge>
+          {simulation.estimated_minutes ? (
+            <span className="inline-flex items-center gap-1 rounded-md border border-ink/15 bg-white/55 px-2 py-0.5 text-xs font-medium text-ink">
+              <Clock className="h-3 w-3" />
+              ~{simulation.estimated_minutes} min
+            </span>
+          ) : null}
+        </div>
+        <div className="flex items-center justify-between gap-3 text-xs text-muted-text">
+          <span>{meta}</span>
+          {score != null ? <span className="font-semibold text-ink">{score}%</span> : null}
+        </div>
+        <div className="flex gap-2">
+          <Button
+            size="sm"
+            className={`flex-1 ${SIMULATION_CARD_ACTION_MIN_HEIGHT_CLASS} bg-ink text-white shadow-sm hover:bg-ink/90`}
+            disabled={starting}
+            onClick={onStart}
+          >
+            {starting ? (
+              <Loader2 className="mr-2 h-4 w-4 shrink-0 animate-spin" />
+            ) : (
+              <Play className="mr-2 h-4 w-4 shrink-0" />
+            )}
+            {primaryLabel}
+          </Button>
+          {reportHref && !reportDisabled ? (
+            <Button
+              asChild
+              variant="outline"
+              size="sm"
+              className={`flex-1 ${SIMULATION_CARD_ACTION_MIN_HEIGHT_CLASS} border-ink/15 bg-white/75 text-ink hover:bg-white`}
+            >
+              <Link href={reportHref}>
+                <BarChart3 className="mr-2 h-4 w-4 shrink-0" />
+                Report
+              </Link>
+            </Button>
+          ) : (
+            <Button
+              variant="outline"
+              size="sm"
+              className={`flex-1 ${SIMULATION_CARD_ACTION_MIN_HEIGHT_CLASS} border-ink/10 bg-white/45 text-muted-text`}
+              disabled
+            >
+              <BarChart3 className="mr-2 h-4 w-4 shrink-0" />
+              Report
+            </Button>
+          )}
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
 
-      <Tabs defaultValue="my-simulations" className="space-y-6">
-        <TabsList className="grid w-full max-w-md grid-cols-2">
-          <TabsTrigger value="my-simulations">My Simulations</TabsTrigger>
-          <TabsTrigger value="explore">Explore</TabsTrigger>
+export function StudentDashboardView({
+  studentName,
+  assigned,
+  completed,
+  explore,
+  initialTab = "my",
+}: StudentDashboardViewProps) {
+  const router = useRouter();
+  const [startingKey, setStartingKey] = useState<string | null>(null);
+
+  const groupedExplore = useMemo(() => {
+    return STUDENT_TRACKS.map((track) => ({
+      track,
+      simulations: explore.filter((item) => item.track.id === track.id),
+    })).filter((group) => group.simulations.length > 0);
+  }, [explore]);
+
+  const startSimulation = async (
+    simulationId: string,
+    source: "classroom" | "explore",
+    assignmentId?: string | null
+  ) => {
+    const key = `${simulationId}:${assignmentId ?? source}`;
+    setStartingKey(key);
+    try {
+      const response = await fetch(`/api/student/simulations/${simulationId}/start`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ source, assignmentId }),
+      });
+      const result = (await response.json().catch(() => null)) as
+        | {
+            joinCode: string;
+            sessionId: string;
+            participantId: string;
+            participantName: string;
+            attemptId: string;
+          }
+        | { error?: string }
+        | null;
+
+      if (!response.ok || !result || !("joinCode" in result)) {
+        throw new Error(result && "error" in result ? result.error : "Failed to start simulation");
+      }
+
+      sessionStorage.setItem(`participant_${result.sessionId}`, result.participantId);
+      sessionStorage.setItem(`participant_name_${result.sessionId}`, result.participantName);
+      sessionStorage.setItem(`student_attempt_${result.sessionId}`, result.attemptId);
+      router.push(`/play/${result.joinCode}`);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to start simulation");
+    } finally {
+      setStartingKey(null);
+    }
+  };
+
+  return (
+    <div className="space-y-6 sm:space-y-8">
+      <section
+        className={`rounded-3xl border border-border p-6 shadow-[var(--shadow-soft)] sm:p-8 ${APP_TILE_BACKGROUNDS[1]}`}
+      >
+        <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
+          <div>
+            <div className="mb-3 inline-flex items-center gap-2 rounded-full bg-white/70 px-3 py-1 text-xs font-semibold text-ink">
+              <BookOpen className="h-3.5 w-3.5" />
+              Student Dashboard
+            </div>
+            <h1 className="text-3xl font-bold tracking-tight text-ink sm:text-4xl">
+              Welcome back, {studentName}
+            </h1>
+            <p className="mt-2 max-w-2xl text-sm text-muted-text sm:text-base">
+              Keep up with assigned simulations, review completed work, and practice by track.
+            </p>
+          </div>
+          <div className="grid grid-cols-3 gap-2 sm:min-w-[360px]">
+            <div className="rounded-2xl bg-white/75 p-3 text-center">
+              <p className="text-2xl font-bold text-ink">{assigned.length}</p>
+              <p className="text-xs text-muted-text">Assigned</p>
+            </div>
+            <div className="rounded-2xl bg-white/75 p-3 text-center">
+              <p className="text-2xl font-bold text-ink">{completed.length}</p>
+              <p className="text-xs text-muted-text">Completed</p>
+            </div>
+            <div className="rounded-2xl bg-white/75 p-3 text-center">
+              <p className="text-2xl font-bold text-ink">{explore.length}</p>
+              <p className="text-xs text-muted-text">Explore</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <Tabs defaultValue={initialTab} className="space-y-6">
+        <TabsList className="grid h-auto min-h-[44px] w-full max-w-md grid-cols-2 bg-white/80 p-1">
+          <TabsTrigger value="my" className="py-2">My Simulations</TabsTrigger>
+          <TabsTrigger value="explore" className="py-2">Explore Simulations</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="my-simulations" className="space-y-8">
-          <section>
-            <h2 className="text-xl font-semibold text-ink mb-4">Assigned</h2>
-            {assigned.length === 0 ? (
-              <p className="text-sm text-muted-foreground rounded-2xl border border-dashed border-border p-6 text-center">
-                No assigned simulations yet. Browse Explore to practice on your own.
-              </p>
+        <TabsContent value="my" className="space-y-8">
+          <section className="space-y-4">
+            <div>
+              <h2 className="text-lg font-semibold text-ink">Assigned Simulations</h2>
+              <p className="text-sm text-muted-text">Classroom work from your instructor.</p>
+            </div>
+            {assigned.length > 0 ? (
+              <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+                {assigned.map((item) => (
+                  <StudentSimCard
+                    key={item.assignmentId}
+                    simulation={item.simulation}
+                    eyebrow="Assigned"
+                    meta={`Due ${formatDate(item.dueDate)}`}
+                    status={item.status === "in_progress" ? "In progress" : "Not started"}
+                    primaryLabel={item.status === "in_progress" ? "Continue" : "Start"}
+                    reportDisabled
+                    onStart={() => startSimulation(item.simulation.id, "classroom", item.assignmentId)}
+                    starting={startingKey === `${item.simulation.id}:${item.assignmentId}`}
+                  />
+                ))}
+              </div>
             ) : (
-              <div className={SIMULATION_CARD_GRID_CLASS}>
-                {assigned.map((row) => {
-                  const completedAttempt = completedBySimulation.get(row.simulation_id);
-                  return (
-                    <StudentSimulationTile
-                      key={row.id}
-                      simulation={row.simulation}
-                      assignmentId={row.id}
-                      dueDate={row.due_date}
-                      completed={Boolean(completedAttempt)}
-                      attemptId={completedAttempt?.id}
-                      inProgressAttemptId={row.inProgressAttemptId}
-                    />
-                  );
-                })}
+              <div className="rounded-2xl border border-dashed border-border bg-white/65 p-6 text-sm text-muted-text">
+                No assigned simulations yet.
               </div>
             )}
           </section>
 
-          <section>
-            <h2 className="text-xl font-semibold text-ink mb-4">Completed</h2>
-            {completed.length === 0 ? (
-              <p className="text-sm text-muted-foreground rounded-2xl border border-dashed border-border p-6 text-center">
-                Finish a simulation to see your score and decision feedback here.
-              </p>
-            ) : (
-              <div className={SIMULATION_CARD_GRID_CLASS}>
-                {completed.map((attempt) => (
-                  <StudentSimulationTile
-                    key={attempt.id}
-                    simulation={attempt.simulation}
-                    completed
-                    attemptId={attempt.id}
-                    footer={
-                      <div className="flex w-full flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                        <span className="text-sm font-semibold text-[#9f3805] dark:text-[#ffad7a]">
-                          Score: {attempt.score ?? 0}%
-                        </span>
-                        <Button asChild variant="outline" className="min-h-[44px]">
-                          <Link href={`/student/reports/${attempt.id}`}>
-                            <FileText className="mr-2 h-4 w-4" />
-                            View Report
-                          </Link>
-                        </Button>
-                      </div>
-                    }
+          <section className="space-y-4">
+            <div>
+              <h2 className="text-lg font-semibold text-ink">Completed Simulations</h2>
+              <p className="text-sm text-muted-text">Review your score, choices, and explanations.</p>
+            </div>
+            {completed.length > 0 ? (
+              <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+                {completed.map((item) => (
+                  <StudentSimCard
+                    key={item.attemptId}
+                    simulation={item.simulation}
+                    eyebrow={item.source === "classroom" ? "Classroom" : "Practice"}
+                    meta={`Completed ${formatDate(item.completedAt)}`}
+                    status="Completed"
+                    score={item.score}
+                    primaryLabel="Start"
+                    reportHref={`/student/reports/${item.attemptId}`}
+                    onStart={() => startSimulation(item.simulation.id, item.source)}
+                    starting={startingKey === `${item.simulation.id}:${item.source}`}
                   />
                 ))}
+              </div>
+            ) : (
+              <div className="rounded-2xl border border-dashed border-border bg-white/65 p-6 text-sm text-muted-text">
+                Completed simulations will appear here after you finish one.
               </div>
             )}
           </section>
         </TabsContent>
 
-        <TabsContent value="explore" className="space-y-6">
-          <div className="flex flex-wrap gap-2">
-            {tracks.map((track) => (
-              <button
-                key={track.id}
-                type="button"
-                onClick={() => setActiveTrack(track.id)}
-                aria-pressed={activeTrack === track.id}
-                className={`rounded-full px-4 py-2 text-sm font-medium transition ${
-                  activeTrack === track.id
-                    ? "bg-primary text-white shadow-subtle"
-                    : "bg-card text-ink border border-line hover:bg-accentSoft"
-                }`}
-              >
-                {track.label}
-              </button>
-            ))}
-          </div>
-
-          {tracks
-            .filter((track) => track.id === activeTrack)
-            .map((track) => (
-              <section key={track.id}>
-                <h2 className="text-xl font-semibold text-ink">{track.label}</h2>
-                <p className="mt-1 text-sm text-muted-text mb-4">{track.description}</p>
-                {(exploreByTrack[track.id] ?? []).length === 0 ? (
-                  <p className="text-sm text-muted-foreground rounded-2xl border border-dashed border-border p-6 text-center">
-                    No simulations in this track yet. Check back as the library grows.
-                  </p>
-                ) : (
-                  <div className={SIMULATION_CARD_GRID_CLASS}>
-                    {(exploreByTrack[track.id] ?? []).map((sim) => {
-                      const completedAttempt = completedBySimulation.get(sim.id);
-                      return (
-                        <StudentSimulationTile
-                          key={sim.id}
-                          simulation={sim}
-                          completed={sim.completed}
-                          attemptId={completedAttempt?.id}
-                        />
-                      );
-                    })}
+        <TabsContent value="explore" className="space-y-8">
+          {groupedExplore.length > 0 ? (
+            groupedExplore.map(({ track, simulations }) => (
+              <section key={track.id} className="space-y-4">
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+                  <div>
+                    <h2 className="flex items-center gap-2 text-lg font-semibold text-ink">
+                      <Sparkles className="h-4 w-4 text-primary" />
+                      {track.label}
+                    </h2>
+                    <p className="text-sm text-muted-text">{track.description}</p>
                   </div>
-                )}
+                  <Badge variant="outline" className="w-fit border-ink/15 bg-white/70 text-ink">
+                    {simulations.length} simulation{simulations.length === 1 ? "" : "s"}
+                  </Badge>
+                </div>
+                <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+                  {simulations.map((item) => {
+                    const completedAttemptId = item.completedAttemptId;
+                    const inProgressAttemptId = item.inProgressAttemptId;
+                    return (
+                      <StudentSimCard
+                        key={item.simulation.id}
+                        simulation={item.simulation}
+                        eyebrow={track.label}
+                        meta={
+                          completedAttemptId
+                            ? "Completed practice"
+                            : inProgressAttemptId
+                              ? "Practice in progress"
+                              : "Not started"
+                        }
+                        status={
+                          completedAttemptId
+                            ? "Completed"
+                            : inProgressAttemptId
+                              ? "In progress"
+                              : undefined
+                        }
+                        primaryLabel={inProgressAttemptId ? "Continue" : "Start"}
+                        reportHref={
+                          completedAttemptId ? `/student/reports/${completedAttemptId}` : undefined
+                        }
+                        reportDisabled={!completedAttemptId}
+                        onStart={() => startSimulation(item.simulation.id, "explore")}
+                        starting={startingKey === `${item.simulation.id}:explore`}
+                      />
+                    );
+                  })}
+                </div>
               </section>
-            ))}
+            ))
+          ) : (
+            <div className="rounded-2xl border border-dashed border-border bg-white/65 p-8 text-center">
+              <CheckCircle2 className="mx-auto mb-3 h-8 w-8 text-muted-text" />
+              <p className="font-medium text-ink">No public simulations are available yet.</p>
+              <p className="mt-1 text-sm text-muted-text">
+                Published library simulations will appear here by track.
+              </p>
+            </div>
+          )}
+
+          <div className="flex justify-end">
+            <Button asChild variant="outline" className="border-ink/15 bg-white/75 text-ink hover:bg-white">
+              <Link href="/join">
+                Join a class session
+                <ArrowRight className="ml-2 h-4 w-4" />
+              </Link>
+            </Button>
+          </div>
         </TabsContent>
       </Tabs>
     </div>

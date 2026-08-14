@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, Suspense, useCallback } from "react";
+import { useState, useEffect, Suspense, useCallback, useRef } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
@@ -9,30 +9,71 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Loader2, ArrowRight, UserPlus, SkipForward } from "lucide-react";
+import {
+  Loader2,
+  ArrowRight,
+  UserPlus,
+  SkipForward,
+  CheckCircle2,
+  CircleAlert,
+  Info,
+} from "lucide-react";
 import { toast } from "sonner";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { PraxisLogo } from "@/components/praxis-logo";
 
+const JOIN_CODE_LENGTH = 6;
+
+function normalizeJoinCode(value: string) {
+  return value.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, JOIN_CODE_LENGTH);
+}
+
+function joinCodeSlots(value: string) {
+  const characters = normalizeJoinCode(value).split("");
+  return Array.from({ length: JOIN_CODE_LENGTH }, (_, index) => characters[index] ?? "");
+}
+
 function JoinForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const [joinCode, setJoinCode] = useState(searchParams.get("code") || "");
+  const [joinCodeSlotsState, setJoinCodeSlotsState] = useState(() =>
+    joinCodeSlots(searchParams.get("code") || ""),
+  );
+  const joinCode = joinCodeSlotsState.join("");
   const [name, setName] = useState("");
   const [loading, setLoading] = useState(false);
   const [checking, setChecking] = useState(false);
+  const [invalidCode, setInvalidCode] = useState(false);
   const [session, setSession] = useState<{ id: string; simulation_id: string } | null>(null);
   const [showAccountModal, setShowAccountModal] = useState(false);
   const [pendingJoinData, setPendingJoinData] = useState<{ participantId: string; participantName: string; sessionId: string } | null>(null);
+  const codeInputRefs = useRef<Array<HTMLInputElement | null>>([]);
+  const lookupRequestRef = useRef(0);
 
-  const lookupSession = useCallback(async () => {
+  const updateJoinCodeSlots = useCallback((nextSlots: string[]) => {
+    lookupRequestRef.current += 1;
+    setJoinCodeSlotsState(nextSlots);
+    setSession(null);
+    setInvalidCode(false);
+  }, []);
+
+  const focusCodeInput = (index: number) => {
+    window.requestAnimationFrame(() => codeInputRefs.current[index]?.focus());
+  };
+
+  const lookupSession = useCallback(async (codeToCheck: string) => {
+    const requestId = ++lookupRequestRef.current;
     setChecking(true);
+    setInvalidCode(false);
+    setSession(null);
     const supabase = createClient();
     const { data } = await supabase
       .from("sessions")
       .select("id, simulation_id, status")
-      .eq("join_code", joinCode.toUpperCase())
+      .eq("join_code", codeToCheck)
       .single();
+
+    if (requestId !== lookupRequestRef.current) return;
 
     if (data && data.status !== "complete") {
       setSession(data);
@@ -48,10 +89,13 @@ function JoinForm() {
           .eq("session_id", data.id)
           .single();
 
+        if (requestId !== lookupRequestRef.current) return;
+
         if (existing) {
           // This tab already joined -- send them straight back to play
           sessionStorage.setItem(`participant_name_${data.id}`, existing.name);
-          router.push(`/play/${joinCode.toUpperCase()}`);
+          setChecking(false);
+          router.push(`/play/${codeToCheck}`);
           return;
         } else {
           // Stale entry -- clear it so they can re-join fresh
@@ -61,16 +105,74 @@ function JoinForm() {
       }
     } else {
       setSession(null);
+      setInvalidCode(true);
     }
     setChecking(false);
-  }, [joinCode, router]);
+  }, [router]);
 
   // Auto-lookup session when code is complete
   useEffect(() => {
-    if (joinCode.length === 6) {
-      void lookupSession();
+    if (joinCodeSlotsState.every(Boolean)) {
+      void lookupSession(joinCode);
+      return;
     }
-  }, [joinCode, lookupSession]);
+    setChecking(false);
+    setSession(null);
+    setInvalidCode(false);
+  }, [joinCode, joinCodeSlotsState, lookupSession]);
+
+  const handleCodeChange = (index: number, value: string) => {
+    const insertedCode = normalizeJoinCode(value);
+    if (!insertedCode) {
+      if (!value) {
+        const nextSlots = [...joinCodeSlotsState];
+        nextSlots[index] = "";
+        updateJoinCodeSlots(nextSlots);
+      }
+      return;
+    }
+
+    const nextSlots = [...joinCodeSlotsState];
+    insertedCode.split("").forEach((character, offset) => {
+      if (index + offset < JOIN_CODE_LENGTH) nextSlots[index + offset] = character;
+    });
+    updateJoinCodeSlots(nextSlots);
+    focusCodeInput(Math.min(index + insertedCode.length, JOIN_CODE_LENGTH - 1));
+  };
+
+  const handleCodeKeyDown = (index: number, event: React.KeyboardEvent<HTMLInputElement>) => {
+    if (event.key === "Backspace") {
+      event.preventDefault();
+      const removeIndex = joinCodeSlotsState[index] ? index : index - 1;
+      if (removeIndex < 0) return;
+      const nextSlots = [...joinCodeSlotsState];
+      nextSlots[removeIndex] = "";
+      updateJoinCodeSlots(nextSlots);
+      focusCodeInput(Math.max(0, removeIndex));
+      return;
+    }
+
+    if (event.key === "ArrowLeft") {
+      event.preventDefault();
+      focusCodeInput(Math.max(0, index - 1));
+    }
+    if (event.key === "ArrowRight") {
+      event.preventDefault();
+      focusCodeInput(Math.min(JOIN_CODE_LENGTH - 1, index + 1));
+    }
+  };
+
+  const handleCodePaste = (index: number, event: React.ClipboardEvent<HTMLInputElement>) => {
+    event.preventDefault();
+    const pastedCode = normalizeJoinCode(event.clipboardData.getData("text"));
+    if (!pastedCode) return;
+    const nextSlots = [...joinCodeSlotsState];
+    pastedCode.split("").forEach((character, offset) => {
+      if (index + offset < JOIN_CODE_LENGTH) nextSlots[index + offset] = character;
+    });
+    updateJoinCodeSlots(nextSlots);
+    focusCodeInput(Math.min(index + pastedCode.length, JOIN_CODE_LENGTH - 1));
+  };
 
   const handleJoin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -134,85 +236,113 @@ function JoinForm() {
     );
   };
 
-  // Show a spinner while verifying a returning student
-  if (checking) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-muted/50 px-4">
-        <div className="flex flex-col items-center gap-3">
-          <Loader2 className="h-8 w-8 animate-spin text-primary" />
-          <p className="text-sm text-muted-foreground">Checking session...</p>
-        </div>
-      </div>
-    );
-  }
-
   return (
-    <div className="min-h-screen flex items-center justify-center bg-muted/50 px-4 py-6">
-      <div className="fixed right-4 top-4 z-20 rounded-full border bg-background/90 shadow-sm backdrop-blur">
+    <div className="praxis-student-ui relative flex min-h-dvh items-center justify-center overflow-hidden bg-[#fffaf6] px-4 py-8 text-[#111827] dark:bg-[#08121e] dark:text-[#f9fafb]">
+      <div aria-hidden className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_8%_28%,rgba(249,115,22,0.10),transparent_20rem),radial-gradient(circle_at_92%_76%,rgba(251,146,60,0.10),transparent_24rem)] dark:bg-[radial-gradient(circle_at_8%_28%,rgba(251,146,60,0.08),transparent_20rem),radial-gradient(circle_at_92%_76%,rgba(96,165,250,0.05),transparent_24rem)]" />
+      <div className="fixed right-4 top-4 z-20 rounded-full border border-[#fed7aa] bg-white/90 shadow-sm backdrop-blur dark:border-[#334155] dark:bg-[#111827]/90">
         <ThemeToggle />
       </div>
-      <Card className="w-full max-w-md max-h-[calc(100dvh-3rem)] overflow-auto">
-        <CardHeader className="text-center">
-          <Link href="/" className="flex items-center justify-center gap-2 mb-4">
-            <span className="inline-flex shrink-0 items-center justify-center rounded-sm bg-white p-0.5 dark:bg-transparent">
-              <PraxisLogo className="h-14 w-auto sm:h-16" priority />
+      <Card className="relative w-full max-w-[420px] overflow-hidden rounded-2xl border-[#fee2d2] bg-white/95 py-0 shadow-[0_22px_55px_rgba(154,52,18,0.12)] dark:border-[#1f2937] dark:bg-[#111827]/95 dark:shadow-[0_24px_64px_rgba(0,0,0,0.35)]">
+        <CardHeader className="px-6 pb-3 pt-8 text-center sm:px-8 sm:pt-9">
+          <Link href="/" className="mb-5 flex items-center justify-center">
+            <span className="inline-flex shrink-0 items-center justify-center rounded-sm bg-white px-1 py-0.5 dark:bg-transparent">
+              <PraxisLogo className="h-8 w-auto sm:h-9" priority />
             </span>
           </Link>
-          <CardTitle>Join Session</CardTitle>
-          <CardDescription>
-            Enter the code provided by your professor
+          <CardTitle className="praxis-join-heading text-[28px] font-semibold leading-9 tracking-[-0.03em] text-[#111827] sm:text-[32px] sm:leading-10 dark:text-[#f9fafb]">
+            Join Session
+          </CardTitle>
+          <CardDescription className="mt-1 text-sm leading-5 text-[#6b7280] dark:text-[#9ca3af]">
+            Enter the code provided by your professor.
           </CardDescription>
         </CardHeader>
         <form onSubmit={handleJoin}>
-          <CardContent className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="code">Join Code</Label>
-              <Input
-                id="code"
-                type="text"
-                placeholder="ABC123"
-                value={joinCode}
-                onChange={(e) => setJoinCode(e.target.value.toUpperCase().slice(0, 6))}
-                className="text-center text-2xl font-mono tracking-widest"
-                maxLength={6}
-                required
-              />
-              {joinCode.length === 6 && !session && (
-                <p className="text-sm text-destructive">Session not found or already ended</p>
-              )}
-              {session && (
-                <p className="text-sm text-green-600">Session found!</p>
-              )}
+          <CardContent className="space-y-5 px-6 pb-8 pt-3 sm:px-8">
+            <div className="space-y-2.5">
+              <Label className="text-sm font-medium text-[#374151] dark:text-[#d1d5db]">Join code</Label>
+              <div className="grid grid-cols-6 gap-2" role="group" aria-label="Six character join code">
+                {Array.from({ length: JOIN_CODE_LENGTH }, (_, index) => (
+                  <input
+                    key={index}
+                    ref={(element) => {
+                      codeInputRefs.current[index] = element;
+                    }}
+                    type="text"
+                    inputMode="text"
+                    autoComplete={index === 0 ? "one-time-code" : "off"}
+                    aria-label={`Join code character ${index + 1} of ${JOIN_CODE_LENGTH}`}
+                    aria-invalid={invalidCode || undefined}
+                    value={joinCodeSlotsState[index]}
+                    onChange={(event) => handleCodeChange(index, event.target.value)}
+                    onKeyDown={(event) => handleCodeKeyDown(index, event)}
+                    onPaste={(event) => handleCodePaste(index, event)}
+                    onFocus={(event) => event.currentTarget.select()}
+                    className={`h-11 min-w-0 rounded-lg border bg-white text-center text-base font-semibold uppercase text-[#111827] outline-none transition focus:border-[#f97316] focus:ring-2 focus:ring-[#fed7aa] dark:bg-[#111827] dark:text-[#f9fafb] dark:focus:ring-[#7c2d12] sm:h-12 sm:text-lg ${
+                      invalidCode
+                        ? "border-[#dc2626]"
+                        : "border-[#fed7aa] dark:border-[#374151]"
+                    }`}
+                    maxLength={JOIN_CODE_LENGTH}
+                  />
+                ))}
+              </div>
+              <div className="min-h-6" aria-live="polite">
+                {checking ? (
+                  <p className="flex items-center gap-2 text-xs text-[#6b7280] dark:text-[#9ca3af]">
+                    <Loader2 className="h-3.5 w-3.5 animate-spin text-[#f97316]" />
+                    Checking session…
+                  </p>
+                ) : session ? (
+                  <p className="flex items-center gap-2 rounded-lg bg-[#ecfdf5] px-3 py-2 text-xs font-medium text-[#166534] dark:bg-[#065f46]/30 dark:text-[#86efac]">
+                    <CheckCircle2 className="h-4 w-4 shrink-0" aria-hidden />
+                    Session found!
+                  </p>
+                ) : invalidCode ? (
+                  <p className="flex items-center gap-2 text-xs font-medium text-[#dc2626] dark:text-[#fca5a5]">
+                    <CircleAlert className="h-4 w-4 shrink-0" aria-hidden />
+                    Invalid session code. Please check and try again.
+                  </p>
+                ) : null}
+              </div>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="name">Your Name</Label>
+              <Label htmlFor="name" className="text-sm font-medium text-[#374151] dark:text-[#d1d5db]">Display name</Label>
               <Input
                 id="name"
                 type="text"
                 placeholder="Enter your name"
                 value={name}
-                onChange={(e) => setName(e.target.value)}
+                onChange={(e) => setName(e.target.value.slice(0, 30))}
+                maxLength={30}
                 required
+                className="h-11 rounded-lg border-[#fed7aa] bg-white text-sm text-[#111827] placeholder:text-[#9ca3af] focus-visible:border-[#f97316] focus-visible:ring-[#fed7aa] dark:border-[#374151] dark:bg-[#111827] dark:text-[#f9fafb] sm:h-12"
               />
+              <p className="flex items-center gap-1.5 text-xs text-[#6b7280] dark:text-[#9ca3af]">
+                <Info className="h-3.5 w-3.5" aria-hidden />
+                Your instructor can see your identity.
+              </p>
             </div>
-          </CardContent>
-          <CardContent className="pt-4">
-            <Button 
-              type="submit" 
-              className="w-full min-h-[48px]" 
-              disabled={loading || !session || !name.trim()}
+            <Button
+              type="submit"
+              className="min-h-12 w-full rounded-lg bg-[#f97316] text-sm font-medium text-white shadow-sm hover:bg-[#ea580c] hover:text-white disabled:bg-[#fed7aa] disabled:text-white dark:bg-[#fb923c] dark:hover:bg-[#f97316]"
+              disabled={loading || checking || !session || !name.trim()}
             >
-              Join Session
               {loading ? (
-                <Loader2 className="ml-2 h-4 w-4 animate-spin" />
+                <>
+                  Joining
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                </>
               ) : (
-                <ArrowRight className="ml-2 h-4 w-4" />
+                <>
+                  Join Session
+                  <ArrowRight className="h-4 w-4" />
+                </>
               )}
             </Button>
-            <div className="mt-4 space-y-2 text-center text-sm text-muted-foreground">
+            <div className="pt-1 text-center text-xs text-[#6b7280] dark:text-[#9ca3af]">
               <p>
                 Already have an account?{" "}
-                <Link href="/auth/login" className="text-primary font-medium hover:underline">
+                <Link href="/auth/login" className="font-medium text-[#ea580c] hover:underline dark:text-[#fb923c]">
                   Sign in
                 </Link>
               </p>
