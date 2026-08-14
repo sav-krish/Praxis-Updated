@@ -48,15 +48,26 @@ export default async function NewSessionPage({ params }: PageProps) {
     redirect("/dashboard");
   }
 
-  let { data: existingSession } = await supabase
+  const { data: candidateSessions } = await supabase
     .from("sessions")
     .select("id, status")
     .eq("simulation_id", id)
     .neq("status", "complete")
     .neq("is_preview", true)
-    .order("created_at", { ascending: false })
-    .limit(1)
-    .maybeSingle();
+    .order("created_at", { ascending: false });
+
+  const { data: studentAttemptSessions } = (candidateSessions?.length ?? 0) > 0
+    ? await supabase
+        .from("student_simulation_attempts")
+        .select("session_id")
+        .in("session_id", candidateSessions!.map((session) => session.id))
+    : { data: [] as { session_id: string }[] };
+  const studentAttemptSessionIds = new Set(
+    studentAttemptSessions?.map((attempt) => attempt.session_id) ?? [],
+  );
+  let existingSession = candidateSessions?.find(
+    (session) => !studentAttemptSessionIds.has(session.id),
+  ) ?? null;
 
   const schedule = getSimulationSessionSchedule(simulation.preferences);
   const now = Date.now();

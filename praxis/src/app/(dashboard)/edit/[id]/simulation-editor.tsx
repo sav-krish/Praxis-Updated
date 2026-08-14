@@ -87,6 +87,7 @@ import {
   preserveLiveConsequenceSnapshots,
   setSimulationFlowSettings,
 } from "@/lib/simulation-flow";
+import { OPTION_OUTCOME_SCORES } from "@/lib/student/leaderboard";
 
 interface DecisionWithOptions extends Decision {
   options: Option[];
@@ -184,7 +185,7 @@ const DEFAULT_BLOCK_DATA: Record<DataBlockType, Record<string, unknown>> = {
   line_chart: { xLabel: "Quarter", series: [{ label: "Value", data: [{ x: "Q1", y: 10 }, { x: "Q2", y: 20 }] }] },
   kpi_cards: { items: [{ label: "Metric", value: "—", subtext: "Optional" }] },
   timeline: { events: [{ date: "—", title: "Event", detail: "Detail" }] },
-  pie_chart: { labels: ["A", "B", "C"], values: [30, 50, 20] },
+  pie_chart: { labels: ["A", "B", "C"], values: [30, 50, 20], showLabels: true },
 };
 
 export function SimulationEditor({ 
@@ -367,15 +368,26 @@ export function SimulationEditor({
     if (activeSession && activeSession.status !== "complete") return activeSession;
 
     const supabase = createClient();
-    const { data: existingSession } = await supabase
+    const { data: candidateSessions } = await supabase
       .from("sessions")
       .select("id, join_code, status, created_at")
       .eq("simulation_id", simulation.id)
       .neq("status", "complete")
       .neq("is_preview", true)
-      .order("created_at", { ascending: false })
-      .limit(1)
-      .maybeSingle();
+      .order("created_at", { ascending: false });
+
+    const { data: studentAttemptSessions } = (candidateSessions?.length ?? 0) > 0
+      ? await supabase
+          .from("student_simulation_attempts")
+          .select("session_id")
+          .in("session_id", candidateSessions!.map((session) => session.id))
+      : { data: [] as { session_id: string }[] };
+    const studentAttemptSessionIds = new Set(
+      studentAttemptSessions?.map((attempt) => attempt.session_id) ?? [],
+    );
+    const existingSession = candidateSessions?.find(
+      (session) => !studentAttemptSessionIds.has(session.id),
+    );
 
     if (existingSession) {
       setActiveSession(existingSession);
@@ -432,7 +444,7 @@ export function SimulationEditor({
         background_content: simulation.background_content,
         mode: simulation.mode,
         team_size: simulation.team_size,
-        team_assignment: simulation.team_assignment,
+        team_assignment: (simulation.mode === "teams" ? "auto" : null) as "auto" | null,
         difficulty: simulation.difficulty ?? null,
         estimated_minutes: simulation.estimated_minutes ?? null,
         preferences,
@@ -1481,19 +1493,21 @@ export function SimulationEditor({
                                   disabled={!isOwner}
                                 />
                                 <div className="flex items-center gap-2 shrink-0">
-                                  <Label className="text-sm whitespace-nowrap">Score:</Label>
+                                  <Label className="text-sm whitespace-nowrap">Outcome:</Label>
                                   <Select
                                     value={String(option.score)}
-                                    onValueChange={(value) => updateOption(dIndex, oIndex, "score", parseInt(value))}
+                                    onValueChange={(value) => updateOption(dIndex, oIndex, "score", Number(value))}
                                     disabled={!isOwner}
                                   >
-                                    <SelectTrigger className="w-20">
+                                    <SelectTrigger className="w-28">
                                       <SelectValue />
                                     </SelectTrigger>
                                     <SelectContent>
-                                      <SelectItem value="1">1</SelectItem>
-                                      <SelectItem value="2">2</SelectItem>
-                                      <SelectItem value="3">3</SelectItem>
+                                      {OPTION_OUTCOME_SCORES.map((outcome) => (
+                                        <SelectItem key={outcome.value} value={String(outcome.value)}>
+                                          {outcome.label}
+                                        </SelectItem>
+                                      ))}
                                     </SelectContent>
                                   </Select>
                                 </div>
@@ -1652,6 +1666,7 @@ export function SimulationEditor({
                     setSimulation({
                       ...simulation,
                       mode: value,
+                      team_assignment: value === "teams" ? "auto" : null,
                       justification_type: value === "teams" ? "written" : simulation.justification_type,
                     })
                   }
@@ -1916,6 +1931,51 @@ export function SimulationEditor({
                 </div>
               </div>
 
+              <div className="space-y-3 rounded-xl border-2 border-primary/30 bg-primary/5 p-4">
+                <div className="flex items-center justify-between gap-4">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <Label htmlFor="impact-metrics-enabled" className="text-base">
+                        Consequence impact metrics
+                      </Label>
+                      <Badge variant={flowSettings.impactMetricsEnabled ? "default" : "secondary"}>
+                        {flowSettings.impactMetricsEnabled ? "Visible to students" : "Hidden"}
+                      </Badge>
+                    </div>
+                    <p className="text-sm text-muted-foreground">
+                      Show the impact breakdown below each decision consequence.
+                    </p>
+                  </div>
+                  <button
+                    id="impact-metrics-enabled"
+                    type="button"
+                    role="switch"
+                    aria-checked={flowSettings.impactMetricsEnabled}
+                    aria-label="Show consequence impact metrics"
+                    disabled={!isOwner}
+                    onClick={() =>
+                      setSimulation((prev) => ({
+                        ...prev,
+                        preferences: setSimulationFlowSettings(prev.preferences, {
+                          ...getSimulationFlowSettings(prev.preferences),
+                          impactMetricsEnabled:
+                            !getSimulationFlowSettings(prev.preferences).impactMetricsEnabled,
+                        }),
+                      }))
+                    }
+                    className={`relative h-6 w-11 shrink-0 rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60 ${
+                      flowSettings.impactMetricsEnabled ? "bg-primary" : "bg-input"
+                    }`}
+                  >
+                    <span
+                      className={`absolute left-1 top-1 h-4 w-4 rounded-full bg-background shadow transition-transform ${
+                        flowSettings.impactMetricsEnabled ? "translate-x-5" : "translate-x-0"
+                      }`}
+                    />
+                  </button>
+                </div>
+              </div>
+
               {simulation.mode === "individual" && (
                 <div className="space-y-2">
                   <div className="flex items-center gap-1.5">
@@ -1952,21 +2012,9 @@ export function SimulationEditor({
                         In team mode, only one designated voter per team can submit responses.
                       </FieldInfoHint>
                     </div>
-                    <Select
-                      value={simulation.team_assignment || "auto"}
-                      onValueChange={(value: "auto" | "self") => 
-                        setSimulation({ ...simulation, team_assignment: value })
-                      }
-                      disabled={!isOwner}
-                    >
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="auto">Auto-assign - System assigns students to teams</SelectItem>
-                        <SelectItem value="self">Self-organize - Students choose or create teams</SelectItem>
-                      </SelectContent>
-                    </Select>
+                    <p className="text-sm text-muted-foreground">
+                      Students are automatically assigned to teams when they join.
+                    </p>
                   </div>
 
                   <div className="space-y-2">

@@ -80,58 +80,21 @@ export function DashboardSimulationCard({
         />
       )}
       <CardHeader className={SIMULATION_CARD_HEADER_CLASS}>
-        <div className="flex items-start justify-between gap-2">
-          <div className="min-w-0 flex-1 space-y-1.5">
-            <div className="flex items-start gap-2.5">
-              <span className={`mt-0.5 inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${simulationIconColorForId(simulation.id)}`}>
-                <BriefcaseBusiness className="h-4 w-4" aria-hidden />
-              </span>
-              <CardTitle className={SIMULATION_CARD_TITLE_CLASS}>
-                {simulation.title}
-              </CardTitle>
-            </div>
-            <div className="flex flex-wrap items-center gap-1.5">
-              <Badge
-                variant="secondary"
-                className="border-0 bg-white/70 text-xs font-medium text-ink backdrop-blur-sm"
-              >
-                {simulation.course_topic}
-              </Badge>
-              {isTeams ? (
-                <Badge
-                  variant="outline"
-                  className="gap-1 border-ink/15 bg-white/55 text-xs font-medium text-ink backdrop-blur-sm"
-                >
-                  <Users className="h-3 w-3" aria-hidden />
-                  Teams
-                </Badge>
-              ) : (
-                <Badge
-                  variant="outline"
-                  className="gap-1 border-ink/15 bg-white/55 text-xs font-medium text-ink backdrop-blur-sm"
-                >
-                  {difficultyBadgeLabel(simulation.difficulty)}
-                </Badge>
-              )}
-              {isRunning && (
-                <Badge className="gap-1 border-0 bg-emerald-500/15 text-xs font-medium text-emerald-700">
-                  <CircleDot className="h-3 w-3 animate-pulse" aria-hidden />
-                  Live
-                </Badge>
-              )}
-              {isScheduled && (
-                <Badge className="border-0 bg-amber-500/15 text-xs font-medium text-amber-700">
-                  Scheduled
-                </Badge>
-              )}
-            </div>
+        <div className="relative space-y-1.5 pr-10">
+          <div className="flex items-start gap-2.5">
+            <span className={`mt-0.5 inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${simulationIconColorForId(simulation.id)}`}>
+              <BriefcaseBusiness className="h-4 w-4" aria-hidden />
+            </span>
+            <CardTitle className={`min-w-0 ${SIMULATION_CARD_TITLE_CLASS}`}>
+              {simulation.title}
+            </CardTitle>
           </div>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button
                 variant="ghost"
                 size="icon"
-                className="h-8 w-8 text-muted-text hover:bg-white/60"
+                className="absolute right-0 top-0 h-8 w-8 text-muted-text hover:bg-white/60"
               >
                 <MoreVertical className="h-4 w-4" />
               </Button>
@@ -164,9 +127,15 @@ export function DashboardSimulationCard({
               <PreviewSimulationButton simulationId={simulation.id} asDropdownItem />
               {hasReports && (
                 <DropdownMenuItem asChild>
-                  <Link href={`/reports/${simulation.id}`}>
+                  <Link
+                    href={
+                      isRunning && activeSession
+                        ? `/reports/${simulation.id}?session=${activeSession.id}`
+                        : `/reports/${simulation.id}`
+                    }
+                  >
                     <BarChart3 className="mr-2 h-4 w-4" />
-                    View Reports
+                    {isRunning ? "View Live Report" : "View Reports"}
                   </Link>
                 </DropdownMenuItem>
               )}
@@ -176,6 +145,41 @@ export function DashboardSimulationCard({
               />
             </DropdownMenuContent>
           </DropdownMenu>
+          <div className="flex flex-wrap items-center gap-1.5">
+            <Badge
+              variant="secondary"
+              className="border-0 bg-white/70 text-xs font-medium text-ink backdrop-blur-sm"
+            >
+              {simulation.course_topic}
+            </Badge>
+            {isTeams ? (
+              <Badge
+                variant="outline"
+                className="gap-1 border-ink/15 bg-white/55 text-xs font-medium text-ink backdrop-blur-sm"
+              >
+                <Users className="h-3 w-3" aria-hidden />
+                Teams
+              </Badge>
+            ) : (
+              <Badge
+                variant="outline"
+                className="gap-1 border-ink/15 bg-white/55 text-xs font-medium text-ink backdrop-blur-sm"
+              >
+                {difficultyBadgeLabel(simulation.difficulty)}
+              </Badge>
+            )}
+            {isRunning && (
+              <Badge className="gap-1 border-0 bg-emerald-500/15 text-xs font-medium text-emerald-700">
+                <CircleDot className="h-3 w-3 animate-pulse" aria-hidden />
+                Live
+              </Badge>
+            )}
+            {isScheduled && (
+              <Badge className="border-0 bg-amber-500/15 text-xs font-medium text-amber-700">
+                Scheduled
+              </Badge>
+            )}
+          </div>
         </div>
       </CardHeader>
       <CardContent className="mt-auto flex flex-col gap-3 pt-0">

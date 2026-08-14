@@ -61,13 +61,10 @@ interface DeterministicMetricsProps {
   mode: "individual" | "teams";
 }
 
-const CHART_COLORS = [
-  "var(--chart-1)",
-  "var(--chart-2)",
-  "var(--chart-3)",
-  "var(--chart-4)",
-  "var(--chart-5)",
-];
+// Keep the distribution in the Praxis orange family while making each option
+// easy to distinguish at a glance.
+const DISTRIBUTION_COLORS = ["#fb923c", "#e75b0c", "#9a3412"];
+const FUNNEL_COLORS = ["#fed7aa", "#fdba74", "#fb923c", "#ea580c", "#9a3412"];
 
 const STOPWORDS = new Set([
   "the","a","an","and","or","but","of","in","on","at","to","for","with","by","from","is","was","were","are","be","been","being","this","that","these","those","i","we","you","they","he","she","it","my","our","your","their","his","her","its","as","if","then","than","so","not","no","yes","do","did","does","done","have","has","had","will","would","can","could","should","may","might","just","really","very","much","more","less","also","too","about","into","over","under","up","down","out","off","because","while","when","where","what","which","who","whom","there","here","now","because","since","like","such","need","want","make","made","get","got","go","goes","went","come","came","still","even","each","every","any","all","some","most","many","few","one","two","three","actually","kind","sort","thing","things"
@@ -245,7 +242,7 @@ export function DeterministicMetrics({
         <Card>
           <CardHeader>
             <div className="flex items-start justify-between gap-2">
-              <CardTitle className="text-base">Option distribution by decision</CardTitle>
+              <CardTitle className="text-base">Option Distribution by Decision</CardTitle>
               <FieldInfoHint className="shrink-0">
                 Stacked share of A / B / C choices across each decision.
               </FieldInfoHint>
@@ -263,7 +260,7 @@ export function DeterministicMetrics({
                 />
                 <Legend />
                 {optionLabels.map((lbl, i) => (
-                  <Bar key={lbl} dataKey={lbl} stackId="dist" fill={CHART_COLORS[i]} radius={[4, 4, 0, 0]} />
+                  <Bar key={lbl} dataKey={lbl} stackId="dist" fill={DISTRIBUTION_COLORS[i]} radius={[4, 4, 0, 0]} />
                 ))}
               </BarChart>
             </ResponsiveContainer>
@@ -274,7 +271,7 @@ export function DeterministicMetrics({
         <Card>
           <CardHeader>
             <div className="flex items-start justify-between gap-2">
-              <CardTitle className="text-base">Score distribution</CardTitle>
+              <CardTitle className="text-base">Score Distribution</CardTitle>
               <FieldInfoHint className="shrink-0">
                 How many {mode === "teams" ? "teams" : "participants"} landed on each total
                 score.
@@ -300,7 +297,7 @@ export function DeterministicMetrics({
         <Card>
           <CardHeader>
             <div className="flex items-start justify-between gap-2">
-              <CardTitle className="text-base">Avg seconds to decide</CardTitle>
+              <CardTitle className="text-base">Average Seconds to Decide</CardTitle>
               <FieldInfoHint className="shrink-0">
                 Mean time from the previous decision (or session start) to a submitted answer.
               </FieldInfoHint>
@@ -326,7 +323,7 @@ export function DeterministicMetrics({
         <Card>
           <CardHeader>
             <div className="flex items-start justify-between gap-2">
-              <CardTitle className="text-base">Completion funnel</CardTitle>
+              <CardTitle className="text-base">Completion Funnel</CardTitle>
               <FieldInfoHint className="shrink-0">
                 Joined → started → completed → reflected. Drop-off helps you spot pacing issues.
               </FieldInfoHint>
@@ -343,7 +340,7 @@ export function DeterministicMetrics({
                 />
                 <Bar dataKey="value" radius={[0, 4, 4, 0]}>
                   {funnelData.map((_, i) => (
-                    <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />
+                    <Cell key={i} fill={FUNNEL_COLORS[i % FUNNEL_COLORS.length]} />
                   ))}
                 </Bar>
               </BarChart>
@@ -356,7 +353,7 @@ export function DeterministicMetrics({
       <Card>
         <CardHeader>
           <div className="flex items-start justify-between gap-2">
-            <CardTitle className="text-base">Optimal-pick rate per decision</CardTitle>
+            <CardTitle className="text-base">Optimal-Pick Rate per Decision</CardTitle>
             <FieldInfoHint className="shrink-0">
               Share of {mode === "teams" ? "teams" : "participants"} who chose the
               highest-scoring option. Quick read on where your students nail the call vs. struggle.
@@ -394,7 +391,7 @@ export function DeterministicMetrics({
         <Card>
           <CardHeader>
             <div className="flex items-start justify-between gap-2">
-              <CardTitle className="text-base">Reflection vocabulary</CardTitle>
+              <CardTitle className="text-base">Reflection Vocabulary</CardTitle>
               <FieldInfoHint className="shrink-0">
                 Most-used words in submitted reflections (deterministic frequency, no AI).
               </FieldInfoHint>

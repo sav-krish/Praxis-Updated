@@ -629,7 +629,7 @@ export function SimulationAssistant({
       onClick={openHelp}
       className={cn(
         "h-14 rounded-full shadow-xl",
-        helpPortalTarget ? "" : "fixed bottom-5 right-5 z-[70]",
+        helpPortalTarget ? "" : "fixed bottom-5 right-5 z-40",
         helpUsed ? "w-14 px-0" : "px-5",
       )}
       aria-label="Open help"

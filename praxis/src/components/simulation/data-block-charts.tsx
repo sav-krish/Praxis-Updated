@@ -177,8 +177,17 @@ export function DataBlockChartRenderer({ block }: { block: SimulationDataBlock }
                 outerRadius={80}
                 paddingAngle={2}
                 dataKey="value"
-                label={({ name, percent }) => `${name} ${((percent ?? 0) * 100).toFixed(0)}%`}
-                labelLine={{ stroke: "var(--muted-foreground)" }}
+                label={
+                  data.showLabels !== false
+                    ? ({ name, percent }) =>
+                        `${name} ${((percent ?? 0) * 100).toFixed(0)}%`
+                    : false
+                }
+                labelLine={
+                  data.showLabels !== false
+                    ? { stroke: "var(--muted-foreground)" }
+                    : false
+                }
               >
                 {chartData.map((_, index) => (
                   <Cell key={index} fill={colors[index % colors.length]} />

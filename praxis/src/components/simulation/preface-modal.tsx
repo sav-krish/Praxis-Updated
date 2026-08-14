@@ -137,7 +137,7 @@ export function SimulationEntryModal({
         if (!nextOpen) finishEntry(onStart, false);
       }}
     >
-      <DialogContent className={`${FULL_SCREEN_DIALOG_CLASS} overflow-y-auto`} showCloseButton={false}>
+      <DialogContent className={FULL_SCREEN_DIALOG_CLASS} showCloseButton={false}>
         <button
           type="button"
           onClick={() => finishEntry(onStart, false)}
@@ -147,7 +147,7 @@ export function SimulationEntryModal({
           <X className="h-6 w-6" aria-hidden />
         </button>
 
-        <main className="mx-auto flex min-h-full w-full max-w-6xl flex-col justify-center px-4 py-20 sm:px-8 lg:px-12">
+        <main className="min-h-0 w-full flex-1 overflow-y-auto overscroll-contain px-4 pt-18 pb-[max(2rem,env(safe-area-inset-bottom))] sm:px-8 sm:py-20 lg:px-12">
           <div className="mx-auto w-full max-w-5xl">
             <div className="flex flex-wrap items-center gap-3">
               <DialogTitle className="text-3xl font-bold tracking-tight text-foreground sm:text-5xl">
@@ -160,10 +160,10 @@ export function SimulationEntryModal({
               ) : null}
             </div>
 
-            <section className="mt-10" aria-labelledby="entry-simulation-title">
+            <section className="mt-7 sm:mt-10" aria-labelledby="entry-simulation-title">
               <h2
                 id="entry-simulation-title"
-                className="text-2xl font-bold text-foreground sm:text-3xl"
+                className="break-words text-2xl font-bold text-foreground sm:text-3xl"
               >
                 {title}
               </h2>
@@ -172,7 +172,7 @@ export function SimulationEntryModal({
                   "Step into the scenario, weigh the trade-offs, and see how your decisions shape the outcome."}
               </DialogDescription>
 
-              <div className="mt-7 grid overflow-hidden rounded-2xl border border-border bg-card text-card-foreground shadow-sm sm:grid-cols-3">
+              <div className="mt-5 grid overflow-hidden rounded-2xl border border-border bg-card text-card-foreground shadow-sm sm:mt-7 sm:grid-cols-3">
                 <EntryMetadata
                   icon={UserRound}
                   label="Your role"
@@ -195,7 +195,7 @@ export function SimulationEntryModal({
               </div>
             </section>
 
-            <Separator className="my-9" />
+            <Separator className="my-6 sm:my-9" />
 
             <section className="text-center" aria-labelledby="entry-review-question">
               <h2
@@ -205,7 +205,7 @@ export function SimulationEntryModal({
                 Would you like to review how simulations work before you begin?
               </h2>
 
-              <div className="mx-auto mt-7 grid max-w-4xl gap-3 sm:grid-cols-2 sm:gap-5">
+              <div className="mx-auto mt-5 grid max-w-4xl gap-3 sm:mt-7 sm:grid-cols-2 sm:gap-5">
                 <Button
                   type="button"
                   variant="outline"
@@ -225,7 +225,7 @@ export function SimulationEntryModal({
 
               <label
                 htmlFor={checkboxId}
-                className="mx-auto mt-7 flex w-fit cursor-pointer items-center gap-3 text-left text-sm font-medium text-foreground sm:text-base"
+                className="mx-auto mt-5 flex w-fit cursor-pointer items-center gap-3 text-left text-sm font-medium text-foreground sm:mt-7 sm:text-base"
               >
                 <input
                   id={checkboxId}
@@ -237,7 +237,7 @@ export function SimulationEntryModal({
                 <span>Don't ask me again for future simulations</span>
               </label>
 
-              <p className="mt-5 text-sm text-muted-foreground sm:text-base">
+              <p className="mt-4 text-sm text-muted-foreground sm:mt-5 sm:text-base">
                 You can always open onboarding from the Help button.
               </p>
             </section>
@@ -882,7 +882,7 @@ export function SimulationOnboardingCarousel({
             Learn how the simulation works before beginning.
           </DialogDescription>
 
-          <header className="flex shrink-0 items-center justify-between gap-4 border-b border-border bg-background px-4 py-3 sm:px-7">
+          <header className="flex shrink-0 items-center justify-between gap-4 border-b border-border bg-background px-4 pt-[max(0.75rem,env(safe-area-inset-top))] pb-3 sm:px-7 sm:py-3">
             <p className="text-sm font-medium text-muted-foreground">
               Onboarding · {safeIndex + 1} of {screens.length}
             </p>
@@ -899,12 +899,12 @@ export function SimulationOnboardingCarousel({
             </div>
           </header>
 
-          <main className="min-h-0 flex-1 overflow-y-auto px-4 py-6 sm:px-8 sm:py-8">
-            {renderScreen()}
+          <main className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-5 pb-[max(1.5rem,env(safe-area-inset-bottom))] sm:px-8 sm:py-8">
+            <div className="mx-auto w-full max-w-5xl">{renderScreen()}</div>
           </main>
 
-          <footer className="shrink-0 border-t border-border bg-background px-4 py-3 sm:px-7">
-            <div className="mx-auto grid w-full max-w-5xl grid-cols-[auto_1fr_auto] items-center gap-3">
+          <footer className="shrink-0 border-t border-border bg-background px-3 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:px-7 sm:py-3">
+            <div className="mx-auto grid w-full max-w-5xl grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 sm:gap-3">
               <Button
                 type="button"
                 variant="outline"
@@ -961,7 +961,7 @@ export function SimulationOnboardingCarousel({
           </footer>
           <div
             ref={setHelpPortalTarget}
-            className="fixed bottom-5 right-5 z-[60]"
+            className="fixed right-4 bottom-[max(4.5rem,calc(env(safe-area-inset-bottom)+4.5rem))] z-[60] sm:bottom-5 sm:right-5"
           />
         </DialogContent>
       </Dialog>

@@ -7,6 +7,13 @@ export const LEADERBOARD_XP = {
 
 export type LeaderboardTier = keyof typeof LEADERBOARD_XP;
 
+export const OPTION_OUTCOME_SCORES = [
+  { value: 3, label: "Perfect" },
+  { value: 2.5, label: "Good" },
+  { value: 2, label: "Decent" },
+  { value: 1, label: "Poor" },
+] as const;
+
 export const LEADERBOARD_TIERS = (
   Object.entries(LEADERBOARD_XP) as Array<[LeaderboardTier, number]>
 ).map(([tier, xp]) => ({ tier, xp }));

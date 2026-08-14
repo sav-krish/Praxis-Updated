@@ -36,6 +36,8 @@ export interface TimelineBlockData {
 export interface PieChartBlockData {
   labels: string[];
   values: number[];
+  /** Pie-slice labels are shown unless explicitly disabled. */
+  showLabels?: boolean;
 }
 
 export type DataBlockPayload =

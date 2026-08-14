@@ -188,6 +188,7 @@ interface ReflectionQuestion {
 interface PlaySessionPayload {
   session: Session;
   participantCount: number;
+  studentAttemptSource: "explore" | "classroom" | null;
   participant: {
     id: string;
     name: string;
@@ -235,36 +236,32 @@ function roundedPercentages(counts: number[]): number[] {
   return floors;
 }
 
-function SimulationFlowNavigation({
-  classVotesEnabled,
-  votesNavLabel,
+function SimulationProgressTimeline({
+  decisionCount,
   activeStage,
 }: {
-  classVotesEnabled: boolean;
-  votesNavLabel: string;
+  decisionCount: number;
   activeStage: string;
 }) {
   const stages = [
     { id: "background", label: "Background", shortLabel: "BG" },
-    { id: "consequence", label: "Consequence", shortLabel: "Result" },
-    ...(classVotesEnabled
-      ? [{ id: "class-votes", label: votesNavLabel, shortLabel: "Votes" }]
-      : []),
+    ...Array.from({ length: decisionCount }, (_, index) => ({
+      id: `decision-${index + 1}`,
+      label: `Decision ${index + 1}`,
+      shortLabel: `D${index + 1}`,
+    })),
     { id: "reflection", label: "Reflection", shortLabel: "Reflect" },
-    { id: "complete", label: "Complete", shortLabel: "Done" },
+    { id: "results", label: "Results", shortLabel: "Results" },
   ];
 
   return (
-    <nav
-      aria-label="Simulation stages"
-      className="w-full overflow-x-auto rounded-xl border bg-card px-2 py-1.5 shadow-sm"
-    >
-      <ol className="flex min-w-max items-center justify-center text-[11px] sm:text-xs">
+    <nav aria-label="Simulation progress" className="min-w-0 flex-1 overflow-x-auto">
+      <ol className="flex min-w-max items-center justify-center text-[10px] sm:text-xs">
         {stages.map((stage, index) => (
           <li key={stage.id} className="flex items-center">
-            {index > 0 ? <span className="mx-0.5 text-muted-foreground">›</span> : null}
+            {index > 0 ? <span className="mx-1 text-muted-foreground">›</span> : null}
             <span
-              className={`rounded-md px-1.5 py-1 sm:px-2 ${
+              className={`whitespace-nowrap rounded-md px-1 py-1 sm:px-1.5 ${
                 activeStage === stage.id
                   ? "bg-primary/10 font-semibold text-primary"
                   : "text-muted-foreground"
@@ -282,41 +279,17 @@ function SimulationFlowNavigation({
 
 function SimulationTopHeader({
   decisionCount,
-  reflectionCount,
-  completedSteps,
-  currentDecision,
+  activeStage,
   roleLabel,
 }: {
   decisionCount: number;
-  reflectionCount: number;
-  completedSteps: number;
-  currentDecision: number;
+  activeStage: string;
   roleLabel: string;
 }) {
-  const totalSteps = Math.max(1, decisionCount + reflectionCount);
   return (
     <div className="flex w-full items-center justify-between gap-3 rounded-xl border bg-card px-3 py-2 shadow-sm">
       <PraxisLogo className="h-9 w-auto" priority />
-      <div
-        className="flex min-w-0 flex-1 flex-col items-center justify-center gap-1"
-        aria-label={`${Math.min(completedSteps, totalSteps)} of ${totalSteps} required steps completed`}
-      >
-        <span className="whitespace-nowrap text-[11px] font-semibold text-foreground sm:text-xs">
-          Decision {Math.max(1, Math.min(currentDecision, decisionCount))} of {decisionCount}
-        </span>
-        <span className="hidden items-center justify-center gap-1.5 sm:flex">
-          {Array.from({ length: totalSteps }, (_, index) => (
-            <span
-              key={index}
-              className={`h-1 w-7 rounded-full lg:w-10 ${
-                index < completedSteps
-                  ? "bg-[#bf6b3d]"
-                  : "bg-[#e8e2da] dark:bg-[#4a4741]"
-              }`}
-            />
-          ))}
-        </span>
-      </div>
+      <SimulationProgressTimeline decisionCount={decisionCount} activeStage={activeStage} />
       <div className="flex shrink-0 items-center gap-2">
         <Badge className="max-w-40 truncate bg-[#f3e3d9] text-[#8f4b2d] hover:bg-[#f3e3d9]">
           {roleLabel}
@@ -381,6 +354,9 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
   const [videoError, setVideoError] = useState<string | null>(null);
   const [responseInputMode, setResponseInputMode] = useState<"text" | "video">("text");
   const [studentAttemptId, setStudentAttemptId] = useState<string | null>(null);
+  const [studentAttemptSource, setStudentAttemptSource] = useState<
+    PlaySessionPayload["studentAttemptSource"]
+  >(null);
   const [completedReportId, setCompletedReportId] = useState<string | null>(null);
   const [aiJustificationFeedback, setAiJustificationFeedback] = useState<string | null>(null);
   const [selectedRoleLabel, setSelectedRoleLabel] = useState("Decision maker");
@@ -768,6 +744,7 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
     const sessionWithSimulation = payload.session;
     setSession(sessionWithSimulation);
     setParticipantCount(payload.participantCount ?? 0);
+    setStudentAttemptSource(payload.studentAttemptSource ?? null);
     setParticipantId(storedParticipantId);
     setParticipantName(existingParticipant.name || storedName || "");
     const participantTeamState = resolveParticipantTeamState(payload, storedParticipantId);
@@ -1516,17 +1493,8 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
             <div className="max-w-5xl mx-auto space-y-4">
               <SimulationTopHeader
                 decisionCount={decisions.length}
-                reflectionCount={reflectionQuestions.length}
-                completedSteps={0}
-                currentDecision={1}
-                roleLabel={selectedRoleLabel}
-              />
-              <SimulationFlowNavigation
-                classVotesEnabled={
-                  getSimulationFlowSettings(session?.simulation.preferences).classVotesEnabled
-                }
-                votesNavLabel={votesTitle}
                 activeStage="background"
+                roleLabel={selectedRoleLabel}
               />
               <Card>
                 <CardHeader className="px-4 sm:px-6">
@@ -1695,17 +1663,8 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
               <div className="max-w-5xl mx-auto space-y-4">
                 <SimulationTopHeader
                   decisionCount={decisions.length}
-                  reflectionCount={reflectionQuestions.length}
-                  completedSteps={decision.order_num}
-                  currentDecision={decision.order_num}
+                  activeStage={`decision-${decision.order_num}`}
                   roleLabel={selectedRoleLabel}
-                />
-                <SimulationFlowNavigation
-                  classVotesEnabled={
-                    getSimulationFlowSettings(session?.simulation.preferences).classVotesEnabled
-                  }
-                  votesNavLabel={votesTitle}
-                  activeStage="consequence"
                 />
                 <Card>
                   <CardHeader className="px-4 sm:px-6">
@@ -1732,7 +1691,8 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
                         </Badge>
                       ) : null}
                     </div>
-                    {currentDataImpact && currentDataImpact.length > 0 ? (
+                    {getSimulationFlowSettings(session?.simulation.preferences).impactMetricsEnabled &&
+                    currentDataImpact && currentDataImpact.length > 0 ? (
                       <div className="rounded-2xl border bg-card px-4 sm:px-6">
                         <p className="py-4 font-bold">What happened as a result:</p>
                         <div>
@@ -1826,10 +1786,10 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
                       <Button onClick={continueToNext} className="w-full sm:w-auto min-h-[48px]">
                         {getSimulationFlowSettings(session?.simulation.preferences)
                           .classVotesEnabled
-                          ? `Proceed to ${votesTitle} →`
+                          ? `Proceed to ${votesTitle}`
                           : decisionIndex < decisions.length - 1
-                            ? "Proceed to Next Decision →"
-                            : "Next: Reflection →"}
+                            ? "Proceed to Next Decision"
+                            : "Next: Reflection"}
                         <ArrowRight className="ml-2 h-4 w-4 shrink-0" />
                       </Button>
                     </div>
@@ -1850,19 +1810,8 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
             <div className="mx-auto mb-3 max-w-5xl">
               <SimulationTopHeader
                 decisionCount={decisions.length}
-                reflectionCount={reflectionQuestions.length}
-                completedSteps={decision.order_num - 1}
-                currentDecision={decision.order_num}
+                activeStage={`decision-${decision.order_num}`}
                 roleLabel={selectedRoleLabel}
-              />
-            </div>
-            <div className="mx-auto mb-3 max-w-5xl">
-              <SimulationFlowNavigation
-                classVotesEnabled={
-                  getSimulationFlowSettings(session?.simulation.preferences).classVotesEnabled
-                }
-                votesNavLabel={votesTitle}
-                activeStage=""
               />
             </div>
             <div className="mx-auto max-w-5xl">
@@ -2110,6 +2059,7 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
 
               {getSimulationFlowSettings(session?.simulation.preferences).classVotesEnabled &&
               getSimulationFlowSettings(session?.simulation.preferences).showVoteSubmissionStatus &&
+              studentAttemptSource !== "explore" &&
               submissionStatus?.decisionId === decision.id ? (
                 <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border bg-muted/40 px-4 py-3 text-sm">
                   <span className="font-semibold">Live submission counter</span>
@@ -2199,15 +2149,8 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
             <div className="max-w-5xl mx-auto space-y-4">
               <SimulationTopHeader
                 decisionCount={decisions.length}
-                reflectionCount={reflectionQuestions.length}
-                completedSteps={decisionIndex + 1}
-                currentDecision={decisionIndex + 1}
+                activeStage={`decision-${decisionIndex + 1}`}
                 roleLabel={selectedRoleLabel}
-              />
-              <SimulationFlowNavigation
-                classVotesEnabled
-                votesNavLabel={votesTitle}
-                activeStage="class-votes"
               />
               <Card>
                 <CardHeader className="px-4 sm:px-6">
@@ -2390,7 +2333,7 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
                   }}
                   className="min-h-[48px]"
                 >
-                  {decisionIndex < decisions.length - 1 ? "Continue →" : "Reflection →"}
+                  {decisionIndex < decisions.length - 1 ? "Continue" : "Reflection"}
                   <ArrowRight className="ml-2 h-4 w-4 shrink-0" />
                 </Button>
               </div>
@@ -2403,10 +2346,6 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
 
   // Reflection screen
   if (currentStep === 6) {
-    const completedReflections = reflectionQuestions.filter(
-      (question) => reflectionAnswers[question.id]?.trim(),
-    ).length;
-    const completedRequiredSteps = decisions.length + completedReflections;
     return (
       <div className="flex min-h-dvh flex-col">
         {previewBar}
@@ -2415,17 +2354,8 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
             <div className="max-w-5xl mx-auto space-y-4">
               <SimulationTopHeader
                 decisionCount={decisions.length}
-                reflectionCount={reflectionQuestions.length}
-                completedSteps={completedRequiredSteps}
-                currentDecision={decisions.length}
-                roleLabel={selectedRoleLabel}
-              />
-              <SimulationFlowNavigation
-                classVotesEnabled={
-                  getSimulationFlowSettings(session?.simulation.preferences).classVotesEnabled
-                }
-                votesNavLabel={votesTitle}
                 activeStage="reflection"
+                roleLabel={selectedRoleLabel}
               />
               <Button
                 variant="outline"
@@ -2493,17 +2423,8 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
           <div className="max-w-5xl mx-auto space-y-4">
             <SimulationTopHeader
               decisionCount={decisions.length}
-              reflectionCount={reflectionQuestions.length}
-              completedSteps={decisions.length + reflectionQuestions.length}
-              currentDecision={decisions.length}
+              activeStage="results"
               roleLabel={selectedRoleLabel}
-            />
-            <SimulationFlowNavigation
-              classVotesEnabled={
-                getSimulationFlowSettings(session?.simulation.preferences).classVotesEnabled
-              }
-              votesNavLabel={votesTitle}
-              activeStage="complete"
             />
             <Card>
               <CardHeader className="text-center px-4 sm:px-6">

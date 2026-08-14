@@ -4,6 +4,7 @@ export type SimulationFlowSettings = {
   classVotesEnabled: boolean;
   showVoteSubmissionStatus: boolean;
   showAnonymousJustifications: boolean;
+  impactMetricsEnabled: boolean;
   leaderboardEnabled: boolean;
   rankChipEnabled: boolean;
   leaderboardAnonymous: boolean;
@@ -29,6 +30,7 @@ export function getSimulationFlowSettings(
     classVotesEnabled: flow.class_votes_enabled !== false,
     showVoteSubmissionStatus: flow.show_vote_submission_status !== false,
     showAnonymousJustifications: flow.show_anonymous_justifications === true,
+    impactMetricsEnabled: flow.impact_metrics_enabled !== false,
     leaderboardEnabled: flow.leaderboard_enabled !== false,
     rankChipEnabled: flow.rank_chip_enabled !== false,
     leaderboardAnonymous: flow.leaderboard_anonymous !== false,
@@ -61,6 +63,7 @@ export function sessionFlowSettings(
       settings.classVotesEnabled && settings.showVoteSubmissionStatus,
     show_anonymous_justifications:
       settings.classVotesEnabled && settings.showAnonymousJustifications,
+    impact_metrics_enabled: settings.impactMetricsEnabled,
     leaderboard_enabled: settings.leaderboardEnabled,
     rank_chip_enabled: settings.rankChipEnabled,
     leaderboard_anonymous: settings.leaderboardAnonymous,
@@ -91,6 +94,7 @@ export function setSimulationFlowSettings(
       settings.classVotesEnabled && settings.showVoteSubmissionStatus,
     show_anonymous_justifications:
       settings.classVotesEnabled && settings.showAnonymousJustifications,
+    impact_metrics_enabled: settings.impactMetricsEnabled,
     leaderboard_enabled: settings.leaderboardEnabled,
     rank_chip_enabled: settings.rankChipEnabled,
     leaderboard_anonymous: settings.leaderboardAnonymous,

@@ -77,11 +77,8 @@ export const OptionSchema = z.object({
     .string()
     .describe("1-2 sentences describing the realistic short-term consequence."),
   score: z
-    .number()
-    .int()
-    .min(1)
-    .max(3)
-    .describe("3 = optimal, 2 = acceptable, 1 = poor."),
+    .union([z.literal(1), z.literal(2), z.literal(2.5), z.literal(3)])
+    .describe("3 = Perfect, 2.5 = Good, 2 = Decent, 1 = Poor."),
 });
 
 export const DecisionSchema = z.object({

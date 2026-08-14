@@ -2,7 +2,7 @@ import Link from "next/link";
 import { Suspense } from "react";
 import { createClient } from "@/lib/supabase/server";
 import { Button } from "@/components/ui/button";
-import { Plus, Sparkles, Library as LibraryIcon, ArrowRight } from "lucide-react";
+import { Sparkles, Library as LibraryIcon, ArrowRight } from "lucide-react";
 import { SIMULATION_DASHBOARD_LIST } from "@/lib/supabase-query-columns";
 import {
   DashboardSimulationCard,
@@ -172,8 +172,19 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
         .order("created_at", { ascending: false })
     : { data: [] as { id: string; simulation_id: string; status: string }[] };
 
+  const { data: studentAttemptSessions } = (runningSessions?.length ?? 0) > 0
+    ? await supabase
+        .from("student_simulation_attempts")
+        .select("session_id")
+        .in("session_id", runningSessions!.map((session) => session.id))
+    : { data: [] as { session_id: string }[] };
+  const studentAttemptSessionIds = new Set(
+    studentAttemptSessions?.map((attempt) => attempt.session_id) ?? [],
+  );
+
   const simulationById = new Map(rows.map((row) => [row.id, row]));
   const sessionBySimulation = (runningSessions || []).reduce<Record<string, { id: string; status: string }>>((acc, s) => {
+    if (studentAttemptSessionIds.has(s.id)) return acc;
     const simulation = simulationById.get(s.simulation_id);
     if (!simulation) return acc;
 
@@ -204,11 +215,6 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
       icon: LibraryIcon,
       label: "Browse our ready-made simulation library",
     },
-    {
-      href: "/create",
-      icon: Plus,
-      label: "Create simulation",
-    },
   ];
 
   const hasActiveFilters =
@@ -227,7 +233,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
             Pick how you&apos;d like to start.
           </p>
 
-          <div className="mt-6 grid gap-3 grid-cols-1 sm:grid-cols-3">
+          <div className="mt-6 grid gap-3 grid-cols-1 sm:grid-cols-2">
             {quickActions.map(({ href, icon: Icon, label }) => (
               <Link key={label} href={href} className="group">
                 <div className="flex h-full items-center justify-between gap-4 rounded-2xl bg-white/85 p-4 sm:p-5 backdrop-blur-sm transition-all hover:-translate-y-0.5 hover:bg-white hover:shadow-soft">
@@ -274,12 +280,15 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
         >
           {simulations.map((simulation) => {
             const activeSession = sessionBySimulation[simulation.id];
+            const hasReports =
+              simulationsWithReports.has(simulation.id) ||
+              activeSession?.status === "running";
             return (
               <div key={simulation.id} className={SIMULATION_CARD_GRID_ITEM_CLASS}>
                 <DashboardSimulationCard
                   simulation={simulation as DashboardSimulationRow}
                   activeSession={activeSession}
-                  hasReports={simulationsWithReports.has(simulation.id)}
+                  hasReports={hasReports}
                 />
               </div>
             );

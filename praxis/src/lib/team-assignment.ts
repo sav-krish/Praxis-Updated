@@ -82,6 +82,6 @@ export async function maybeRebalanceSessionTeams(
   },
   supabase: ServiceRoleClient
 ) {
-  if (simulation.mode !== "teams" || simulation.team_assignment === "self") return;
+  if (simulation.mode !== "teams") return;
   await rebalanceAutoTeamsForSession(sessionId, Math.max(2, simulation.team_size ?? 4), supabase);
 }
