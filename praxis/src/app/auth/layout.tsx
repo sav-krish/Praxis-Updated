@@ -12,7 +12,7 @@ export default function AuthLayout({
       <header className="fixed inset-x-0 top-0 z-50 border-b bg-card/95 backdrop-blur">
         <div className="mx-auto flex min-h-16 max-w-6xl items-center justify-between px-4">
           <Link href="/">
-            <PraxisLogo className="h-12 w-auto" priority />
+            <PraxisLogo size="navbar" priority />
           </Link>
           <ThemeToggle />
         </div>

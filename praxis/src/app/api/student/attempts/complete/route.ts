@@ -24,7 +24,7 @@ export async function POST(request: NextRequest) {
 
   const { data: attempt } = await supabase
     .from("student_simulation_attempts")
-    .select("id, student_id, simulation_id, session_id, participant_id, status")
+    .select("id, student_id, simulation_id, session_id, participant_id, source, status")
     .eq("id", body.attemptId)
     .single();
 
@@ -89,10 +89,12 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: attemptError.message }, { status: 500 });
   }
 
-  await adminSupabase
-    .from("sessions")
-    .update({ status: "complete", ended_at: now, current_step: 6 })
-    .eq("id", attempt.session_id);
+  if (attempt.source === "explore") {
+    await adminSupabase
+      .from("sessions")
+      .update({ status: "complete", ended_at: now, current_step: 6 })
+      .eq("id", attempt.session_id);
+  }
 
   return NextResponse.json({ attemptId: attempt.id, score: percentScore });
 }

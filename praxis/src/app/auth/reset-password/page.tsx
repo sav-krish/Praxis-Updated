@@ -69,7 +69,7 @@ export default function ResetPasswordPage() {
       <Card className="w-full max-w-md">
         <CardHeader>
           <div className="flex items-center justify-center mb-4">
-            <PraxisLogo className="h-12 w-auto" />
+            <PraxisLogo size="form" />
           </div>
           <CardTitle>Reset Password</CardTitle>
           <CardDescription>Enter the code from your email and choose a new password</CardDescription>

@@ -38,8 +38,8 @@ export function getSimulationFlowSettings(
 }
 
 /**
- * A podium reveals student identities, so it is only available for a named
- * leaderboard with enough ranked participants to form standings.
+ * A podium is safe for both named and anonymous leaderboards: the leaderboard
+ * route supplies anonymous labels whenever anonymity is enabled.
  */
 export function canShowLeaderboardPodium(
   settings: SimulationFlowSettings,
@@ -48,7 +48,6 @@ export function canShowLeaderboardPodium(
 ): boolean {
   return (
     settings.leaderboardEnabled &&
-    !settings.leaderboardAnonymous &&
     participantCount >= 1 &&
     rankedParticipantCount >= 1
   );

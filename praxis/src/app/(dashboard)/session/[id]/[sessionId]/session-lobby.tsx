@@ -525,7 +525,7 @@ export function SessionLobby({
             )}
           </div>
         </div>
-        <div className="flex gap-2 shrink-0">
+        <div className="flex w-full gap-2 shrink-0 sm:w-auto">
           {session.status === "lobby" && (
             <div className="flex flex-col items-stretch sm:items-end gap-1 flex-1 sm:flex-none min-w-0">
               {participants.length > 0 && (
@@ -628,8 +628,8 @@ export function SessionLobby({
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4 px-4 sm:px-6">
-                <div className="flex items-start justify-between gap-4">
-                  <div>
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
                     <p className="text-sm font-medium text-foreground">Class Votes</p>
                     <p className="text-xs text-muted-foreground">
                       {flowSettings.classVotesEnabled
@@ -647,20 +647,51 @@ export function SessionLobby({
                         classVotesEnabled: !flowSettings.classVotesEnabled,
                       })
                     }
-                    className={`relative h-6 w-11 shrink-0 rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ${
+                    className={`relative h-11 w-[52px] shrink-0 rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 sm:h-6 sm:w-11 ${
                       flowSettings.classVotesEnabled ? "bg-primary" : "bg-input"
                     }`}
                   >
                     <span
-                      className={`absolute left-1 top-1 h-4 w-4 rounded-full bg-background shadow transition-transform ${
-                        flowSettings.classVotesEnabled ? "translate-x-5" : "translate-x-0"
+                      className={`absolute left-1.5 top-3 h-5 w-5 rounded-full bg-background shadow transition-transform sm:left-1 sm:top-1 sm:h-4 sm:w-4 ${
+                        flowSettings.classVotesEnabled ? "translate-x-6 sm:translate-x-5" : "translate-x-0"
                       }`}
                     />
                   </button>
                 </div>
 
-                <div className="flex items-start justify-between gap-4 border-t border-border pt-4">
-                  <div>
+                <div className="flex items-start justify-between gap-3 border-t border-border pt-4">
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium text-foreground">Consequence impact metrics</p>
+                    <p className="text-xs text-muted-foreground">
+                      {flowSettings.impactMetricsEnabled
+                        ? "Students can see the impact breakdown after each decision"
+                        : "Consequence impact metrics are hidden from students"}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    role="switch"
+                    aria-checked={flowSettings.impactMetricsEnabled}
+                    aria-label="Show consequence impact metrics"
+                    onClick={() =>
+                      void updateFlowSettings({
+                        impactMetricsEnabled: !flowSettings.impactMetricsEnabled,
+                      })
+                    }
+                    className={`relative h-11 w-[52px] shrink-0 rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 sm:h-6 sm:w-11 ${
+                      flowSettings.impactMetricsEnabled ? "bg-primary" : "bg-input"
+                    }`}
+                  >
+                    <span
+                      className={`absolute left-1.5 top-3 h-5 w-5 rounded-full bg-background shadow transition-transform sm:left-1 sm:top-1 sm:h-4 sm:w-4 ${
+                        flowSettings.impactMetricsEnabled ? "translate-x-6 sm:translate-x-5" : "translate-x-0"
+                      }`}
+                    />
+                  </button>
+                </div>
+
+                <div className="flex items-start justify-between gap-3 border-t border-border pt-4">
+                  <div className="min-w-0">
                     <p className="text-sm font-medium text-foreground">Leaderboard</p>
                     <p className="text-xs text-muted-foreground">
                       {flowSettings.leaderboardEnabled
@@ -678,13 +709,13 @@ export function SessionLobby({
                         leaderboardEnabled: !flowSettings.leaderboardEnabled,
                       })
                     }
-                    className={`relative h-6 w-11 shrink-0 rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ${
+                    className={`relative h-11 w-[52px] shrink-0 rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 sm:h-6 sm:w-11 ${
                       flowSettings.leaderboardEnabled ? "bg-primary" : "bg-input"
                     }`}
                   >
                     <span
-                      className={`absolute left-1 top-1 h-4 w-4 rounded-full bg-background shadow transition-transform ${
-                        flowSettings.leaderboardEnabled ? "translate-x-5" : "translate-x-0"
+                      className={`absolute left-1.5 top-3 h-5 w-5 rounded-full bg-background shadow transition-transform sm:left-1 sm:top-1 sm:h-4 sm:w-4 ${
+                        flowSettings.leaderboardEnabled ? "translate-x-6 sm:translate-x-5" : "translate-x-0"
                       }`}
                     />
                   </button>
@@ -692,8 +723,8 @@ export function SessionLobby({
 
                 {flowSettings.leaderboardEnabled ? (
                   <div className="space-y-4 border-t border-border pt-4">
-                    <div className="flex items-start justify-between gap-4">
-                      <div>
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
                         <p className="text-sm font-medium text-foreground">Anonymous leaderboard</p>
                         <p className="text-xs text-muted-foreground">
                           {flowSettings.leaderboardAnonymous
@@ -711,20 +742,20 @@ export function SessionLobby({
                             leaderboardAnonymous: !flowSettings.leaderboardAnonymous,
                           })
                         }
-                        className={`relative h-6 w-11 shrink-0 rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ${
+                        className={`relative h-11 w-[52px] shrink-0 rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 sm:h-6 sm:w-11 ${
                           flowSettings.leaderboardAnonymous ? "bg-primary" : "bg-input"
                         }`}
                       >
                         <span
-                          className={`absolute left-1 top-1 h-4 w-4 rounded-full bg-background shadow transition-transform ${
-                            flowSettings.leaderboardAnonymous ? "translate-x-5" : "translate-x-0"
+                          className={`absolute left-1.5 top-3 h-5 w-5 rounded-full bg-background shadow transition-transform sm:left-1 sm:top-1 sm:h-4 sm:w-4 ${
+                            flowSettings.leaderboardAnonymous ? "translate-x-6 sm:translate-x-5" : "translate-x-0"
                           }`}
                         />
                       </button>
                     </div>
 
-                    <div className="flex items-start justify-between gap-4 border-t border-border pt-4">
-                      <div>
+                    <div className="flex items-start justify-between gap-3 border-t border-border pt-4">
+                      <div className="min-w-0">
                         <p className="text-sm font-medium text-foreground">Rank chip</p>
                         <p className="text-xs text-muted-foreground">
                           Keep each student&apos;s rank available during the simulation.
@@ -740,13 +771,13 @@ export function SessionLobby({
                             rankChipEnabled: !flowSettings.rankChipEnabled,
                           })
                         }
-                        className={`relative h-6 w-11 shrink-0 rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ${
+                        className={`relative h-11 w-[52px] shrink-0 rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 sm:h-6 sm:w-11 ${
                           flowSettings.rankChipEnabled ? "bg-primary" : "bg-input"
                         }`}
                       >
                         <span
-                          className={`absolute left-1 top-1 h-4 w-4 rounded-full bg-background shadow transition-transform ${
-                            flowSettings.rankChipEnabled ? "translate-x-5" : "translate-x-0"
+                          className={`absolute left-1.5 top-3 h-5 w-5 rounded-full bg-background shadow transition-transform sm:left-1 sm:top-1 sm:h-4 sm:w-4 ${
+                            flowSettings.rankChipEnabled ? "translate-x-6 sm:translate-x-5" : "translate-x-0"
                           }`}
                         />
                       </button>
@@ -769,9 +800,9 @@ export function SessionLobby({
                   const percentage = totalGroups > 0 ? (count / totalGroups) * 100 : 0;
                   return (
                     <div key={decision.id}>
-                      <div className="flex justify-between text-sm mb-1">
-                        <span>Decision {index + 1}</span>
-                        <span>
+                      <div className="flex items-start justify-between gap-3 text-sm mb-1">
+                        <span className="shrink-0">Decision {index + 1}</span>
+                        <span className="min-w-0 text-right tabular-nums">
                           {count} of {totalGroups} submitted
                           {flowSettings.showVoteSubmissionStatus && totalGroups > 0
                             ? ` · ${Math.min(100, Math.round((count / totalGroups) * 100))}%`
@@ -896,7 +927,7 @@ function ParticipantRow({
   }
 
   return (
-    <div className="flex items-center justify-between gap-2 py-1.5 px-2 rounded-md hover:bg-muted/50">
+    <div className="flex items-start justify-between gap-3 rounded-md px-2 py-2 hover:bg-muted/50 sm:items-center sm:py-1.5">
       <div className="flex items-center gap-2 min-w-0">
         <span className="text-sm truncate">{participant.name}</span>
         {showVoter && participant.is_voter && (
@@ -914,7 +945,7 @@ function ParticipantRow({
           if (val !== "none") onReassign(participant.id, val);
         }}
       >
-        <SelectTrigger className="h-7 w-[130px] text-xs shrink-0">
+        <SelectTrigger className="h-10 w-[132px] shrink-0 text-xs sm:h-8 sm:w-[130px]">
           <SelectValue placeholder="Assign role" />
         </SelectTrigger>
         <SelectContent>

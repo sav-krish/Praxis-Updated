@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createServiceRoleClient } from "@/lib/supabase/server";
+import { createClient, createServiceRoleClient } from "@/lib/supabase/server";
+import { canAccessParticipant } from "@/lib/student/participant-access";
 import type { Json } from "@/types/database";
 import { maybeRebalanceSessionTeams } from "@/lib/team-assignment";
 import {
@@ -16,7 +17,7 @@ const SESSION_SIMULATION_SELECT =
     current_step,
     is_preview,
     student_flow_settings,
-    simulation:simulations(id, title, background_content, mode, team_assignment, team_size, justification_type, estimated_minutes, hidden_profiles_enabled, preferences)
+    simulation:simulations(id, professor_id, title, background_content, mode, team_assignment, team_size, justification_type, estimated_minutes, hidden_profiles_enabled, preferences)
   ` as const;
 
 const SESSION_SIMULATION_SELECT_LEGACY =
@@ -25,7 +26,7 @@ const SESSION_SIMULATION_SELECT_LEGACY =
     status,
     current_step,
     is_preview,
-    simulation:simulations(id, title, background_content, mode, team_assignment, team_size, estimated_minutes, hidden_profiles_enabled, preferences)
+    simulation:simulations(id, professor_id, title, background_content, mode, team_assignment, team_size, estimated_minutes, hidden_profiles_enabled, preferences)
   ` as const;
 
 interface RouteContext {
@@ -37,8 +38,11 @@ const UNSAFE_JUSTIFICATION = /\b(fuck|shit|bitch|asshole|slut|whore)\b/i;
 
 export async function GET(request: NextRequest, { params }: RouteContext) {
   const { code } = await params;
-  const participantId = request.nextUrl.searchParams.get("participantId");
+  const participantId = request.nextUrl.searchParams.get("participantId")?.trim();
   const supabase = createServiceRoleClient();
+  const viewerUserId = participantId
+    ? (await (await createClient()).auth.getUser()).data.user?.id ?? null
+    : null;
 
   let { data: sessionData, error } = await supabase
     .from("sessions")
@@ -76,6 +80,7 @@ export async function GET(request: NextRequest, { params }: RouteContext) {
   const simulationData = sessionData.simulation as
     | {
         id: string;
+        professor_id: string;
         title: string;
         background_content: string | null;
         mode: string;
@@ -91,6 +96,8 @@ export async function GET(request: NextRequest, { params }: RouteContext) {
   if (!simulationData?.id) {
     return NextResponse.json({ error: "Simulation data unavailable" }, { status: 404 });
   }
+
+  const { professor_id: simulationOwnerId, ...sessionSimulation } = simulationData;
 
   await maybeRebalanceSessionTeams(
     sessionData.id,
@@ -110,7 +117,7 @@ export async function GET(request: NextRequest, { params }: RouteContext) {
     student_flow_settings:
       (sessionData as { student_flow_settings?: Json | null })
         .student_flow_settings ?? null,
-    simulation: simulationData,
+    simulation: sessionSimulation,
   };
 
   const [{ count }, participantResult] = await Promise.all([
@@ -121,7 +128,7 @@ export async function GET(request: NextRequest, { params }: RouteContext) {
     participantId
       ? supabase
           .from("participants")
-          .select("id, name, profile_id, team_id, is_voter")
+          .select("id, name, profile_id, team_id, is_voter, user_id")
           .eq("id", participantId)
           .eq("session_id", sessionData.id)
           .single()
@@ -133,6 +140,18 @@ export async function GET(request: NextRequest, { params }: RouteContext) {
   }
 
   let participantData = participantResult.data;
+
+  if (
+    participantData &&
+    !canAccessParticipant({
+      viewerUserId,
+      participantUserId: participantData.user_id,
+      isPreview: (sessionData as { is_preview?: boolean }).is_preview === true,
+      simulationOwnerId,
+    })
+  ) {
+    return NextResponse.json({ error: "This session belongs to a different account" }, { status: 403 });
+  }
 
   if (
     participantId &&
@@ -152,7 +171,7 @@ export async function GET(request: NextRequest, { params }: RouteContext) {
 
     const { data: refreshedParticipant } = await supabase
       .from("participants")
-      .select("id, name, profile_id, team_id, is_voter")
+      .select("id, name, profile_id, team_id, is_voter, user_id")
       .eq("id", participantId)
       .eq("session_id", sessionData.id)
       .single();
@@ -452,11 +471,13 @@ export async function PATCH(request: NextRequest, { params }: RouteContext) {
   const supabase = createServiceRoleClient();
   const { data: session } = await supabase
     .from("sessions")
-    .select("id, simulation_id, simulation:simulations(hidden_profiles_enabled)")
+    .select("id, simulation_id, is_preview, simulation:simulations(hidden_profiles_enabled, professor_id)")
     .eq("join_code", code.toUpperCase())
     .single();
 
-  const simulation = session?.simulation as { hidden_profiles_enabled?: boolean } | null;
+  const simulation = session?.simulation as
+    | { hidden_profiles_enabled?: boolean; professor_id?: string }
+    | null;
   if (!session || !simulation?.hidden_profiles_enabled) {
     return NextResponse.json({ error: "Roles are not enabled for this simulation" }, { status: 404 });
   }
@@ -464,7 +485,7 @@ export async function PATCH(request: NextRequest, { params }: RouteContext) {
   const [{ data: participant }, { data: profile }] = await Promise.all([
     supabase
       .from("participants")
-      .select("id")
+      .select("id, user_id")
       .eq("id", participantId)
       .eq("session_id", session.id)
       .single(),
@@ -478,6 +499,20 @@ export async function PATCH(request: NextRequest, { params }: RouteContext) {
 
   if (!participant || !profile) {
     return NextResponse.json({ error: "Participant or role not found" }, { status: 404 });
+  }
+
+  const {
+    data: { user },
+  } = await (await createClient()).auth.getUser();
+  if (
+    !canAccessParticipant({
+      viewerUserId: user?.id ?? null,
+      participantUserId: participant.user_id,
+      isPreview: session.is_preview === true,
+      simulationOwnerId: simulation.professor_id,
+    })
+  ) {
+    return NextResponse.json({ error: "This session belongs to a different account" }, { status: 403 });
   }
 
   const { error } = await supabase

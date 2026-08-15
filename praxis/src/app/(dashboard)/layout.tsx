@@ -10,7 +10,7 @@ import {
   DropdownMenuTrigger 
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { LogOut, Plus, BookOpen, User, Mail, MessageSquareHeart, Home, BarChart3, Pin } from "lucide-react";
+import { LogOut, Plus, BookOpen, User, Mail, MessageSquareHeart, Home, BarChart3, Menu, Pin } from "lucide-react";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { createServiceRoleClient } from "@/lib/supabase/server";
 import { CopilotLazy } from "@/components/copilot/copilot-lazy";
@@ -115,33 +115,72 @@ export default async function DashboardLayout({
       {/* Header */}
       <header className="bg-white border-b border-line/60 sticky top-0 z-50 safe-area-inset-top">
         <div className="container mx-auto px-3 sm:px-4 min-h-16 sm:min-h-18 flex items-center justify-between gap-2 py-2">
-          <Link href="/dashboard" className="flex items-center min-w-0">
-            <span className="inline-flex h-9 shrink-0 items-center justify-center rounded-sm bg-white p-0.5 dark:bg-transparent sm:h-10">
-              <PraxisLogo className="h-full w-auto" priority />
+          <Link href="/dashboard" className="flex shrink-0 items-center min-w-0">
+            <span className="inline-flex shrink-0 items-center justify-center">
+              <PraxisLogo size="navbar" priority />
             </span>
           </Link>
           
-          <div className="flex items-center gap-2 sm:gap-4 shrink-0">
-            <Link href="/dashboard" title={isStudentMode ? "Student dashboard" : "Your simulations"}>
+          <div className="flex shrink-0 items-center gap-1 sm:gap-4">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="ghost"
+                  className="h-10 w-10 px-0 sm:hidden"
+                  aria-label="Open navigation menu"
+                >
+                  <Menu className="h-5 w-5" aria-hidden />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-52 sm:hidden">
+                <DropdownMenuItem asChild>
+                  <Link href="/dashboard" className="cursor-pointer">
+                    <Home className="mr-2 h-4 w-4" />
+                    {isStudentMode ? "Student dashboard" : "Your simulations"}
+                  </Link>
+                </DropdownMenuItem>
+                {!isStudentMode ? (
+                  <>
+                    <DropdownMenuItem asChild>
+                      <Link href="/library" className="cursor-pointer">
+                        <BookOpen className="mr-2 h-4 w-4" />
+                        Library
+                      </Link>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem asChild>
+                      <Link href="/create" className="cursor-pointer">
+                        <Plus className="mr-2 h-4 w-4" />
+                        New simulation
+                      </Link>
+                    </DropdownMenuItem>
+                  </>
+                ) : null}
+              </DropdownMenuContent>
+            </DropdownMenu>
+
+            <Link
+              href="/dashboard"
+              title={isStudentMode ? "Student dashboard" : "Your simulations"}
+              className="hidden sm:inline-flex"
+            >
               <Button variant="ghost" className="min-h-[44px] px-3 text-sm">
                 <Home className="h-4 w-4 mr-1.5 shrink-0" />
-                <span className="hidden sm:inline">{isStudentMode ? "Dashboard" : "Home"}</span>
+                <span>{isStudentMode ? "Dashboard" : "Home"}</span>
               </Button>
             </Link>
             {!isStudentMode && (
-            <Link href="/library" data-tour="library-link">
+            <Link href="/library" data-tour="library-link" className="hidden sm:inline-flex">
               <Button variant="ghost" className="min-h-[44px] px-3 text-sm">
                 <BookOpen className="h-4 w-4 mr-1.5 shrink-0" />
-                <span className="hidden sm:inline">Library</span>
+                <span>Library</span>
               </Button>
             </Link>
             )}
             {!isStudentMode && (
-              <Link href="/create" data-tour="new-sim">
+              <Link href="/create" data-tour="new-sim" className="hidden sm:inline-flex">
                 <Button className="min-h-[44px] px-3 sm:px-4 text-sm sm:text-base">
                   <Plus className="h-4 w-4 mr-1.5 sm:mr-2 shrink-0" />
-                  <span className="hidden sm:inline">New Simulation</span>
-                  <span className="sm:hidden">New</span>
+                  <span>New Simulation</span>
                 </Button>
               </Link>
             )}

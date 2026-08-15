@@ -147,5 +147,6 @@ export async function POST(request: NextRequest, { params }: RouteContext) {
     joinCode,
     participantId: participant.id,
     participantName: participant.name,
+    participantUserId: user.id,
   });
 }

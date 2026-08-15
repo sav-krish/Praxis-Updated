@@ -63,7 +63,7 @@ type LeaderboardOverlaysProps = {
   code: string;
   sessionId: string;
   participantId: string;
-  phase: "decision" | "completion";
+  phase: "decision" | "reflection" | "completion";
 };
 
 type DecisionConsequenceDetail = {
@@ -97,19 +97,19 @@ const PODIUM_STYLES = {
     avatar:
       "bg-amber-100 text-amber-700 ring-amber-50 dark:bg-amber-950/70 dark:text-amber-300 dark:ring-card",
     platform:
-      "h-32 border-amber-300 bg-gradient-to-b from-amber-200 to-amber-500 text-amber-950 shadow-lg shadow-amber-500/20 dark:border-amber-500/70 dark:from-amber-400 dark:to-amber-700 dark:text-amber-50",
+      "h-20 border-amber-300 bg-gradient-to-b from-amber-200 to-amber-500 text-amber-950 shadow-lg shadow-amber-500/20 dark:border-amber-500/70 dark:from-amber-400 dark:to-amber-700 dark:text-amber-50 sm:h-32",
   },
   2: {
     avatar:
       "bg-slate-100 text-slate-700 ring-slate-50 dark:bg-slate-800 dark:text-slate-200 dark:ring-card",
     platform:
-      "h-24 border-slate-300 bg-gradient-to-b from-slate-100 to-slate-300 text-slate-700 shadow-lg shadow-slate-400/15 dark:border-slate-500 dark:from-slate-500 dark:to-slate-700 dark:text-slate-50",
+      "h-16 border-slate-300 bg-gradient-to-b from-slate-100 to-slate-300 text-slate-700 shadow-lg shadow-slate-400/15 dark:border-slate-500 dark:from-slate-500 dark:to-slate-700 dark:text-slate-50 sm:h-24",
   },
   3: {
     avatar:
       "bg-orange-100 text-orange-700 ring-orange-50 dark:bg-orange-950/70 dark:text-orange-300 dark:ring-card",
     platform:
-      "h-20 border-orange-300 bg-gradient-to-b from-orange-200 to-orange-500 text-orange-950 shadow-lg shadow-orange-500/20 dark:border-orange-500/70 dark:from-orange-400 dark:to-orange-700 dark:text-orange-50",
+      "h-14 border-orange-300 bg-gradient-to-b from-orange-200 to-orange-500 text-orange-950 shadow-lg shadow-orange-500/20 dark:border-orange-500/70 dark:from-orange-400 dark:to-orange-700 dark:text-orange-50 sm:h-20",
   },
 } as const;
 
@@ -231,6 +231,35 @@ function PodiumStanding({
   );
 }
 
+function EmptyPodiumStanding({ placement }: { placement: PodiumPlacement }) {
+  const style = PODIUM_STYLES[placement];
+
+  return (
+    <article
+      aria-label={`Rank ${placement} is still open`}
+      className="flex min-w-0 flex-col items-center text-center opacity-65"
+    >
+      <div className="grid h-12 w-12 place-items-center rounded-full border-2 border-dashed border-border text-lg font-bold text-muted-foreground sm:h-14 sm:w-14">
+        —
+      </div>
+      <p className="mt-2 w-full truncate text-xs font-semibold text-muted-foreground sm:text-sm">
+        Open spot
+      </p>
+      <p className="mt-0.5 text-sm font-bold tabular-nums text-muted-foreground sm:text-base">
+        —
+      </p>
+      <div
+        className={cn(
+          "mt-3 flex w-full items-center justify-center rounded-t-xl border-x border-t border-dashed text-2xl font-black tabular-nums sm:text-3xl",
+          style.platform,
+        )}
+      >
+        —
+      </div>
+    </article>
+  );
+}
+
 function FinalViewerStanding({ row }: { row: LeaderboardRow }) {
   return (
     <section
@@ -281,8 +310,8 @@ function EndLeaderboardReveal({
 
   return (
     <Dialog open onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="max-h-[94dvh] w-[calc(100%-1rem)] gap-0 overflow-y-auto rounded-3xl border-border/80 bg-card p-0 shadow-2xl sm:max-w-4xl">
-        <DialogHeader className="border-b border-border/70 bg-gradient-to-b from-primary/10 to-transparent px-5 pb-5 pt-6 sm:px-8 sm:pt-8">
+      <DialogContent className="max-h-[calc(100dvh-1rem)] w-[calc(100%-1rem)] gap-0 overflow-y-auto overscroll-contain rounded-2xl border-border/80 bg-card p-0 shadow-2xl sm:max-h-[94dvh] sm:max-w-4xl sm:rounded-3xl">
+        <DialogHeader className="border-b border-border/70 bg-gradient-to-b from-primary/10 to-transparent px-4 pb-4 pt-[max(1.25rem,env(safe-area-inset-top))] pr-12 sm:px-8 sm:pb-5 sm:pt-8">
           <div className="flex flex-wrap items-center justify-center gap-2 sm:justify-start">
             <DialogTitle className="flex items-center gap-2 text-2xl font-black sm:text-3xl">
               <Trophy className="h-6 w-6 text-primary sm:h-7 sm:w-7" aria-hidden />
@@ -298,7 +327,7 @@ function EndLeaderboardReveal({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-6 px-5 py-6 sm:px-8 sm:py-8" aria-live="polite">
+        <div className="space-y-5 px-4 py-5 sm:space-y-6 sm:px-8 sm:py-8" aria-live="polite">
           {showPodium && podiumRows.length > 0 ? (
             <div className="grid grid-cols-3 items-end gap-2 sm:gap-5">
               {podiumRows[1] ? (
@@ -310,7 +339,7 @@ function EndLeaderboardReveal({
                     (podiumRankCounts.get(podiumRows[1].rank) ?? 0) > 1
                   }
                 />
-              ) : <div />}
+              ) : <EmptyPodiumStanding placement={2} />}
               {podiumRows[0] ? (
                 <PodiumStanding
                   row={podiumRows[0]}
@@ -320,7 +349,7 @@ function EndLeaderboardReveal({
                     (podiumRankCounts.get(podiumRows[0].rank) ?? 0) > 1
                   }
                 />
-              ) : <div />}
+              ) : <EmptyPodiumStanding placement={1} />}
               {podiumRows[2] ? (
                 <PodiumStanding
                   row={podiumRows[2]}
@@ -330,7 +359,7 @@ function EndLeaderboardReveal({
                     (podiumRankCounts.get(podiumRows[2].rank) ?? 0) > 1
                   }
                 />
-              ) : <div />}
+              ) : <EmptyPodiumStanding placement={3} />}
             </div>
           ) : snapshot.rows.length > 0 ? (
             <section
@@ -369,7 +398,7 @@ function EndLeaderboardReveal({
           ) : null}
         </div>
 
-        <DialogFooter className="border-t border-border/70 px-5 py-4 sm:px-8" showCloseButton />
+        <DialogFooter className="border-t border-border/70 px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-4 sm:px-8 sm:py-4" showCloseButton />
       </DialogContent>
     </Dialog>
   );
@@ -379,6 +408,7 @@ export function LeaderboardOverlays({
   code,
   sessionId,
   participantId,
+  phase,
 }: LeaderboardOverlaysProps) {
   const [payload, setPayload] = useState<LeaderboardPayload | null>(null);
   const [chipExpanded, setChipExpanded] = useState(false);
@@ -609,15 +639,15 @@ export function LeaderboardOverlays({
 
   return (
     <>
-      {payload.settings.rankChipEnabled ? (
+      {phase !== "reflection" && payload.settings.rankChipEnabled ? (
         <div
           ref={chipRef}
-          className="fixed right-3 top-3 z-40 flex flex-col items-end sm:left-4 sm:top-4 sm:items-start"
+          className="fixed right-3 top-[calc(env(safe-area-inset-top)+4.5rem)] z-40 flex flex-col items-end sm:left-4 sm:right-auto sm:top-4 sm:items-start"
         >
           <button
             ref={chipButtonRef}
             type="button"
-            className="inline-flex h-12 items-center gap-2 whitespace-nowrap rounded-full border border-border bg-card px-4 text-sm font-semibold text-card-foreground shadow-lg transition-colors hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+            className="inline-flex min-h-11 items-center gap-1.5 whitespace-nowrap rounded-full border border-border bg-card px-3 text-xs font-semibold text-card-foreground shadow-lg transition-colors hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background sm:h-12 sm:gap-2 sm:px-4 sm:text-sm"
             aria-label={
               chipExpanded ? "Hide my leaderboard rank" : "Show my leaderboard rank"
             }
@@ -625,7 +655,7 @@ export function LeaderboardOverlays({
             aria-controls="student-rank-chip-details"
             onClick={() => setChipExpanded((expanded) => !expanded)}
           >
-            <Trophy className="h-6 w-6 text-primary" aria-hidden />
+            <Trophy className="h-5 w-5 text-primary sm:h-6 sm:w-6" aria-hidden />
             <span>{chipExpanded ? "Hide Your Rank" : "View Your Rank"}</span>
           </button>
 
@@ -670,7 +700,7 @@ export function LeaderboardOverlays({
         </div>
       ) : null}
 
-      {rankUpdate && rankUpdateViewer ? (
+      {phase !== "reflection" && rankUpdate && rankUpdateViewer ? (
         <aside
           className="pointer-events-none fixed inset-x-3 bottom-4 z-50 mx-auto max-w-md animate-in fade-in-0 slide-in-from-bottom-4 duration-300 motion-reduce:animate-none sm:bottom-6"
           aria-live="polite"

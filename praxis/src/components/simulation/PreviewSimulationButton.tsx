@@ -43,6 +43,7 @@ export function PreviewSimulationButton({
     if (typeof window !== "undefined") {
       sessionStorage.setItem(`participant_${result.sessionId}`, result.participantId);
       sessionStorage.setItem(`participant_name_${result.sessionId}`, result.participantName);
+      sessionStorage.setItem(`participant_owner_${result.sessionId}`, result.participantUserId);
     }
     router.push(`/play/${result.joinCode}`);
   };

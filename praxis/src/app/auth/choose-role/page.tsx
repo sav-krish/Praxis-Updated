@@ -20,8 +20,8 @@ function ChooseRoleContent() {
         <Card className="w-full max-w-lg border-border bg-card text-card-foreground shadow-soft">
           <CardHeader className="text-center">
             <Link href="/" className="flex items-center justify-center mb-4">
-              <span className="inline-flex shrink-0 items-center justify-center rounded-sm bg-white p-0.5 dark:bg-transparent">
-                <PraxisLogo className="h-14 w-auto sm:h-16" priority />
+              <span className="inline-flex shrink-0 items-center justify-center">
+                <PraxisLogo size="form" priority />
               </span>
             </Link>
             <CardTitle className="text-2xl text-foreground">How will you use Praxis?</CardTitle>

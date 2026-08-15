@@ -1928,51 +1928,49 @@ export function SimulationEditor({
                       </div>
                     </div>
                   ) : null}
-                </div>
-              </div>
 
-              <div className="space-y-3 rounded-xl border-2 border-primary/30 bg-primary/5 p-4">
-                <div className="flex items-center justify-between gap-4">
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <Label htmlFor="impact-metrics-enabled" className="text-base">
-                        Consequence impact metrics
-                      </Label>
-                      <Badge variant={flowSettings.impactMetricsEnabled ? "default" : "secondary"}>
-                        {flowSettings.impactMetricsEnabled ? "Visible to students" : "Hidden"}
-                      </Badge>
+                  <div className="flex items-start justify-between gap-4 border-t pt-3">
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <Label htmlFor="impact-metrics-enabled" className="text-base">
+                          Consequence impact metrics
+                        </Label>
+                        <Badge variant={flowSettings.impactMetricsEnabled ? "default" : "secondary"}>
+                          {flowSettings.impactMetricsEnabled ? "Visible to students" : "Hidden"}
+                        </Badge>
+                      </div>
+                      <p className="text-sm text-muted-foreground">
+                        Show the impact breakdown below each decision consequence.
+                      </p>
                     </div>
-                    <p className="text-sm text-muted-foreground">
-                      Show the impact breakdown below each decision consequence.
-                    </p>
-                  </div>
-                  <button
-                    id="impact-metrics-enabled"
-                    type="button"
-                    role="switch"
-                    aria-checked={flowSettings.impactMetricsEnabled}
-                    aria-label="Show consequence impact metrics"
-                    disabled={!isOwner}
-                    onClick={() =>
-                      setSimulation((prev) => ({
-                        ...prev,
-                        preferences: setSimulationFlowSettings(prev.preferences, {
-                          ...getSimulationFlowSettings(prev.preferences),
-                          impactMetricsEnabled:
-                            !getSimulationFlowSettings(prev.preferences).impactMetricsEnabled,
-                        }),
-                      }))
-                    }
-                    className={`relative h-6 w-11 shrink-0 rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60 ${
-                      flowSettings.impactMetricsEnabled ? "bg-primary" : "bg-input"
-                    }`}
-                  >
-                    <span
-                      className={`absolute left-1 top-1 h-4 w-4 rounded-full bg-background shadow transition-transform ${
-                        flowSettings.impactMetricsEnabled ? "translate-x-5" : "translate-x-0"
+                    <button
+                      id="impact-metrics-enabled"
+                      type="button"
+                      role="switch"
+                      aria-checked={flowSettings.impactMetricsEnabled}
+                      aria-label="Show consequence impact metrics"
+                      disabled={!isOwner}
+                      onClick={() =>
+                        setSimulation((prev) => ({
+                          ...prev,
+                          preferences: setSimulationFlowSettings(prev.preferences, {
+                            ...getSimulationFlowSettings(prev.preferences),
+                            impactMetricsEnabled:
+                              !getSimulationFlowSettings(prev.preferences).impactMetricsEnabled,
+                          }),
+                        }))
+                      }
+                      className={`relative h-6 w-11 shrink-0 rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60 ${
+                        flowSettings.impactMetricsEnabled ? "bg-primary" : "bg-input"
                       }`}
-                    />
-                  </button>
+                    >
+                      <span
+                        className={`absolute left-1 top-1 h-4 w-4 rounded-full bg-background shadow transition-transform ${
+                          flowSettings.impactMetricsEnabled ? "translate-x-5" : "translate-x-0"
+                        }`}
+                      />
+                    </button>
+                  </div>
                 </div>
               </div>
 

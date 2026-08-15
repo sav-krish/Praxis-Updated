@@ -17,6 +17,13 @@ import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { APP_TILE_BACKGROUNDS, appTileBackgroundForDifficulty } from "@/lib/app-tile-backgrounds";
 import {
@@ -198,13 +205,27 @@ export function StudentDashboardView({
 }: StudentDashboardViewProps) {
   const router = useRouter();
   const [startingKey, setStartingKey] = useState<string | null>(null);
+  const [subjectFilter, setSubjectFilter] = useState("all");
+
+  const subjectAreas = useMemo(
+    () => Array.from(new Set(explore.map((item) => topic(item.simulation)))).sort(),
+    [explore],
+  );
+
+  const filteredExplore = useMemo(
+    () =>
+      subjectFilter === "all"
+        ? explore
+        : explore.filter((item) => topic(item.simulation) === subjectFilter),
+    [explore, subjectFilter],
+  );
 
   const groupedExplore = useMemo(() => {
     return STUDENT_TRACKS.map((track) => ({
       track,
-      simulations: explore.filter((item) => item.track.id === track.id),
+      simulations: filteredExplore.filter((item) => item.track.id === track.id),
     })).filter((group) => group.simulations.length > 0);
-  }, [explore]);
+  }, [filteredExplore]);
 
   const startSimulation = async (
     simulationId: string,
@@ -225,6 +246,7 @@ export function StudentDashboardView({
             sessionId: string;
             participantId: string;
             participantName: string;
+            participantUserId: string;
             attemptId: string;
           }
         | { error?: string }
@@ -236,6 +258,7 @@ export function StudentDashboardView({
 
       sessionStorage.setItem(`participant_${result.sessionId}`, result.participantId);
       sessionStorage.setItem(`participant_name_${result.sessionId}`, result.participantName);
+      sessionStorage.setItem(`participant_owner_${result.sessionId}`, result.participantUserId);
       sessionStorage.setItem(`student_attempt_${result.sessionId}`, result.attemptId);
       router.push(`/play/${result.joinCode}`);
     } catch (error) {
@@ -262,6 +285,12 @@ export function StudentDashboardView({
             <p className="mt-2 max-w-2xl text-sm text-muted-text sm:text-base">
               Keep up with assigned simulations, review completed work, and practice by track.
             </p>
+            <Button asChild size="lg" className="mt-5 min-h-14 w-full rounded-xl text-base shadow-sm sm:w-auto">
+              <Link href="/join">
+                Join a live session
+                <ArrowRight className="ml-2 h-4 w-4" />
+              </Link>
+            </Button>
           </div>
           <div className="grid grid-cols-3 gap-2 sm:min-w-[360px]">
             <div className="rounded-2xl bg-white/75 p-3 text-center">
@@ -346,6 +375,33 @@ export function StudentDashboardView({
         </TabsContent>
 
         <TabsContent value="explore" className="space-y-8">
+          <div className="flex flex-col gap-3 rounded-2xl border border-border bg-white/65 p-4 sm:flex-row sm:items-end sm:justify-between">
+            <div>
+              <p className="font-semibold text-ink">Find a simulation</p>
+              <p className="text-sm text-muted-text">
+                Filter the library by subject area to find the right practice scenario.
+              </p>
+            </div>
+            <div className="w-full sm:w-[220px]">
+              <label htmlFor="student-explore-subject" className="mb-1.5 block text-xs font-medium text-muted-text">
+                Subject area
+              </label>
+              <Select value={subjectFilter} onValueChange={setSubjectFilter}>
+                <SelectTrigger id="student-explore-subject" className="h-11 w-full border-ink/15 bg-white text-ink">
+                  <SelectValue placeholder="All subject areas" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All subject areas</SelectItem>
+                  {subjectAreas.map((subject) => (
+                    <SelectItem key={subject} value={subject}>
+                      {subject}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
           {groupedExplore.length > 0 ? (
             groupedExplore.map(({ track, simulations }) => (
               <section key={track.id} className="space-y-4">
@@ -400,21 +456,18 @@ export function StudentDashboardView({
           ) : (
             <div className="rounded-2xl border border-dashed border-border bg-white/65 p-8 text-center">
               <CheckCircle2 className="mx-auto mb-3 h-8 w-8 text-muted-text" />
-              <p className="font-medium text-ink">No public simulations are available yet.</p>
+              <p className="font-medium text-ink">
+                {subjectFilter === "all"
+                  ? "No public simulations are available yet."
+                  : `No ${subjectFilter} simulations are available yet.`}
+              </p>
               <p className="mt-1 text-sm text-muted-text">
-                Published library simulations will appear here by track.
+                {subjectFilter === "all"
+                  ? "Published library simulations will appear here by track."
+                  : "Try another subject area to see more practice simulations."}
               </p>
             </div>
           )}
-
-          <div className="flex justify-end">
-            <Button asChild variant="outline" className="border-ink/15 bg-white/75 text-ink hover:bg-white">
-              <Link href="/join">
-                Join a class session
-                <ArrowRight className="ml-2 h-4 w-4" />
-              </Link>
-            </Button>
-          </div>
         </TabsContent>
       </Tabs>
     </div>

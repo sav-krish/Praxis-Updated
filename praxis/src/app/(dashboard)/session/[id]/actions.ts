@@ -29,7 +29,13 @@ function isMissingResponseGalleryAccessCodeColumn(message?: string | null): bool
 export async function createPreviewSession(
   simulationId: string
 ): Promise<
-  | { joinCode: string; sessionId: string; participantId: string; participantName: string }
+  | {
+      joinCode: string;
+      sessionId: string;
+      participantId: string;
+      participantName: string;
+      participantUserId: string;
+    }
   | { error: string }
 > {
   const supabase = await createClient();
@@ -99,6 +105,7 @@ export async function createPreviewSession(
       session_id: session.id,
       name: participantName,
       is_voter: true,
+      user_id: user.id,
     })
     .select("id")
     .single();
@@ -112,6 +119,7 @@ export async function createPreviewSession(
     sessionId: session.id,
     participantId: participant.id,
     participantName,
+    participantUserId: user.id,
   };
 }
 
@@ -201,6 +209,7 @@ export async function createProfessorPreviewParticipant(
       session_id: sessionId,
       name: participantName,
       is_voter: true,
+      user_id: user.id,
     })
     .select("id")
     .single();

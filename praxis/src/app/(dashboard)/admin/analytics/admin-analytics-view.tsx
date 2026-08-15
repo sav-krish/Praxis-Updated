@@ -95,8 +95,13 @@ function AdminTrendAreaBlock({
   return (
     <div className="space-y-2">
       <h3 className="text-base font-semibold tracking-tight text-foreground">{title}</h3>
-      <ChartContainer config={chartConfig} className="aspect-auto h-[250px] w-full">
-        <AreaChart data={data} margin={{ left: 0, right: 8, top: 8, bottom: longRange ? 16 : 4 }}>
+      <div className="overflow-x-auto overscroll-x-contain touch-pan-x">
+        <ChartContainer
+          config={chartConfig}
+          className="praxis-chart-surface aspect-auto h-[250px] min-w-[420px] w-full rounded-lg border p-2"
+          style={{ minWidth: `${Math.max(420, data.length * 32)}px` }}
+        >
+          <AreaChart data={data} margin={{ left: 0, right: 8, top: 8, bottom: longRange ? 16 : 4 }}>
           <defs>
             <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
               <stop offset="5%" stopColor="var(--color-count)" stopOpacity={0.75} />
@@ -149,8 +154,9 @@ function AdminTrendAreaBlock({
             stroke="var(--color-count)"
             strokeWidth={2}
           />
-        </AreaChart>
-      </ChartContainer>
+          </AreaChart>
+        </ChartContainer>
+      </div>
     </div>
   );
 }
@@ -404,11 +410,11 @@ export function AdminAnalyticsView({ data }: { data: AdminAnalyticsViewData }) {
             onPrev={() => setProfPage((p) => Math.max(0, Math.min(p, profMaxPage) - 1))}
             onNext={() => setProfPage((p) => Math.min(profMaxPage, Math.min(p, profMaxPage) + 1))}
           />
-          <CardContent className="pt-6">
+          <CardContent className="overflow-x-auto overscroll-x-contain pt-6 touch-pan-x">
             <ChartContainer
               id="admin-bar-professors"
               config={PROF_BAR_CHART_CONFIG}
-              className="aspect-auto h-[min(420px,70vh)] w-full min-h-[280px] min-w-0"
+              className="praxis-chart-surface aspect-auto h-[min(420px,70vh)] w-full min-h-[280px] min-w-[420px] rounded-lg border p-2"
             >
               <BarChart data={profBarData} layout="vertical" margin={{ left: 4, right: 24, top: 8, bottom: 8 }}>
                 <defs>
@@ -458,11 +464,11 @@ export function AdminAnalyticsView({ data }: { data: AdminAnalyticsViewData }) {
             onPrev={() => setSimPage((p) => Math.max(0, Math.min(p, simMaxPage) - 1))}
             onNext={() => setSimPage((p) => Math.min(simMaxPage, Math.min(p, simMaxPage) + 1))}
           />
-          <CardContent className="pt-6">
+          <CardContent className="overflow-x-auto overscroll-x-contain pt-6 touch-pan-x">
             <ChartContainer
               id="admin-bar-simulations"
               config={SIM_BAR_CHART_CONFIG}
-              className="aspect-auto h-[min(400px,65vh)] w-full min-h-[260px] min-w-0"
+              className="praxis-chart-surface aspect-auto h-[min(400px,65vh)] w-full min-h-[260px] min-w-[420px] rounded-lg border p-2"
             >
               <BarChart data={topSimBarData} layout="vertical" margin={{ left: 4, right: 24, top: 8, bottom: 8 }}>
                 <defs>

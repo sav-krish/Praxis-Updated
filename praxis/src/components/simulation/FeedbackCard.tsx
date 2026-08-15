@@ -6,7 +6,7 @@ import { logger } from "@/lib/logger";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Loader2, MessageSquareHeart, X, Check } from "lucide-react";
+import { Loader2, MessageSquareHeart, X, Check, Send } from "lucide-react";
 import { toast } from "sonner";
 
 interface FeedbackCardProps {
@@ -42,6 +42,8 @@ const POST_SESSION_STUDENT_ITEMS = [
   "I learned something new",
   "The difficulty was appropriate",
   "I'd do another simulation",
+  "I didn’t like it",
+  "Was okay, but not engaging",
 ];
 
 export function FeedbackCard({
@@ -185,6 +187,7 @@ export function FeedbackCard({
           <Button size="sm" onClick={handleSubmit} disabled={submitting} className={isStudentCompletion ? "bg-[#ea580c] text-white hover:bg-[#c2410c] hover:text-white dark:bg-[#fb923c] dark:text-[#431407] dark:hover:bg-[#f97316]" : undefined}>
             {submitting && <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />}
             Submit Feedback
+            {!submitting && isStudentCompletion ? <Send className="ml-1.5 h-3.5 w-3.5" aria-hidden /> : null}
           </Button>
         </div>
       </CardContent>

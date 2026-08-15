@@ -27,6 +27,10 @@ import {
   isPieChartBlock,
 } from "@/types/data-blocks";
 
+function chartCanvasWidth(pointCount: number, pixelsPerPoint = 76) {
+  return Math.max(320, pointCount * pixelsPerPoint);
+}
+
 export function DataBlockChartRenderer({ block }: { block: SimulationDataBlock }) {
   if (isBarChartBlock(block)) {
     const data = block.data as BarChartBlockData;
@@ -34,12 +38,17 @@ export function DataBlockChartRenderer({ block }: { block: SimulationDataBlock }
       name: label,
       value: (data.values || [])[i] ?? 0,
     }));
+    const canvasWidth = chartCanvasWidth(chartData.length);
     return (
-      <div className="my-4 overflow-x-auto rounded-lg border bg-card p-4">
+      <div
+        className="praxis-chart-surface my-4 overflow-x-auto overscroll-x-contain rounded-lg border bg-card p-4 touch-pan-x"
+        tabIndex={0}
+        aria-label={block.title ? `${block.title} chart` : "Bar chart"}
+      >
         {block.title && (
           <div className="mb-4 text-sm font-medium">{block.title}</div>
         )}
-        <div className="h-[220px] min-w-[280px]">
+        <div className="h-[220px]" style={{ minWidth: `${canvasWidth}px` }}>
           <ResponsiveContainer width="100%" height="100%">
             <BarChart data={chartData}>
               <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
@@ -52,7 +61,7 @@ export function DataBlockChartRenderer({ block }: { block: SimulationDataBlock }
                   color: "var(--foreground)",
                 }}
               />
-              <Bar dataKey="value" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
+              <Bar dataKey="value" fill="var(--chart-1)" radius={[4, 4, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
         </div>
@@ -91,15 +100,20 @@ export function DataBlockChartRenderer({ block }: { block: SimulationDataBlock }
               const p = s.data.find((d) => d.x === x);
               point[s.key] = p?.y ?? null;
             }
-            return point;
-          });
+              return point;
+            });
     const colors = ["#e75b0c", "#4ade80", "#60a5fa"];
+    const canvasWidth = chartCanvasWidth(chartData.length);
     return (
-      <div className="my-4 overflow-x-auto rounded-lg border bg-card p-4">
+      <div
+        className="praxis-chart-surface my-4 overflow-x-auto overscroll-x-contain rounded-lg border bg-card p-4 touch-pan-x"
+        tabIndex={0}
+        aria-label={block.title ? `${block.title} chart` : "Line chart"}
+      >
         {block.title && (
           <div className="mb-4 text-sm font-medium">{block.title}</div>
         )}
-        <div className="h-[220px] min-w-[280px]">
+        <div className="h-[220px]" style={{ minWidth: `${canvasWidth}px` }}>
           <ResponsiveContainer width="100%" height="100%">
             <LineChart data={chartData}>
               <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
@@ -161,12 +175,17 @@ export function DataBlockChartRenderer({ block }: { block: SimulationDataBlock }
       value: (data.values || [])[i] ?? 0,
     }));
     const colors = ["#e75b0c", "#4ade80", "#fbbf24", "#f87171", "#60a5fa"];
+    const canvasWidth = chartCanvasWidth(chartData.length, 96);
     return (
-      <div className="my-4 overflow-x-auto rounded-lg border bg-card p-4">
+      <div
+        className="praxis-chart-surface my-4 overflow-x-auto overscroll-x-contain rounded-lg border bg-card p-4 touch-pan-x"
+        tabIndex={0}
+        aria-label={block.title ? `${block.title} chart` : "Pie chart"}
+      >
         {block.title && (
           <div className="mb-4 text-sm font-medium">{block.title}</div>
         )}
-        <div className="h-[220px] min-w-[200px]">
+        <div className="h-[220px]" style={{ minWidth: `${canvasWidth}px` }}>
           <ResponsiveContainer width="100%" height="100%">
             <PieChart>
               <Pie

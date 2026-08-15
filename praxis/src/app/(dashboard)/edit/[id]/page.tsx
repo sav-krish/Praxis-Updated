@@ -1,4 +1,4 @@
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import type { SimulationDataBlock } from "@/types/data-blocks";
 import { SimulationEditorDynamic } from "./simulation-editor-dynamic";
@@ -24,6 +24,15 @@ export default async function EditSimulationPage({ params, searchParams }: PageP
   const { generated } = await searchParams;
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
+
+  if (user) {
+    const { data: studentProfile } = await supabase
+      .from("student_profiles")
+      .select("user_id")
+      .eq("user_id", user.id)
+      .maybeSingle();
+    if (studentProfile) redirect("/dashboard");
+  }
 
   // Fetch simulation with all related data
   let { data: simulation, error } = await supabase

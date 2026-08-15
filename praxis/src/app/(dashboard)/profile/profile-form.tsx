@@ -11,16 +11,13 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { FieldInfoHint } from "@/components/ui/field-info-hint";
 import { Separator } from "@/components/ui/separator";
-import { Save, Loader2, GraduationCap, BookOpen, Shield, MessageSquareHeart, Mail } from "lucide-react";
+import { Save, Loader2, Shield, MessageSquareHeart, Mail } from "lucide-react";
 import { toast } from "sonner";
-
-type ActiveRole = "professor" | "student";
 
 interface ProfileFormProps {
   userId: string;
   email: string;
   name: string;
-  activeRole: ActiveRole;
   /** When true, public library cards may show Display Name for simulations you publish there. */
   libraryShowDisplayName: boolean;
   isAdmin?: boolean;
@@ -30,14 +27,12 @@ export function ProfileForm({
   userId,
   email,
   name: initialName,
-  activeRole: initialRole,
   libraryShowDisplayName: initialLibraryShowName,
   isAdmin,
 }: ProfileFormProps) {
   const router = useRouter();
   const [saving, setSaving] = useState(false);
   const [name, setName] = useState(initialName);
-  const [activeRole, setActiveRole] = useState<ActiveRole>(initialRole);
   const [libraryShowDisplayName, setLibraryShowDisplayName] = useState(initialLibraryShowName);
 
   const handleSave = async () => {
@@ -48,7 +43,6 @@ export function ProfileForm({
       .from("professors")
       .update({
         name,
-        active_role: activeRole,
         library_show_display_name: libraryShowDisplayName,
       })
       .eq("id", userId);
@@ -111,54 +105,6 @@ export function ProfileForm({
                   libraryShowDisplayName ? "translate-x-5" : "translate-x-0"
                 }`}
               />
-            </button>
-          </div>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <div className="flex items-start justify-between gap-2">
-            <CardTitle className="flex-1">Viewing Mode</CardTitle>
-            <FieldInfoHint className="shrink-0">
-              Switch between Professor and Student mode to change your dashboard experience. Professor: create, edit, and run simulations. Student: browse the library and join simulations. In Student mode, your dashboard shows the Simulation Library instead of your personal simulations and the New Simulation button is hidden.
-            </FieldInfoHint>
-          </div>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-2 gap-3">
-            <button
-              type="button"
-              onClick={() => setActiveRole("professor")}
-              className={`flex flex-col items-center gap-3 p-6 rounded-xl border-2 transition-all ${
-                activeRole === "professor"
-                  ? "border-primary bg-primary/5 shadow-sm"
-                  : "border-border hover:border-muted-foreground/40 hover:bg-muted/50"
-              }`}
-            >
-              <GraduationCap className={`h-8 w-8 ${activeRole === "professor" ? "text-primary" : "text-muted-foreground"}`} />
-              <div className="text-center">
-                <p className={`font-medium text-sm ${activeRole === "professor" ? "text-primary" : ""}`}>
-                  Professor
-                </p>
-              </div>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setActiveRole("student")}
-              className={`flex flex-col items-center gap-3 p-6 rounded-xl border-2 transition-all ${
-                activeRole === "student"
-                  ? "border-primary bg-primary/5 shadow-sm"
-                  : "border-border hover:border-muted-foreground/40 hover:bg-muted/50"
-              }`}
-            >
-              <BookOpen className={`h-8 w-8 ${activeRole === "student" ? "text-primary" : "text-muted-foreground"}`} />
-              <div className="text-center">
-                <p className={`font-medium text-sm ${activeRole === "student" ? "text-primary" : ""}`}>
-                  Student
-                </p>
-              </div>
             </button>
           </div>
         </CardContent>

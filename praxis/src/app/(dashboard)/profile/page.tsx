@@ -25,7 +25,7 @@ export default async function ProfilePage() {
       <div className="mb-6 sm:mb-8">
         <h1 className="text-2xl sm:text-3xl font-bold">Profile</h1>
         <p className="text-muted-foreground mt-1 text-sm sm:text-base">
-          Manage your account and viewing mode
+          Manage your account settings
         </p>
       </div>
 
@@ -33,7 +33,6 @@ export default async function ProfilePage() {
         userId={user.id}
         email={user.email || ""}
         name={professor?.name || user.user_metadata?.name || ""}
-        activeRole={professor?.active_role || "professor"}
         libraryShowDisplayName={Boolean(professor?.library_show_display_name)}
         isAdmin={admin}
       />

@@ -234,12 +234,15 @@ export function DeterministicMetrics({
   }, [reflectionResponses]);
 
   const optionLabels = ["A", "B", "C"];
+  const distributionChartWidth = Math.max(420, distributionData.length * 88);
+  const histogramChartWidth = Math.max(420, histogramData.length * 44);
+  const timeToDecideChartWidth = Math.max(420, timeToDecideData.length * 88);
 
   return (
     <div className="space-y-4 sm:space-y-6">
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
         {/* Chart 1: Distribution */}
-        <Card>
+        <Card className="praxis-chart-surface">
           <CardHeader>
             <div className="flex items-start justify-between gap-2">
               <CardTitle className="text-base">Option Distribution by Decision</CardTitle>
@@ -248,9 +251,10 @@ export function DeterministicMetrics({
               </FieldInfoHint>
             </div>
           </CardHeader>
-          <CardContent className="h-[260px]">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={distributionData} margin={{ left: -16, right: 8, top: 8, bottom: 0 }}>
+          <CardContent className="h-[260px] overflow-x-auto overscroll-x-contain touch-pan-x">
+            <div className="h-full" style={{ minWidth: `${distributionChartWidth}px` }}>
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={distributionData} margin={{ left: -16, right: 8, top: 8, bottom: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
                 <XAxis dataKey="name" stroke="var(--muted-foreground)" fontSize={12} />
                 <YAxis unit="%" stroke="var(--muted-foreground)" fontSize={12} />
@@ -262,13 +266,14 @@ export function DeterministicMetrics({
                 {optionLabels.map((lbl, i) => (
                   <Bar key={lbl} dataKey={lbl} stackId="dist" fill={DISTRIBUTION_COLORS[i]} radius={[4, 4, 0, 0]} />
                 ))}
-              </BarChart>
-            </ResponsiveContainer>
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
           </CardContent>
         </Card>
 
         {/* Chart 2: Score histogram */}
-        <Card>
+        <Card className="praxis-chart-surface">
           <CardHeader>
             <div className="flex items-start justify-between gap-2">
               <CardTitle className="text-base">Score Distribution</CardTitle>
@@ -278,9 +283,10 @@ export function DeterministicMetrics({
               </FieldInfoHint>
             </div>
           </CardHeader>
-          <CardContent className="h-[260px]">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={histogramData} margin={{ left: -16, right: 8, top: 8, bottom: 0 }}>
+          <CardContent className="h-[260px] overflow-x-auto overscroll-x-contain touch-pan-x">
+            <div className="h-full" style={{ minWidth: `${histogramChartWidth}px` }}>
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={histogramData} margin={{ left: -16, right: 8, top: 8, bottom: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
                 <XAxis dataKey="score" stroke="var(--muted-foreground)" fontSize={12} />
                 <YAxis allowDecimals={false} stroke="var(--muted-foreground)" fontSize={12} />
@@ -288,13 +294,14 @@ export function DeterministicMetrics({
                   contentStyle={{ background: "var(--card)", border: "1px solid var(--border)", borderRadius: 8, color: "var(--foreground)" }}
                 />
                 <Bar dataKey="count" fill="var(--chart-1)" radius={[4, 4, 0, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
           </CardContent>
         </Card>
 
         {/* Chart 3: Time-to-decide */}
-        <Card>
+        <Card className="praxis-chart-surface">
           <CardHeader>
             <div className="flex items-start justify-between gap-2">
               <CardTitle className="text-base">Average Seconds to Decide</CardTitle>
@@ -303,9 +310,10 @@ export function DeterministicMetrics({
               </FieldInfoHint>
             </div>
           </CardHeader>
-          <CardContent className="h-[260px]">
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={timeToDecideData} margin={{ left: -16, right: 8, top: 8, bottom: 0 }}>
+          <CardContent className="h-[260px] overflow-x-auto overscroll-x-contain touch-pan-x">
+            <div className="h-full" style={{ minWidth: `${timeToDecideChartWidth}px` }}>
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={timeToDecideData} margin={{ left: -16, right: 8, top: 8, bottom: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
                 <XAxis dataKey="name" stroke="var(--muted-foreground)" fontSize={12} />
                 <YAxis unit="s" stroke="var(--muted-foreground)" fontSize={12} />
@@ -314,13 +322,14 @@ export function DeterministicMetrics({
                   contentStyle={{ background: "var(--card)", border: "1px solid var(--border)", borderRadius: 8, color: "var(--foreground)" }}
                 />
                 <Line type="monotone" dataKey="seconds" stroke="var(--chart-2)" strokeWidth={2} dot={{ r: 4, fill: "var(--chart-1)" }} />
-              </LineChart>
-            </ResponsiveContainer>
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
           </CardContent>
         </Card>
 
         {/* Chart 4: Completion funnel */}
-        <Card>
+        <Card className="praxis-chart-surface">
           <CardHeader>
             <div className="flex items-start justify-between gap-2">
               <CardTitle className="text-base">Completion Funnel</CardTitle>
@@ -329,9 +338,10 @@ export function DeterministicMetrics({
               </FieldInfoHint>
             </div>
           </CardHeader>
-          <CardContent className="h-[260px]">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={funnelData} layout="vertical" margin={{ left: 8, right: 24, top: 8, bottom: 0 }}>
+          <CardContent className="h-[260px] overflow-x-auto overscroll-x-contain touch-pan-x">
+            <div className="h-full min-w-[420px]">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={funnelData} layout="vertical" margin={{ left: 8, right: 24, top: 8, bottom: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
                 <XAxis type="number" allowDecimals={false} stroke="var(--muted-foreground)" fontSize={12} />
                 <YAxis type="category" dataKey="stage" stroke="var(--muted-foreground)" fontSize={12} width={90} />
@@ -343,8 +353,9 @@ export function DeterministicMetrics({
                     <Cell key={i} fill={FUNNEL_COLORS[i % FUNNEL_COLORS.length]} />
                   ))}
                 </Bar>
-              </BarChart>
-            </ResponsiveContainer>
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
           </CardContent>
         </Card>
       </div>

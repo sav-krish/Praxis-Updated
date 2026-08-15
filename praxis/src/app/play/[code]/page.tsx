@@ -18,6 +18,7 @@ import {
   Loader2, 
   ArrowRight, 
   ArrowLeft,
+  ChevronRight,
   Check, 
   Clock,
   Trophy,
@@ -242,21 +243,23 @@ function SimulationTopHeader({
 }) {
   const activeDecision = activeStage.startsWith("decision-")
     ? Number(activeStage.replace("decision-", ""))
-    : decisionCount;
-  const currentDecision = Math.max(1, Math.min(activeDecision || 1, decisionCount || 1));
+    : activeStage === "background" || activeStage === "results"
+      ? 0
+      : decisionCount;
+  const currentDecision = Math.max(0, Math.min(activeDecision || 0, decisionCount || 0));
   return (
     <div className="overflow-hidden rounded-xl border border-[#fee2d2] bg-white shadow-sm dark:border-[#1f2937] dark:bg-[#111827]">
-      <div className="flex items-center justify-between gap-3 px-3 py-2.5 sm:px-4">
+      <div className="flex items-center justify-between gap-2 px-3 py-2.5 sm:gap-3 sm:px-4">
         <PraxisLogo size="compact" priority />
         <div className="flex min-w-0 flex-1 flex-col items-center gap-1" aria-label={`Decision ${currentDecision} of ${decisionCount}`}>
           <span className="text-[11px] font-medium text-[#374151] dark:text-[#e5e7eb] sm:text-xs">
             Decision {currentDecision} of {decisionCount}
           </span>
-          <span className="flex items-center justify-center gap-1.5">
+          <span className="flex max-w-full items-center justify-start gap-1 overflow-x-auto pb-px touch-pan-x sm:justify-center sm:gap-1.5">
             {Array.from({ length: Math.max(1, decisionCount) }, (_, index) => (
               <span
                 key={index}
-                className={`h-1 w-7 rounded-full sm:w-9 ${
+                className={`h-1 w-4 shrink-0 rounded-full sm:w-9 ${
                   index < currentDecision
                     ? "bg-[#f97316] dark:bg-[#fb923c]"
                     : "bg-[#e5e7eb] dark:bg-[#374151]"
@@ -265,8 +268,8 @@ function SimulationTopHeader({
             ))}
           </span>
         </div>
-        <div className="flex shrink-0 items-center gap-2">
-          <Badge className="max-w-32 truncate bg-[#fff1e8] px-2.5 py-1 text-[11px] font-medium text-[#9a3412] hover:bg-[#fff1e8] dark:bg-[#7c2d12]/40 dark:text-[#fdba74] sm:max-w-40">
+        <div className="flex shrink-0 items-center gap-1 sm:gap-2">
+          <Badge className="hidden max-w-32 truncate bg-[#fff1e8] px-2.5 py-1 text-[11px] font-medium text-[#9a3412] hover:bg-[#fff1e8] dark:bg-[#7c2d12]/40 dark:text-[#fdba74] sm:inline-flex sm:max-w-40">
             {roleLabel}
           </Badge>
           <ThemeToggle />
@@ -398,6 +401,20 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
   useEffect(() => {
     currentStepRef.current = currentStep;
   }, [currentStep]);
+
+  // Each simulation stage can be much taller than a phone viewport. Reset both
+  // the document and the stage's scroll container after a transition so a
+  // student never lands midway through the next decision or result screen.
+  useEffect(() => {
+    const frame = window.requestAnimationFrame(() => {
+      window.scrollTo({ top: 0, left: 0 });
+      document
+        .querySelectorAll<HTMLElement>("[data-simulation-scroll-container]")
+        .forEach((container) => container.scrollTo({ top: 0, left: 0 }));
+    });
+
+    return () => window.cancelAnimationFrame(frame);
+  }, [currentStep, showConsequence]);
 
   useEffect(() => {
     return () => {
@@ -549,7 +566,11 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
     const response = await fetch(`/api/play/session/${code.toUpperCase()}${params.size ? `?${params.toString()}` : ""}`);
     const result = (await response.json().catch(() => null)) as PlaySessionPayload | { error?: string } | null;
     if (!response.ok || !result || !("session" in result)) {
-      throw new Error(result && "error" in result ? result.error : "Session not found");
+      const error = new Error(result && "error" in result ? result.error : "Session not found") as Error & {
+        status?: number;
+      };
+      error.status = response.status;
+      throw error;
     }
     return result;
   }
@@ -705,19 +726,37 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
     const urlParticipantName = searchParams.get("participantName");
     const initialSession = initialPayload.session;
 
+    const {
+      data: { user },
+    } = await createClient().auth.getUser();
+    const storedOwnerId = sessionStorage.getItem(`participant_owner_${initialSession.id}`);
+    const canUseStoredParticipant =
+      !storedOwnerId || storedOwnerId === user?.id;
+    if (!canUseStoredParticipant) {
+      sessionStorage.removeItem(`participant_${initialSession.id}`);
+      sessionStorage.removeItem(`participant_name_${initialSession.id}`);
+      sessionStorage.removeItem(`participant_owner_${initialSession.id}`);
+      sessionStorage.removeItem(`student_attempt_${initialSession.id}`);
+      sessionStorage.removeItem(`participant_code_${code.toUpperCase()}`);
+    }
+
     let storedParticipantId =
-      sessionStorage.getItem(`participant_${initialSession.id}`) ||
-      (localStorage.getItem("praxis_active_session_code") === code.toUpperCase()
+      (canUseStoredParticipant
+        ? sessionStorage.getItem(`participant_${initialSession.id}`)
+        : null) ||
+      (!user && !storedOwnerId && localStorage.getItem("praxis_active_session_code") === code.toUpperCase()
         ? localStorage.getItem("praxis_guest_participant_id")
         : null);
-    let storedName = sessionStorage.getItem(`participant_name_${initialSession.id}`);
+    let storedName = canUseStoredParticipant
+      ? sessionStorage.getItem(`participant_name_${initialSession.id}`)
+      : null;
 
     if (storedParticipantId) {
       sessionStorage.setItem(`participant_${initialSession.id}`, storedParticipantId);
       sessionStorage.setItem(`participant_code_${code.toUpperCase()}`, storedParticipantId);
     }
 
-    if (urlParticipantId && urlParticipantName) {
+    if (!user && urlParticipantId && urlParticipantName) {
       sessionStorage.setItem(`participant_${initialSession.id}`, urlParticipantId);
       sessionStorage.setItem(`participant_name_${initialSession.id}`, urlParticipantName);
       storedParticipantId = urlParticipantId;
@@ -735,9 +774,19 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
     let payload: PlaySessionPayload;
     try {
       payload = await fetchPlaySessionPayload(storedParticipantId);
-    } catch {
+    } catch (error) {
       sessionStorage.removeItem(`participant_${initialSession.id}`);
       sessionStorage.removeItem(`participant_name_${initialSession.id}`);
+      sessionStorage.removeItem(`participant_owner_${initialSession.id}`);
+      sessionStorage.removeItem(`student_attempt_${initialSession.id}`);
+      sessionStorage.removeItem(`participant_code_${code.toUpperCase()}`);
+      if (
+        (error as Error & { status?: number }).status === 403 &&
+        localStorage.getItem("praxis_active_session_code") === code.toUpperCase()
+      ) {
+        localStorage.removeItem("praxis_active_session_code");
+        localStorage.removeItem("praxis_guest_participant_id");
+      }
       router.push(`/join?code=${code}`);
       return;
     }
@@ -751,6 +800,9 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
     }
 
     const sessionWithSimulation = payload.session;
+    if (user) {
+      sessionStorage.setItem(`participant_owner_${initialSession.id}`, user.id);
+    }
     setSession(sessionWithSimulation);
     setParticipantCount(payload.participantCount ?? 0);
     setStudentAttemptSource(payload.studentAttemptSource ?? null);
@@ -1378,6 +1430,7 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
     }
     sessionStorage.removeItem(`participant_${session.id}`);
     sessionStorage.removeItem(`participant_name_${session.id}`);
+    sessionStorage.removeItem(`participant_owner_${session.id}`);
     router.push(`/edit/${session.simulation.id}`);
   };
 
@@ -1385,15 +1438,19 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
     session?.simulation.preferences,
     session?.student_flow_settings,
   );
-  const canViewPodium =
-    finalFlowSettings.leaderboardEnabled &&
-    !finalFlowSettings.leaderboardAnonymous;
+  const canViewPodium = finalFlowSettings.leaderboardEnabled;
 
   const outcomeLabel = outcomeTier ? `${outcomeTier} Outcome` : null;
   const outcomeTierStyle = outcomeTier
     ? OUTCOME_TIER_STYLES[outcomeTier]
     : OUTCOME_TIER_STYLES.Decent;
-  const isStudentPortal = Boolean(studentAttemptId);
+  const completionScore = myResponses.reduce((total, response) => total + response.score, 0);
+  const completionScoreMax = decisions.reduce(
+    (total, decision) =>
+      total + Math.max(0, ...decision.options.map((option) => option.score)),
+    0,
+  );
+  const isStudentPortal = studentAttemptSource === "explore";
   const votesTitle = isStudentPortal ? "Student Votes" : "Class Votes";
   const votesDescription = isStudentPortal
     ? "See how students voted on this decision across everyone who has done this simulation."
@@ -1434,7 +1491,7 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
     return (
       <div className="flex min-h-dvh flex-col">
         {previewBar}
-        <div className="flex min-h-0 flex-1 flex-col overflow-y-auto bg-muted/50">
+        <div data-simulation-scroll-container className="flex min-h-0 flex-1 flex-col overflow-y-auto bg-muted/50">
           <div className="flex flex-1 items-center justify-center px-4 py-6">
             <Card className="w-full max-w-md text-center">
               <CardHeader className="px-4 sm:px-6">
@@ -1491,7 +1548,7 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
     return (
       <div className="flex min-h-dvh flex-col">
         {previewBar}
-        <div className="flex min-h-0 flex-1 flex-col overflow-y-auto bg-muted/50">
+        <div data-simulation-scroll-container className="flex min-h-0 flex-1 flex-col overflow-y-auto bg-muted/50">
           <div className="px-3 py-4 sm:px-4 sm:py-8">
             <div className="max-w-5xl mx-auto space-y-4">
               <SimulationTopHeader
@@ -1670,7 +1727,7 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
       return (
         <div className="flex min-h-dvh flex-col">
           {previewBar}
-          <div className="flex min-h-0 flex-1 flex-col overflow-y-auto bg-muted/50">
+          <div data-simulation-scroll-container className="flex min-h-0 flex-1 flex-col overflow-y-auto bg-muted/50">
             <div className="px-3 py-4 sm:px-4 sm:py-8">
               <div className="max-w-5xl mx-auto space-y-4">
                 <SimulationTopHeader
@@ -1817,7 +1874,7 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
     return (
       <div className="flex min-h-dvh flex-col bg-muted/50">
         {previewBar}
-        <div className="flex min-h-0 flex-1 flex-col overflow-y-auto bg-muted/50">
+        <div data-simulation-scroll-container className="flex min-h-0 flex-1 flex-col overflow-y-auto bg-muted/50">
           <div className="px-3 py-4 sm:px-4 sm:py-6">
             <div className="mx-auto mb-3 max-w-5xl">
               <SimulationTopHeader
@@ -2110,7 +2167,7 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
     return (
       <div className="flex min-h-dvh flex-col">
         {previewBar}
-        <div className="flex min-h-0 flex-1 flex-col overflow-y-auto bg-muted/50">
+        <div data-simulation-scroll-container className="flex min-h-0 flex-1 flex-col overflow-y-auto bg-muted/50">
           <div className="px-3 py-4 sm:px-4 sm:py-8">
             <div className="max-w-5xl mx-auto space-y-4">
               <SimulationTopHeader
@@ -2141,19 +2198,34 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
                     ) : null}
                   </div>
                   <div className="grid items-center gap-6 md:grid-cols-[220px_1fr]">
-                    <div className="mx-auto grid h-48 w-48 place-items-center rounded-full p-7"
-                      style={{
-                        background:
-                          totalSubmitted > 0
-                            ? `conic-gradient(${voteGradient})`
-                            : "#86827b",
-                      }}
-                    >
-                      <div className="grid h-full w-full place-items-center rounded-full bg-card dark:bg-zinc-900 text-center shadow-inner">
-                        <div>
-                          <p className="text-3xl font-bold tabular-nums">{totalSubmitted}</p>
-                          <p className="text-xs text-muted-foreground">Total votes</p>
+                    <div className="mx-auto flex w-48 flex-col items-center">
+                      <div
+                        className="grid h-48 w-48 place-items-center rounded-full p-7"
+                        style={{
+                          background:
+                            totalSubmitted > 0
+                              ? `conic-gradient(${voteGradient})`
+                              : "#86827b",
+                        }}
+                      >
+                        <div className="grid h-full w-full place-items-center rounded-full bg-card text-center shadow-inner dark:bg-zinc-900">
+                          <div>
+                            <p className="text-3xl font-bold tabular-nums">{totalSubmitted}</p>
+                            <p className="text-xs text-muted-foreground">Total votes</p>
+                          </div>
                         </div>
+                      </div>
+                      <div aria-label="Vote chart legend" className="mt-3 flex flex-wrap justify-center gap-x-3 gap-y-1 text-xs font-medium text-muted-foreground">
+                        {(decision?.options ?? []).map((option, index) => (
+                          <span key={option.id} className="inline-flex items-center gap-1">
+                            <span
+                              className="h-2.5 w-2.5 rounded-full"
+                              style={{ backgroundColor: voteColors[index % voteColors.length] }}
+                              aria-hidden
+                            />
+                            Option {option.label}
+                          </span>
+                        ))}
                       </div>
                     </div>
                     <div className="space-y-3">
@@ -2180,18 +2252,18 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
                                 >
                                   {option.label}
                                 </span>
-                                 <div className="min-w-0">
-                                   <div className="flex flex-wrap items-center gap-2">
-                                     <p className={`font-semibold ${isChosen ? "text-white" : "text-foreground"}`}>
-                                     {option.label}. {option.title}
-                                     </p>
-                                     {isChosen ? (
-                                       <Badge className="border border-white/30 bg-[#f97316] px-2 py-0.5 text-[11px] font-semibold text-white hover:bg-[#f97316]">
-                                         <Check className="mr-1 h-3 w-3" /> Your vote
-                                       </Badge>
-                                     ) : null}
-                                   </div>
-                                 </div>
+                                <div className="min-w-0">
+                                  <div className="flex flex-wrap items-center gap-2">
+                                    <p className={`break-words font-semibold ${isChosen ? "text-white" : "text-foreground"}`}>
+                                      {option.label}. {option.title}
+                                    </p>
+                                    {isChosen ? (
+                                      <Badge className="border border-white/30 bg-[#f97316] px-2 py-0.5 text-[11px] font-semibold text-white hover:bg-[#f97316]">
+                                        <Check className="mr-1 h-3 w-3" /> Your vote
+                                      </Badge>
+                                    ) : null}
+                                  </div>
+                                </div>
                               </div>
                               <span className={`shrink-0 text-base font-bold tabular-nums sm:text-lg ${isChosen ? "text-white" : "text-foreground"}`}>
                                 {pct}%
@@ -2332,7 +2404,7 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
     return (
       <div className="flex min-h-dvh flex-col">
         {previewBar}
-        <div className="flex min-h-0 flex-1 flex-col overflow-y-auto bg-muted/50">
+        <div data-simulation-scroll-container className="flex min-h-0 flex-1 flex-col overflow-y-auto bg-muted/50">
           <div className="px-3 py-4 sm:px-4 sm:py-8">
             <div className="max-w-5xl mx-auto space-y-4">
               <SimulationTopHeader
@@ -2402,7 +2474,7 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
   return (
     <div className="flex min-h-dvh flex-col">
       {previewBar}
-      <div className="flex min-h-0 flex-1 flex-col overflow-y-auto bg-[#fffaf6] dark:bg-[#08121e]">
+      <div data-simulation-scroll-container className="flex min-h-0 flex-1 flex-col overflow-y-auto bg-[#fffaf6] dark:bg-[#08121e]">
         <div className="px-3 py-4 sm:px-4 sm:py-8">
           <div className="mx-auto max-w-5xl space-y-4">
             <SimulationTopHeader
@@ -2410,11 +2482,32 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
               activeStage="results"
               roleLabel={selectedRoleLabel}
             />
+            <nav
+              aria-label="Simulation progress"
+              className="flex flex-wrap items-center gap-x-2 gap-y-1 px-1 text-xs text-[#687280] dark:text-[#9ca3af]"
+            >
+              {[
+                "Background",
+                ...decisions.map((decision) => `Decision ${decision.order_num}`),
+                "Reflection",
+                "Complete",
+              ].map((stage, index, stages) => (
+                <span key={stage} className="flex items-center gap-2">
+                  <span
+                    className={stage === "Complete" ? "font-medium text-[#ea580c] dark:text-[#fb923c]" : undefined}
+                    aria-current={stage === "Complete" ? "step" : undefined}
+                  >
+                    {stage}
+                  </span>
+                  {index < stages.length - 1 ? <ChevronRight className="h-3 w-3 shrink-0" aria-hidden /> : null}
+                </span>
+              ))}
+            </nav>
             <div className="flex justify-start">
               <Button
                 type="button"
                 variant="outline"
-                className="h-10 border-[#fed7aa] bg-white text-sm font-medium text-[#9a3412] hover:bg-[#fff7ed] hover:text-[#9a3412] dark:border-[#7c2d12] dark:bg-transparent dark:text-[#fdba74] dark:hover:bg-[#7c2d12]/30"
+                className="min-h-11 w-full border-[#fed7aa] bg-white text-sm font-medium text-[#9a3412] hover:bg-[#fff7ed] hover:text-[#9a3412] dark:border-[#7c2d12] dark:bg-transparent dark:text-[#fdba74] dark:hover:bg-[#7c2d12]/30 sm:h-10 sm:w-auto"
                 onClick={() => {
                   if (!session) return;
                   window.dispatchEvent(
@@ -2458,15 +2551,22 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
                     <span className="h-1.5 w-1.5 rounded-full bg-current" aria-hidden />
                     Updating in real time
                   </p>
+                  <div className="mt-4 border-t border-[#f1f5f9] pt-3 dark:border-[#1f2937]">
+                    <p className="text-xs font-medium text-[#6b7280] dark:text-[#9ca3af]">Final score</p>
+                    <p className="mt-0.5 text-sm font-semibold text-[#111827] dark:text-[#f9fafb]">
+                      {completionScore}
+                      {completionScoreMax > 0 ? ` / ${completionScoreMax}` : ""} points
+                    </p>
+                  </div>
                 </div>
               </div>
 
-              <div className="mt-6 flex flex-wrap gap-3 sm:justify-center">
+              <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:justify-center">
                 {canViewPodium && session ? (
                   <Button
                     type="button"
                     variant="outline"
-                    className="h-10 border-[#e5e7eb] bg-white text-sm text-[#111827] hover:bg-[#fffaf5] dark:border-[#374151] dark:bg-transparent dark:text-[#f9fafb] dark:hover:bg-[#1f2937]"
+                    className="min-h-11 w-full border-[#e5e7eb] bg-white text-sm text-[#111827] hover:bg-[#fffaf5] dark:border-[#374151] dark:bg-transparent dark:text-[#f9fafb] dark:hover:bg-[#1f2937] sm:h-10 sm:w-auto"
                     onClick={() => {
                       window.dispatchEvent(
                         new CustomEvent("praxis:view-podium", { detail: { sessionId: session.id } }),
@@ -2478,7 +2578,7 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
                   </Button>
                 ) : null}
                 {completedReportId || studentAttemptId ? (
-                  <Button asChild className="h-10 bg-[#ea580c] text-sm text-white hover:bg-[#c2410c] hover:text-white dark:bg-[#fb923c] dark:text-[#431407] dark:hover:bg-[#f97316]">
+                  <Button asChild className="min-h-11 w-full bg-[#ea580c] text-sm text-white hover:bg-[#c2410c] hover:text-white dark:bg-[#fb923c] dark:text-[#431407] dark:hover:bg-[#f97316] sm:h-10 sm:w-auto">
                     <Link href={`/student/reports/${completedReportId ?? studentAttemptId}`}>
                       View full report
                       <ArrowRight className="h-4 w-4" />
@@ -2503,7 +2603,7 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
                       : "This choice overlooks key constraints in the scenario.");
                 const expanded = expandedDecisionIds.includes(decision.id);
                 const Icon = index === 0 ? BookOpen : index === 1 ? TrendingUp : Star;
-                const isGood = response?.score === 3;
+                const isGood = quality === "strong";
                 return (
                   <article key={decision.id} className="overflow-hidden rounded-xl border border-[#e5e7eb] bg-white dark:border-[#374151] dark:bg-[#111827]">
                     <div className="flex items-center gap-3 p-3.5 sm:p-4">
@@ -2517,16 +2617,19 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
                       </span>
                       <div className="min-w-0 flex-1">
                         <p className="text-sm font-medium text-[#111827] dark:text-[#f9fafb]">Decision {index + 1}</p>
-                        <p className="truncate text-xs text-[#6b7280] dark:text-[#9ca3af]">
+                        <p className="break-words text-xs text-[#6b7280] dark:text-[#9ca3af]">
                           {selectedOpt ? `${selectedOpt.label}. ${selectedOpt.title}` : "No response"}
                         </p>
                       </div>
                       <div className="flex items-center gap-2">
-                        <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${
-                          isGood ? "bg-[#dcfce7] text-[#166534] dark:bg-[#065f46]/35 dark:text-[#86efac]" : "bg-[#fee2e2] text-[#b91c1c] dark:bg-[#7f1d1d]/35 dark:text-[#fca5a5]"
-                        }`}>
-                          {decisionQualityLabel(quality)}
-                        </span>
+                        <div className="flex flex-col items-end gap-0.5">
+                          <span className="text-[10px] font-medium uppercase tracking-wide text-[#6b7280] dark:text-[#9ca3af]">Outcome</span>
+                          <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${
+                            isGood ? "bg-[#dcfce7] text-[#166534] dark:bg-[#065f46]/35 dark:text-[#86efac]" : "bg-[#fee2e2] text-[#b91c1c] dark:bg-[#7f1d1d]/35 dark:text-[#fca5a5]"
+                          }`}>
+                            {decisionQualityLabel(quality)}
+                          </span>
+                        </div>
                         <button
                           type="button"
                           aria-label={`Show details for decision ${index + 1}`}

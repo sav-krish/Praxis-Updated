@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useId, useMemo, useState } from "react";
+import { useCallback, useId, useMemo, useRef, useState } from "react";
 import type { LucideIcon } from "lucide-react";
 import {
   ArrowLeft,
@@ -225,16 +225,16 @@ export function SimulationEntryModal({
 
               <label
                 htmlFor={checkboxId}
-                className="mx-auto mt-5 flex w-fit cursor-pointer items-center gap-3 text-left text-sm font-medium text-foreground sm:mt-7 sm:text-base"
+                className="mx-auto mt-5 flex w-full max-w-md cursor-pointer items-start gap-3 text-left text-sm font-medium text-foreground sm:mt-7 sm:text-base"
               >
                 <input
                   id={checkboxId}
                   type="checkbox"
                   checked={suppressFuture}
                   onChange={(event) => setSuppressFuture(event.target.checked)}
-                  className="h-5 w-5 rounded border-border accent-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                  className="mt-0.5 h-5 w-5 shrink-0 rounded border-border accent-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
                 />
-                <span>Don't ask me again for future simulations</span>
+                <span className="min-w-0">Don't ask me again for future simulations</span>
               </label>
 
               <p className="mt-4 text-sm text-muted-foreground sm:mt-5 sm:text-base">
@@ -424,25 +424,27 @@ function ConsequencesScreen({ showStepNumber = false }: { showStepNumber?: boole
       </p>
 
       {/* Horizontal stepper for XP tiers */}
-      <div className="mt-6 flex items-center justify-center gap-0">
-        {outcomeTiers.map((tier, index) => {
-          const Icon = tier.icon;
-          return (
-            <div key={tier.label} className="flex items-center">
-              <div className="flex flex-col items-center gap-2">
-                <span className={`grid h-10 w-10 shrink-0 place-items-center rounded-full ${tier.iconBgClass} border-2 ${tier.borderClass} bg-transparent`}>
-                  <Icon className="h-5 w-5" aria-hidden />
-                </span>
-                <span className={`text-xs font-semibold ${tier.textClass}`}>
-                  {tier.label}
-                </span>
+      <div className="mt-6 overflow-x-auto overscroll-x-contain pb-2 touch-pan-x">
+        <div className="mx-auto flex min-w-[340px] items-center justify-center gap-0 px-1" aria-label="Outcome tiers">
+          {outcomeTiers.map((tier, index) => {
+            const Icon = tier.icon;
+            return (
+              <div key={tier.label} className="flex items-center">
+                <div className="flex flex-col items-center gap-2">
+                  <span className={`grid h-10 w-10 shrink-0 place-items-center rounded-full ${tier.iconBgClass} border-2 ${tier.borderClass} bg-transparent`}>
+                    <Icon className="h-5 w-5" aria-hidden />
+                  </span>
+                  <span className={`text-xs font-semibold ${tier.textClass}`}>
+                    {tier.label}
+                  </span>
+                </div>
+                {index < outcomeTiers.length - 1 && (
+                  <div className="mx-2 h-px w-8 border-t border-dashed border-muted-foreground/30 sm:mx-4 sm:w-12" aria-hidden />
+                )}
               </div>
-              {index < outcomeTiers.length - 1 && (
-                <div className="mx-2 h-px w-8 border-t border-dashed border-muted-foreground/30 sm:mx-4 sm:w-12" aria-hidden />
-              )}
-            </div>
-          );
-        })}
+            );
+          })}
+        </div>
       </div>
 
       {/* Trade-off disclaimer box - subtle lavender */}
@@ -834,6 +836,7 @@ export function SimulationOnboardingCarousel({
   const navigationKey = `${screenSignature}:${startScreen}`;
   const [navigation, setNavigation] = useState({ key: "", index: 0 });
   const [skipConfirmationOpen, setSkipConfirmationOpen] = useState(false);
+  const contentRef = useRef<HTMLElement>(null);
   const setHelpPortalTarget = useCallback(
     (target: HTMLDivElement | null) => {
       onHelpPortalTargetChange?.(target);
@@ -850,6 +853,13 @@ export function SimulationOnboardingCarousel({
     setNavigation({ key: "", index: 0 });
     setSkipConfirmationOpen(false);
     onExit(result);
+  };
+
+  const moveToScreen = (index: number) => {
+    setNavigation({ key: navigationKey, index });
+    window.requestAnimationFrame(() => {
+      contentRef.current?.scrollTo({ top: 0, left: 0 });
+    });
   };
 
   const renderScreen = () => {
@@ -899,7 +909,7 @@ export function SimulationOnboardingCarousel({
             </div>
           </header>
 
-          <main className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-5 pb-[max(1.5rem,env(safe-area-inset-bottom))] sm:px-8 sm:py-8">
+          <main ref={contentRef} className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-5 pb-[max(1.5rem,env(safe-area-inset-bottom))] sm:px-8 sm:py-8">
             <div className="mx-auto w-full max-w-5xl">{renderScreen()}</div>
           </main>
 
@@ -908,12 +918,7 @@ export function SimulationOnboardingCarousel({
               <Button
                 type="button"
                 variant="outline"
-                onClick={() =>
-                  setNavigation({
-                    key: navigationKey,
-                    index: Math.max(0, safeIndex - 1),
-                  })
-                }
+                onClick={() => moveToScreen(Math.max(0, safeIndex - 1))}
                 disabled={safeIndex === 0}
                 className="min-h-10"
                 aria-label="Back"
@@ -944,12 +949,7 @@ export function SimulationOnboardingCarousel({
               ) : (
                 <Button
                   type="button"
-                  onClick={() =>
-                    setNavigation({
-                      key: navigationKey,
-                      index: Math.min(screens.length - 1, safeIndex + 1),
-                    })
-                  }
+                  onClick={() => moveToScreen(Math.min(screens.length - 1, safeIndex + 1))}
                   className="min-h-10"
                   aria-label="Next"
                 >

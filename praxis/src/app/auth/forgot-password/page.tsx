@@ -45,7 +45,7 @@ export default function ForgotPasswordPage() {
       <Card className="w-full max-w-md">
         <CardHeader>
           <div className="flex items-center justify-center mb-4">
-            <PraxisLogo className="h-12 w-auto" />
+            <PraxisLogo size="form" />
           </div>
           <CardTitle>Reset Password</CardTitle>
           <CardDescription>Enter your email to receive a password reset code</CardDescription>

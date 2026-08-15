@@ -43,7 +43,7 @@ export const PARTICIPANT_LOBBY_ROW =
 
 export const TEAM_LOBBY_ROW = "id, session_id, name, created_at" as const;
 
-export const PROFILE_PAGE_ROW = "id, name, active_role, library_show_display_name" as const;
+export const PROFILE_PAGE_ROW = "id, name, library_show_display_name" as const;
 
 export const PARTICIPANT_REPORTS_ROW =
   "id, session_id, team_id, name, joined_at" as const;

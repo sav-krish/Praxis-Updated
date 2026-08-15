@@ -16,7 +16,8 @@ import {
   type LeaderboardTier,
   type TieBreakReason,
 } from "@/lib/student/leaderboard";
-import { createServiceRoleClient } from "@/lib/supabase/server";
+import { createClient, createServiceRoleClient } from "@/lib/supabase/server";
+import { canAccessParticipant } from "@/lib/student/participant-access";
 import type { Json } from "@/types/database";
 
 export const dynamic = "force-dynamic";
@@ -92,7 +93,7 @@ export async function GET(request: NextRequest, { params }: RouteContext) {
   let { data: session, error: sessionError } = await supabase
     .from("sessions")
     .select(
-      "id, simulation_id, student_flow_settings, simulation:simulations(preferences)",
+      "id, simulation_id, is_preview, student_flow_settings, simulation:simulations(preferences, professor_id)",
     )
     .eq("join_code", code.trim().toUpperCase())
     .single();
@@ -102,7 +103,7 @@ export async function GET(request: NextRequest, { params }: RouteContext) {
   if (sessionError?.message?.includes("student_flow_settings")) {
     const legacySession = await supabase
       .from("sessions")
-      .select("id, simulation_id, simulation:simulations(preferences)")
+      .select("id, simulation_id, is_preview, simulation:simulations(preferences, professor_id)")
       .eq("join_code", code.trim().toUpperCase())
       .single();
     session = legacySession.data
@@ -117,13 +118,30 @@ export async function GET(request: NextRequest, { params }: RouteContext) {
 
   const { data: viewerParticipant, error: viewerError } = await supabase
     .from("participants")
-    .select("id")
+    .select("id, user_id")
     .eq("id", participantId)
     .eq("session_id", session.id)
     .single();
 
   if (viewerError || !viewerParticipant) {
     return json({ error: "Participant not found" }, 404);
+  }
+
+  const {
+    data: { user },
+  } = await (await createClient()).auth.getUser();
+  const viewerSimulation = session.simulation as
+    | { preferences: Json | null; professor_id?: string }
+    | null;
+  if (
+    !canAccessParticipant({
+      viewerUserId: user?.id ?? null,
+      participantUserId: viewerParticipant.user_id,
+      isPreview: session.is_preview === true,
+      simulationOwnerId: viewerSimulation?.professor_id,
+    })
+  ) {
+    return json({ error: "This session belongs to a different account" }, 403);
   }
 
   const { data: individualAttempt } = await supabase

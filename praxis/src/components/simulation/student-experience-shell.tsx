@@ -138,13 +138,28 @@ export function StudentExperienceShell({
       if (!baseResponse.ok || !basePayload?.session) return;
 
       const sessionId = basePayload.session.id;
+      const {
+        data: { user },
+      } = await createClient().auth.getUser();
+      const storedOwnerId = sessionStorage.getItem(`participant_owner_${sessionId}`);
+      const canUseStoredParticipant =
+        !storedOwnerId || storedOwnerId === user?.id;
+      if (!canUseStoredParticipant) {
+        sessionStorage.removeItem(`participant_${sessionId}`);
+        sessionStorage.removeItem(`participant_name_${sessionId}`);
+        sessionStorage.removeItem(`participant_owner_${sessionId}`);
+        sessionStorage.removeItem(`student_attempt_${sessionId}`);
+        sessionStorage.removeItem(`participant_code_${normalizedCode}`);
+      }
       setIndividualMode(
-        Boolean(sessionStorage.getItem(`student_attempt_${sessionId}`)),
+        canUseStoredParticipant && Boolean(sessionStorage.getItem(`student_attempt_${sessionId}`)),
       );
       const storedParticipantId =
-        sessionStorage.getItem(`participant_${sessionId}`) ||
-        sessionStorage.getItem(`participant_code_${normalizedCode}`) ||
-        (localStorage.getItem("praxis_active_session_code") === normalizedCode
+        (canUseStoredParticipant
+          ? sessionStorage.getItem(`participant_${sessionId}`) ||
+            sessionStorage.getItem(`participant_code_${normalizedCode}`)
+          : null) ||
+        (!user && !storedOwnerId && localStorage.getItem("praxis_active_session_code") === normalizedCode
           ? localStorage.getItem("praxis_guest_participant_id")
           : null);
 
@@ -160,10 +175,22 @@ export function StudentExperienceShell({
       const fullPayload = (await response.json().catch(() => null)) as
         | StudentExperiencePayload
         | null;
-      if (!response.ok || !fullPayload?.participant) return;
+      if (!response.ok || !fullPayload?.participant) {
+        if (
+          response.status === 403 &&
+          localStorage.getItem("praxis_active_session_code") === normalizedCode
+        ) {
+          localStorage.removeItem("praxis_active_session_code");
+          localStorage.removeItem("praxis_guest_participant_id");
+        }
+        return;
+      }
 
       setParticipantId(storedParticipantId);
       setPayload(fullPayload);
+      if (user) {
+        sessionStorage.setItem(`participant_owner_${sessionId}`, user.id);
+      }
 
       const identity = studentStorageIdentity(fullPayload.participant.name);
       const suppressionKey = `${GLOBAL_SUPPRESSION_PREFIX}_${identity}`;
@@ -376,7 +403,7 @@ export function StudentExperienceShell({
                   : undefined
             }
           />
-          {participantId && leaderboardPhase !== "reflection" ? (
+          {participantId ? (
             <LeaderboardOverlays
               code={normalizedCode}
               sessionId={sessionId}

@@ -2,7 +2,6 @@
 
 import { useEffect, useState, useRef } from "react";
 import Link from "next/link";
-import Image from "next/image";
 import { motion, useInView } from "framer-motion";
 import { FadeIn } from "@/components/landing/fade-in";
 import { HowItWorksHorizontalScroll } from "@/components/landing/how-it-works";
@@ -172,10 +171,10 @@ export default function HomePage() {
 
       {/* ── Nav ── */}
       <header className="sticky top-0 z-40 border-b border-line/60 bg-white safe-area-inset-top">
-        <nav className="container flex min-h-16 items-center justify-between gap-2 px-4 py-2 sm:min-h-18 sm:gap-3 sm:px-6 sm:py-2.5">
+        <nav className="container flex min-h-16 items-center justify-between gap-1 px-3 py-2 sm:min-h-18 sm:gap-3 sm:px-6 sm:py-2.5">
           <Link href="/" className="flex min-w-0 shrink items-center gap-1.5 sm:gap-2">
-            <span className="inline-flex h-9 shrink-0 items-center justify-center rounded-sm bg-white p-0.5 dark:bg-transparent sm:h-10">
-              <PraxisLogo className="h-full w-auto" priority />
+            <span className="inline-flex shrink-0 items-center justify-center">
+              <PraxisLogo size="navbar" priority />
             </span>
           </Link>
           <div className="hidden items-center gap-8 md:flex">
@@ -189,7 +188,7 @@ export default function HomePage() {
               </Link>
             ))}
           </div>
-          <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
+          <div className="flex shrink-0 items-center gap-1 sm:gap-2">
             <ThemeToggle />
             <Link
               href="/join"
@@ -213,13 +212,13 @@ export default function HomePage() {
             <Link href="/join" className="inline-flex items-center md:hidden">
               <Button
                 variant="ghost"
-                className="h-9 max-h-9 px-3 text-base font-semibold leading-none"
+                className="h-9 max-h-9 px-2 text-sm font-semibold leading-none sm:px-3 sm:text-base"
               >
                 Join
               </Button>
             </Link>
             <Link href="/auth/login" className="inline-flex items-center md:hidden">
-              <Button className="h-9 max-h-9 px-3 text-base font-semibold leading-none">
+              <Button className="h-9 max-h-9 px-2 text-sm font-semibold leading-none sm:px-3 sm:text-base">
                 Sign In
               </Button>
             </Link>
@@ -524,15 +523,7 @@ export default function HomePage() {
               href="/"
               className="flex items-center text-lg font-semibold text-ink"
             >
-              <span className="inline-flex shrink-0 items-center justify-center">
-                <Image
-                  src="/praxis_transparent.png"
-                  alt="Praxis"
-                  width={220}
-                  height={82}
-                  className="h-10 w-auto"
-                />
-              </span>
+              <PraxisLogo size="form" />
             </Link>
             <p className="mt-2 text-sm text-muted">
               Classroom Decision Simulations

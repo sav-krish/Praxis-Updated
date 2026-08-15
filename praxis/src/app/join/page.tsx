@@ -81,19 +81,36 @@ function JoinForm() {
       // Check if this tab already joined this session (sessionStorage = per-tab identity)
       const storedId = sessionStorage.getItem(`participant_${data.id}`);
       if (storedId) {
+        const {
+          data: { user },
+        } = await supabase.auth.getUser();
+        const storedOwnerId = sessionStorage.getItem(`participant_owner_${data.id}`);
+        if (storedOwnerId && storedOwnerId !== user?.id) {
+          sessionStorage.removeItem(`participant_${data.id}`);
+          sessionStorage.removeItem(`participant_name_${data.id}`);
+          sessionStorage.removeItem(`participant_owner_${data.id}`);
+          sessionStorage.removeItem(`student_attempt_${data.id}`);
+          setChecking(false);
+          return;
+        }
+
         // Verify the participant still exists in the DB
         const { data: existing } = await supabase
           .from("participants")
-          .select("id, name")
+          .select("id, name, user_id")
           .eq("id", storedId)
           .eq("session_id", data.id)
           .single();
 
         if (requestId !== lookupRequestRef.current) return;
 
-        if (existing) {
+        const belongsToCurrentViewer = existing && (
+          user ? existing.user_id === user.id : existing.user_id === null
+        );
+        if (belongsToCurrentViewer && existing) {
           // This tab already joined -- send them straight back to play
           sessionStorage.setItem(`participant_name_${data.id}`, existing.name);
+          if (user) sessionStorage.setItem(`participant_owner_${data.id}`, user.id);
           setChecking(false);
           router.push(`/play/${codeToCheck}`);
           return;
@@ -101,6 +118,8 @@ function JoinForm() {
           // Stale entry -- clear it so they can re-join fresh
           sessionStorage.removeItem(`participant_${data.id}`);
           sessionStorage.removeItem(`participant_name_${data.id}`);
+          sessionStorage.removeItem(`participant_owner_${data.id}`);
+          sessionStorage.removeItem(`student_attempt_${data.id}`);
         }
       }
     } else {
@@ -190,12 +209,29 @@ function JoinForm() {
       });
 
       const result = (await response.json().catch(() => null)) as
-        | { participantId: string; participantName: string; sessionId: string }
+        | {
+            participantId: string;
+            participantName: string;
+            sessionId: string;
+            participantUserId: string | null;
+            attemptId: string | null;
+          }
         | { error?: string }
         | null;
 
       if (!response.ok || !result || !("participantId" in result)) {
         throw new Error(result && "error" in result ? result.error : "Failed to join session");
+      }
+
+      if (result.participantUserId) {
+        sessionStorage.setItem(`participant_${result.sessionId}`, result.participantId);
+        sessionStorage.setItem(`participant_name_${result.sessionId}`, result.participantName);
+        sessionStorage.setItem(`participant_owner_${result.sessionId}`, result.participantUserId);
+        if (result.attemptId) {
+          sessionStorage.setItem(`student_attempt_${result.sessionId}`, result.attemptId);
+        }
+        router.push(`/play/${joinCode.toUpperCase()}`);
+        return;
       }
 
       // Store the pending join data and show the account creation modal
@@ -214,6 +250,7 @@ function JoinForm() {
     if (pendingJoinData) {
       sessionStorage.setItem(`participant_${session!.id}`, pendingJoinData.participantId);
       sessionStorage.setItem(`participant_name_${session!.id}`, pendingJoinData.participantName);
+      sessionStorage.removeItem(`participant_owner_${session!.id}`);
       // Redirect to signup with the join code so they can create an account
       // After signup, they'll be redirected back to the play page
       router.push(`/auth/signup?role=student&code=${joinCode.toUpperCase()}`);
@@ -225,6 +262,7 @@ function JoinForm() {
     if (pendingJoinData) {
       sessionStorage.setItem(`participant_${session!.id}`, pendingJoinData.participantId);
       sessionStorage.setItem(`participant_name_${session!.id}`, pendingJoinData.participantName);
+      sessionStorage.removeItem(`participant_owner_${session!.id}`);
       localStorage.setItem("praxis_active_session_code", joinCode.toUpperCase());
       localStorage.setItem("praxis_guest_participant_id", pendingJoinData.participantId);
     }
@@ -236,6 +274,11 @@ function JoinForm() {
     );
   };
 
+  const joinReturnPath = joinCode
+    ? `/join?code=${encodeURIComponent(joinCode)}`
+    : "/join";
+  const signInHref = `/auth/login?next=${encodeURIComponent(joinReturnPath)}`;
+
   return (
     <div className="praxis-student-ui relative flex min-h-dvh items-center justify-center overflow-hidden bg-[#fffaf6] px-4 py-8 text-[#111827] dark:bg-[#08121e] dark:text-[#f9fafb]">
       <div aria-hidden className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_8%_28%,rgba(249,115,22,0.10),transparent_20rem),radial-gradient(circle_at_92%_76%,rgba(251,146,60,0.10),transparent_24rem)] dark:bg-[radial-gradient(circle_at_8%_28%,rgba(251,146,60,0.08),transparent_20rem),radial-gradient(circle_at_92%_76%,rgba(96,165,250,0.05),transparent_24rem)]" />
@@ -245,8 +288,8 @@ function JoinForm() {
       <Card className="relative w-full max-w-[420px] overflow-hidden rounded-2xl border-[#fee2d2] bg-white/95 py-0 shadow-[0_22px_55px_rgba(154,52,18,0.12)] dark:border-[#1f2937] dark:bg-[#111827]/95 dark:shadow-[0_24px_64px_rgba(0,0,0,0.35)]">
         <CardHeader className="px-6 pb-3 pt-8 text-center sm:px-8 sm:pt-9">
           <Link href="/" className="mb-5 flex items-center justify-center">
-            <span className="inline-flex shrink-0 items-center justify-center rounded-sm bg-white px-1 py-0.5 dark:bg-transparent">
-              <PraxisLogo className="h-8 w-auto sm:h-9" priority />
+            <span className="inline-flex shrink-0 items-center justify-center">
+              <PraxisLogo size="form" priority />
             </span>
           </Link>
           <CardTitle className="praxis-join-heading text-[28px] font-semibold leading-9 tracking-[-0.03em] text-[#111827] sm:text-[32px] sm:leading-10 dark:text-[#f9fafb]">
@@ -342,7 +385,7 @@ function JoinForm() {
             <div className="pt-1 text-center text-xs text-[#6b7280] dark:text-[#9ca3af]">
               <p>
                 Already have an account?{" "}
-                <Link href="/auth/login" className="font-medium text-[#ea580c] hover:underline dark:text-[#fb923c]">
+                <Link href={signInHref} className="font-medium text-[#ea580c] hover:underline dark:text-[#fb923c]">
                   Sign in
                 </Link>
               </p>

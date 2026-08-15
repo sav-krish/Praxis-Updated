@@ -35,7 +35,18 @@ export default function RoleSelectPage({ params }: { params: Promise<{ code: str
         const payload = (await response.json().catch(() => null)) as
           | { availableProfiles?: Array<{ id: string; profile_name: string }> }
           | null;
-        if (!response.ok) throw new Error("Could not load simulation roles");
+        if (!response.ok) {
+          if (response.status === 403) {
+            sessionStorage.removeItem(`participant_code_${code.toUpperCase()}`);
+            if (localStorage.getItem("praxis_active_session_code") === code.toUpperCase()) {
+              localStorage.removeItem("praxis_active_session_code");
+              localStorage.removeItem("praxis_guest_participant_id");
+            }
+            router.replace(`/join?code=${code.toUpperCase()}`);
+            return;
+          }
+          throw new Error("Could not load simulation roles");
+        }
 
         const availableRoles = (payload?.availableProfiles ?? []).map((profile) => ({
           id: profile.id,
@@ -70,7 +81,14 @@ export default function RoleSelectPage({ params }: { params: Promise<{ code: str
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ participantId, profileId: selectedRole }),
       });
-      if (!response.ok) throw new Error("Could not save role");
+      if (!response.ok) {
+        if (response.status === 403) {
+          sessionStorage.removeItem(`participant_code_${code.toUpperCase()}`);
+          router.replace(`/join?code=${code.toUpperCase()}`);
+          return;
+        }
+        throw new Error("Could not save role");
+      }
       sessionStorage.setItem(`role_${code.toUpperCase()}`, selectedRole);
       if (selectedProfile) {
         sessionStorage.setItem(`role_label_${code.toUpperCase()}`, selectedProfile.title);
@@ -85,7 +103,7 @@ export default function RoleSelectPage({ params }: { params: Promise<{ code: str
     <div className="flex min-h-dvh flex-col bg-background">
       <header className="border-b bg-card">
         <div className="mx-auto flex min-h-16 max-w-6xl items-center justify-between px-4">
-          <PraxisLogo className="h-12 w-auto" priority />
+          <PraxisLogo size="navbar" priority />
           <ThemeToggle />
         </div>
       </header>

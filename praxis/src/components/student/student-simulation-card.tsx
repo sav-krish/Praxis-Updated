@@ -53,6 +53,7 @@ export function StartSimulationButton({
             sessionId: string;
             participantId: string;
             participantName: string;
+            participantUserId: string;
             attemptId: string;
           }
         | { error?: string }
@@ -64,6 +65,7 @@ export function StartSimulationButton({
 
       sessionStorage.setItem(`participant_${result.sessionId}`, result.participantId);
       sessionStorage.setItem(`participant_name_${result.sessionId}`, result.participantName);
+      sessionStorage.setItem(`participant_owner_${result.sessionId}`, result.participantUserId);
       sessionStorage.setItem(`student_attempt_${result.sessionId}`, result.attemptId);
 
       router.push(`/play/${result.joinCode}`);
