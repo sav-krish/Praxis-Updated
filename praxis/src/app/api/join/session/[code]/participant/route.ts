@@ -118,13 +118,13 @@ export async function POST(request: NextRequest, { params }: RouteContext) {
 
   let attemptId: string | null = null;
   if (user && !session.is_preview) {
-    const { data: studentProfile } = await authSupabase
-      .from("student_profiles")
-      .select("user_id")
-      .eq("user_id", user.id)
+    const { data: account } = await authSupabase
+      .from("professors")
+      .select("active_role")
+      .eq("id", user.id)
       .maybeSingle();
 
-    if (studentProfile) {
+    if (account?.active_role === "student") {
       const { data: existingAttempt } = await authSupabase
         .from("student_simulation_attempts")
         .select("id")

@@ -1,5 +1,6 @@
 -- Account roles are chosen at signup and must not be switchable from the
--- client. A student profile is the durable student-account marker.
+-- client. Student profiles store preferences only; authorization always uses
+-- the immutable account role so professor accounts can safely test sessions.
 CREATE OR REPLACE FUNCTION public.is_professor_account(target_user_id UUID)
 RETURNS BOOLEAN
 LANGUAGE sql
@@ -11,11 +12,7 @@ AS $$
     SELECT 1
     FROM public.professors p
     WHERE p.id = target_user_id
-      AND NOT EXISTS (
-        SELECT 1
-        FROM public.student_profiles sp
-        WHERE sp.user_id = target_user_id
-      )
+      AND p.active_role = 'professor'
   );
 $$;
 

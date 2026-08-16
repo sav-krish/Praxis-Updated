@@ -639,10 +639,10 @@ export function LeaderboardOverlays({
 
   return (
     <>
-      {phase !== "reflection" && payload.settings.rankChipEnabled ? (
+      {phase === "decision" && payload.settings.rankChipEnabled ? (
         <div
           ref={chipRef}
-          className="fixed right-3 top-[calc(env(safe-area-inset-top)+4.5rem)] z-40 flex flex-col items-end sm:left-4 sm:right-auto sm:top-4 sm:items-start"
+          className="fixed right-3 top-[calc(env(safe-area-inset-top)+6rem)] z-40 flex flex-col items-end sm:left-4 sm:right-auto sm:top-[calc(env(safe-area-inset-top)+6rem)] sm:items-start"
         >
           <button
             ref={chipButtonRef}
@@ -700,7 +700,7 @@ export function LeaderboardOverlays({
         </div>
       ) : null}
 
-      {phase !== "reflection" && rankUpdate && rankUpdateViewer ? (
+      {phase === "decision" && rankUpdate && rankUpdateViewer ? (
         <aside
           className="pointer-events-none fixed inset-x-3 bottom-4 z-50 mx-auto max-w-md animate-in fade-in-0 slide-in-from-bottom-4 duration-300 motion-reduce:animate-none sm:bottom-6"
           aria-live="polite"

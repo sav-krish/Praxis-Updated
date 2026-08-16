@@ -26,12 +26,12 @@ export default async function EditSimulationPage({ params, searchParams }: PageP
   const { data: { user } } = await supabase.auth.getUser();
 
   if (user) {
-    const { data: studentProfile } = await supabase
-      .from("student_profiles")
-      .select("user_id")
-      .eq("user_id", user.id)
+    const { data: account } = await supabase
+      .from("professors")
+      .select("active_role")
+      .eq("id", user.id)
       .maybeSingle();
-    if (studentProfile) redirect("/dashboard");
+    if (account?.active_role === "student") redirect("/dashboard");
   }
 
   // Fetch simulation with all related data

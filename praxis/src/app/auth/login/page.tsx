@@ -23,11 +23,19 @@ export default function LoginPage() {
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
+    const normalizedEmail = email.trim().toLowerCase();
+    if (!normalizedEmail) {
+      toast.error("Enter your email address.");
+      return;
+    }
     setLoading(true);
 
     const supabase = createClient();
     const { error } = await supabase.auth.signInWithPassword({
-      email,
+      // Role access is evaluated only after Supabase authenticates the user.
+      // Normalizing email avoids an otherwise indistinguishable invalid-
+      // credentials error from accidental whitespace or casing.
+      email: normalizedEmail,
       password,
     });
 
@@ -66,6 +74,7 @@ export default function LoginPage() {
                 placeholder="you@university.edu"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
+                autoComplete="email"
                 required
               />
             </div>
@@ -82,6 +91,7 @@ export default function LoginPage() {
                 placeholder="••••••••"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
+                autoComplete="current-password"
                 required
               />
             </div>

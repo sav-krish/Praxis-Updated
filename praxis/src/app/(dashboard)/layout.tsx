@@ -126,7 +126,7 @@ export default async function DashboardLayout({
               <DropdownMenuTrigger asChild>
                 <Button
                   variant="ghost"
-                  className="h-10 w-10 px-0 sm:hidden"
+                  className="h-11 w-11 px-0 sm:hidden"
                   aria-label="Open navigation menu"
                 >
                   <Menu className="h-5 w-5" aria-hidden />
@@ -191,10 +191,11 @@ export default async function DashboardLayout({
                 <Button
                   id="dashboard-profile-menu-trigger"
                   variant="ghost"
-                  className="relative h-10 w-10 rounded-full"
+                  className="relative h-11 w-11 rounded-full md:h-10 md:w-10"
                   data-tour="profile-menu"
+                  aria-label="Open account menu"
                 >
-                  <Avatar className="h-10 w-10">
+                  <Avatar className="h-11 w-11 md:h-10 md:w-10">
                     <AvatarFallback>{initials}</AvatarFallback>
                   </Avatar>
                 </Button>

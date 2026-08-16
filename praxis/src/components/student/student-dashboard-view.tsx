@@ -90,6 +90,10 @@ function topic(simulation: StudentSimulationSummary): string {
   return simulation.course_topic?.trim() || "Uncategorized";
 }
 
+function subjectFilterValue(simulation: StudentSimulationSummary): string {
+  return topic(simulation).replace(/\s+/g, " ").toLowerCase();
+}
+
 function StudentSimCard({
   simulation,
   eyebrow,
@@ -207,18 +211,28 @@ export function StudentDashboardView({
   const [startingKey, setStartingKey] = useState<string | null>(null);
   const [subjectFilter, setSubjectFilter] = useState("all");
 
-  const subjectAreas = useMemo(
-    () => Array.from(new Set(explore.map((item) => topic(item.simulation)))).sort(),
-    [explore],
-  );
+  const subjectAreas = useMemo(() => {
+    const subjects = new Map<string, string>();
+    for (const item of explore) {
+      const label = topic(item.simulation).replace(/\s+/g, " ");
+      const value = subjectFilterValue(item.simulation);
+      if (!subjects.has(value)) subjects.set(value, label);
+    }
+    return Array.from(subjects, ([value, label]) => ({ value, label })).sort((a, b) =>
+      a.label.localeCompare(b.label),
+    );
+  }, [explore]);
 
   const filteredExplore = useMemo(
     () =>
       subjectFilter === "all"
         ? explore
-        : explore.filter((item) => topic(item.simulation) === subjectFilter),
+        : explore.filter((item) => subjectFilterValue(item.simulation) === subjectFilter),
     [explore, subjectFilter],
   );
+
+  const selectedSubjectLabel =
+    subjectAreas.find((subject) => subject.value === subjectFilter)?.label ?? null;
 
   const groupedExplore = useMemo(() => {
     return STUDENT_TRACKS.map((track) => ({
@@ -378,8 +392,10 @@ export function StudentDashboardView({
           <div className="flex flex-col gap-3 rounded-2xl border border-border bg-white/65 p-4 sm:flex-row sm:items-end sm:justify-between">
             <div>
               <p className="font-semibold text-ink">Find a simulation</p>
-              <p className="text-sm text-muted-text">
-                Filter the library by subject area to find the right practice scenario.
+              <p className="text-sm text-muted-text" aria-live="polite">
+                {selectedSubjectLabel
+                  ? `Showing ${filteredExplore.length} ${selectedSubjectLabel} simulation${filteredExplore.length === 1 ? "" : "s"}.`
+                  : `Showing all ${filteredExplore.length} published simulations.`}
               </p>
             </div>
             <div className="w-full sm:w-[220px]">
@@ -393,8 +409,8 @@ export function StudentDashboardView({
                 <SelectContent>
                   <SelectItem value="all">All subject areas</SelectItem>
                   {subjectAreas.map((subject) => (
-                    <SelectItem key={subject} value={subject}>
-                      {subject}
+                    <SelectItem key={subject.value} value={subject.value}>
+                      {subject.label}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -459,7 +475,7 @@ export function StudentDashboardView({
               <p className="font-medium text-ink">
                 {subjectFilter === "all"
                   ? "No public simulations are available yet."
-                  : `No ${subjectFilter} simulations are available yet.`}
+                  : `No ${selectedSubjectLabel ?? "matching"} simulations are available yet.`}
               </p>
               <p className="mt-1 text-sm text-muted-text">
                 {subjectFilter === "all"

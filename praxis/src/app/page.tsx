@@ -212,13 +212,13 @@ export default function HomePage() {
             <Link href="/join" className="inline-flex items-center md:hidden">
               <Button
                 variant="ghost"
-                className="h-9 max-h-9 px-2 text-sm font-semibold leading-none sm:px-3 sm:text-base"
+                className="h-11 px-2 text-sm font-semibold leading-none md:h-9 md:px-3 md:text-base"
               >
                 Join
               </Button>
             </Link>
             <Link href="/auth/login" className="inline-flex items-center md:hidden">
-              <Button className="h-9 max-h-9 px-2 text-sm font-semibold leading-none sm:px-3 sm:text-base">
+              <Button className="h-11 px-2 text-sm font-semibold leading-none md:h-9 md:px-3 md:text-base">
                 Sign In
               </Button>
             </Link>

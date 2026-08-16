@@ -42,6 +42,18 @@ export async function GET(request: NextRequest, { params }: RouteContext) {
     return NextResponse.json({ persistent: false });
   }
 
+  const { data: account } = await supabase
+    .from("professors")
+    .select("active_role")
+    .eq("id", user.id)
+    .maybeSingle();
+
+  // Professors can participate in a session, but that must not create a
+  // student profile or turn their account into student mode.
+  if (account?.active_role !== "student") {
+    return NextResponse.json({ persistent: false });
+  }
+
   const scope = await getStudentScope(code, participantId, user.id);
   if (!scope) {
     return NextResponse.json({ error: "Student session not found" }, { status: 404 });
@@ -87,6 +99,19 @@ export async function POST(request: NextRequest, { params }: RouteContext) {
 
   if (!user || !participantId) {
     return NextResponse.json({ error: "Sign in is required" }, { status: 401 });
+  }
+
+  const { data: account } = await supabase
+    .from("professors")
+    .select("active_role")
+    .eq("id", user.id)
+    .maybeSingle();
+
+  // Keep onboarding local for non-student participants. In particular, do
+  // not upsert a `student_profiles` row for a professor who is testing or
+  // joining a class session.
+  if (account?.active_role !== "student") {
+    return NextResponse.json({ persistent: false });
   }
 
   if (

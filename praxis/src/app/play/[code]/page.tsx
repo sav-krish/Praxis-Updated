@@ -18,7 +18,6 @@ import {
   Loader2, 
   ArrowRight, 
   ArrowLeft,
-  ChevronRight,
   Check, 
   Clock,
   Trophy,
@@ -39,7 +38,6 @@ import {
 import { toast } from "sonner";
 import Link from "next/link";
 import { endPreviewSession } from "@/app/(dashboard)/session/[id]/actions";
-import { decisionQualityFromScore, decisionQualityLabel } from "@/lib/student/scoring";
 import {
   optionScoreToTier,
   type LeaderboardTier,
@@ -77,6 +75,77 @@ interface Option {
   description: string | null;
   consequence: string | null;
   score: number;
+}
+
+type DecisionOutcomeSnapshot = {
+  consequence: string;
+  outcomeReasoning: string;
+  dataImpact?: QualitativeImpact[];
+  tier: LeaderboardTier;
+};
+
+function decisionOutcomeStorageKey(
+  sessionId: string,
+  participantId: string,
+  decisionId: string,
+) {
+  return `praxis_decision_outcome_${sessionId}_${participantId}_${decisionId}`;
+}
+
+function readDecisionOutcomeSnapshot(
+  sessionId: string,
+  participantId: string,
+  decisionId: string,
+): DecisionOutcomeSnapshot | null {
+  if (typeof window === "undefined") return null;
+
+  try {
+    const stored = window.sessionStorage.getItem(
+      decisionOutcomeStorageKey(sessionId, participantId, decisionId),
+    );
+    if (!stored) return null;
+
+    const parsed = JSON.parse(stored) as Partial<DecisionOutcomeSnapshot>;
+    if (!parsed || typeof parsed.consequence !== "string") return null;
+
+    const tier =
+      parsed.tier === "Perfect" ||
+      parsed.tier === "Good" ||
+      parsed.tier === "Decent" ||
+      parsed.tier === "Poor"
+        ? parsed.tier
+        : "Poor";
+
+    return {
+      consequence: parsed.consequence,
+      outcomeReasoning:
+        typeof parsed.outcomeReasoning === "string" ? parsed.outcomeReasoning : "",
+      dataImpact: Array.isArray(parsed.dataImpact)
+        ? (parsed.dataImpact as QualitativeImpact[])
+        : undefined,
+      tier,
+    };
+  } catch {
+    return null;
+  }
+}
+
+function writeDecisionOutcomeSnapshot(
+  sessionId: string,
+  participantId: string,
+  decisionId: string,
+  snapshot: DecisionOutcomeSnapshot,
+) {
+  if (typeof window === "undefined") return;
+
+  try {
+    window.sessionStorage.setItem(
+      decisionOutcomeStorageKey(sessionId, participantId, decisionId),
+      JSON.stringify(snapshot),
+    );
+  } catch {
+    // A result can still render from component state when storage is unavailable.
+  }
 }
 
 const OUTCOME_TIER_STYLES: Record<
@@ -121,6 +190,13 @@ const OUTCOME_TIER_STYLES: Record<
     badge:
       "bg-rose-100 text-rose-800 hover:bg-rose-100 dark:bg-rose-900/70 dark:text-rose-200",
   },
+};
+
+const COMPLETION_OUTCOME_ICON_STYLES: Record<LeaderboardTier, string> = {
+  Perfect: "bg-blue-100 text-blue-700 dark:bg-blue-950/60 dark:text-blue-300",
+  Good: "bg-emerald-100 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300",
+  Decent: "bg-lime-100 text-lime-800 dark:bg-lime-950/60 dark:text-lime-200",
+  Poor: "bg-rose-100 text-rose-700 dark:bg-rose-950/60 dark:text-rose-300",
 };
 
 interface Decision {
@@ -241,26 +317,47 @@ function SimulationTopHeader({
   activeStage: string;
   roleLabel: string;
 }) {
+  const normalizedDecisionCount = Math.max(0, decisionCount);
+  const totalStages = normalizedDecisionCount + 2; // Reflection + Completion.
   const activeDecision = activeStage.startsWith("decision-")
     ? Number(activeStage.replace("decision-", ""))
-    : activeStage === "background" || activeStage === "results"
-      ? 0
-      : decisionCount;
-  const currentDecision = Math.max(0, Math.min(activeDecision || 0, decisionCount || 0));
+    : 0;
+  const currentDecision = Math.max(
+    0,
+    Math.min(activeDecision || 0, normalizedDecisionCount),
+  );
+  const isReflection = activeStage === "reflection";
+  const isComplete = activeStage === "completion" || activeStage === "results";
+  const completedStages = isComplete
+    ? totalStages
+    : isReflection
+      ? normalizedDecisionCount + 1
+      : currentDecision;
+  const stageLabel = isComplete
+    ? "Completed"
+    : isReflection
+      ? "Reflection"
+      : activeStage === "background"
+        ? "Background"
+        : `Decision ${currentDecision} of ${normalizedDecisionCount}`;
+
   return (
     <div className="overflow-hidden rounded-xl border border-[#fee2d2] bg-white shadow-sm dark:border-[#1f2937] dark:bg-[#111827]">
       <div className="flex items-center justify-between gap-2 px-3 py-2.5 sm:gap-3 sm:px-4">
         <PraxisLogo size="compact" priority />
-        <div className="flex min-w-0 flex-1 flex-col items-center gap-1" aria-label={`Decision ${currentDecision} of ${decisionCount}`}>
+        <div
+          className="flex min-w-0 flex-1 flex-col items-center gap-1"
+          aria-label={`${stageLabel}. ${completedStages} of ${totalStages} stages complete`}
+        >
           <span className="text-[11px] font-medium text-[#374151] dark:text-[#e5e7eb] sm:text-xs">
-            Decision {currentDecision} of {decisionCount}
+            {stageLabel}
           </span>
           <span className="flex max-w-full items-center justify-start gap-1 overflow-x-auto pb-px touch-pan-x sm:justify-center sm:gap-1.5">
-            {Array.from({ length: Math.max(1, decisionCount) }, (_, index) => (
+            {Array.from({ length: Math.max(2, totalStages) }, (_, index) => (
               <span
                 key={index}
                 className={`h-1 w-4 shrink-0 rounded-full sm:w-9 ${
-                  index < currentDecision
+                  index < completedStages
                     ? "bg-[#f97316] dark:bg-[#fb923c]"
                     : "bg-[#e5e7eb] dark:bg-[#374151]"
                 }`}
@@ -314,6 +411,9 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
   const [outcomeTier, setOutcomeTier] = useState<LeaderboardTier | null>(null);
   const [outcomeReasoning, setOutcomeReasoning] = useState("");
   const [myResponses, setMyResponses] = useState<{ decision_id: string; option_id: string; score: number }[]>([]);
+  const [decisionOutcomeSnapshots, setDecisionOutcomeSnapshots] = useState<
+    Record<string, DecisionOutcomeSnapshot>
+  >({});
   const [reflectionAnswers, setReflectionAnswers] = useState<Record<string, string>>({});
   const [participantCount, setParticipantCount] = useState<number>(0);
   const [teamId, setTeamId] = useState<string | null>(null);
@@ -340,6 +440,9 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
   const [completionRankLoading, setCompletionRankLoading] = useState(false);
   const [expandedDecisionIds, setExpandedDecisionIds] = useState<string[]>([]);
   const [feedbackDismissed, setFeedbackDismissed] = useState(false);
+  const [completionNavigation, setCompletionNavigation] = useState<
+    "dashboard" | "home" | null
+  >(null);
   const [aiJustificationFeedback, setAiJustificationFeedback] = useState<string | null>(null);
   const [selectedRoleLabel, setSelectedRoleLabel] = useState("Decision maker");
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -352,6 +455,27 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
   const currentStepRef = useRef(currentStep);
   const sessionIdRef = useRef<string | null>(null);
   const transitionRef = useRef(false);
+  const completionNavigationRef = useRef(false);
+
+  const persistDecisionOutcome = (
+    decisionId: string,
+    snapshot: DecisionOutcomeSnapshot,
+  ) => {
+    setDecisionOutcomeSnapshots((current) => ({
+      ...current,
+      [decisionId]: snapshot,
+    }));
+    if (session?.id && participantId) {
+      writeDecisionOutcomeSnapshot(session.id, participantId, decisionId, snapshot);
+    }
+  };
+
+  const navigateAfterCompletion = (destination: "dashboard" | "home") => {
+    if (completionNavigationRef.current) return;
+    completionNavigationRef.current = true;
+    setCompletionNavigation(destination);
+    router.push(destination === "dashboard" ? "/dashboard" : "/");
+  };
 
   useEffect(() => {
     if (currentStep === 7 || session?.status === "complete") {
@@ -367,6 +491,33 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
   useEffect(() => {
     return () => setLeaderboardPhase("reflection");
   }, [setLeaderboardPhase]);
+
+  useEffect(() => {
+    if (!session?.id || !participantId || decisions.length === 0) return;
+
+    const storedSnapshots = decisions.reduce<Record<string, DecisionOutcomeSnapshot>>(
+      (collected, decision) => {
+        const snapshot = readDecisionOutcomeSnapshot(
+          session.id,
+          participantId,
+          decision.id,
+        );
+        if (snapshot) collected[decision.id] = snapshot;
+        return collected;
+      },
+      {},
+    );
+    if (Object.keys(storedSnapshots).length === 0) return;
+
+    setDecisionOutcomeSnapshots((current) => {
+      const missingSnapshots = Object.entries(storedSnapshots).filter(
+        ([decisionId]) => !current[decisionId],
+      );
+      return missingSnapshots.length > 0
+        ? { ...current, ...Object.fromEntries(missingSnapshots) }
+        : current;
+    });
+  }, [decisions, participantId, session?.id]);
 
   useEffect(() => {
     if (currentStep !== 7 || !participantId) return;
@@ -868,10 +1019,21 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
       ? myResponses.find((item) => item.decision_id === decision.id)
       : null;
     const liveOption = decision?.options.find((option) => option.id === response?.option_id);
+    const snapshot = decision ? decisionOutcomeSnapshots[decision.id] : null;
+    if (snapshot) {
+      setCurrentConsequence(snapshot.consequence);
+      setCurrentDataImpact(snapshot.dataImpact);
+      setOutcomeTier(snapshot.tier);
+      setOutcomeReasoning(snapshot.outcomeReasoning);
+      return;
+    }
     if (liveOption?.consequence?.trim()) {
       setCurrentConsequence(liveOption.consequence);
     }
-  }, [currentStep, decisions, myResponses, showConsequence]);
+    if (liveOption) {
+      setOutcomeTier(optionScoreToTier(liveOption.score));
+    }
+  }, [currentStep, decisionOutcomeSnapshots, decisions, myResponses, showConsequence]);
 
   useEffect(() => {
     if (session?.simulation.mode !== "teams" || currentStep < 2 || currentStep > 4) return;
@@ -1203,7 +1365,8 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
         )
       : [];
     setCurrentDataImpact(calculatedImpact);
-    setOutcomeTier(optionScoreToTier(option?.score));
+    const selectedTier = optionScoreToTier(option?.score);
+    setOutcomeTier(selectedTier);
 
     // Wait for the scenario-specific result before showing the consequence.
     // This avoids briefly rendering a generic result and replacing it seconds later.
@@ -1223,21 +1386,38 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
         }),
       });
       const data = await response.json();
-      setCurrentConsequence(
+      const resolvedConsequence =
         option?.consequence?.trim() ||
-          data.consequence ||
-          "Your choice has been recorded. The consequences of your decision are outlined below.",
-      );
-      setOutcomeReasoning(data.outcomeReasoning || "");
-      if (Array.isArray(data.impacts) && data.impacts.length === 4) {
-        setCurrentDataImpact(data.impacts);
-      }
+          (typeof data.consequence === "string" ? data.consequence.trim() : "") ||
+          "Your choice has been recorded. The consequences of your decision are outlined below.";
+      const resolvedOutcomeReasoning =
+        typeof data.outcomeReasoning === "string" ? data.outcomeReasoning.trim() : "";
+      const resolvedImpact =
+        Array.isArray(data.impacts) && data.impacts.length === 4
+          ? (data.impacts as QualitativeImpact[])
+          : calculatedImpact;
+      const outcomeSnapshot: DecisionOutcomeSnapshot = {
+        consequence: resolvedConsequence,
+        outcomeReasoning: resolvedOutcomeReasoning,
+        dataImpact: resolvedImpact,
+        tier: selectedTier,
+      };
+      persistDecisionOutcome(decision.id, outcomeSnapshot);
+      setCurrentConsequence(resolvedConsequence);
+      setOutcomeReasoning(resolvedOutcomeReasoning);
+      setCurrentDataImpact(resolvedImpact);
       if (data.feedback) setAiJustificationFeedback(data.feedback);
     } catch {
-      setCurrentConsequence(
+      const resolvedConsequence =
         option?.consequence?.trim() ||
-          "Your choice has been recorded. The consequences of your decision are outlined below.",
-      );
+          "Your choice has been recorded. The consequences of your decision are outlined below.";
+      persistDecisionOutcome(decision.id, {
+        consequence: resolvedConsequence,
+        outcomeReasoning: "",
+        dataImpact: calculatedImpact,
+        tier: selectedTier,
+      });
+      setCurrentConsequence(resolvedConsequence);
     } finally {
       setShowConsequence(true);
       setSubmitting(false);
@@ -2223,7 +2403,7 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
                               style={{ backgroundColor: voteColors[index % voteColors.length] }}
                               aria-hidden
                             />
-                            Option {option.label}
+                            {option.label}. {option.title}
                           </span>
                         ))}
                       </div>
@@ -2257,6 +2437,13 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
                                     <p className={`break-words font-semibold ${isChosen ? "text-white" : "text-foreground"}`}>
                                       {option.label}. {option.title}
                                     </p>
+                                    <span
+                                      className={`text-xs font-medium tabular-nums ${
+                                        isChosen ? "text-white/85" : "text-muted-foreground"
+                                      }`}
+                                    >
+                                      {count} vote{count === 1 ? "" : "s"}
+                                    </span>
                                     {isChosen ? (
                                       <Badge className="border border-white/30 bg-[#f97316] px-2 py-0.5 text-[11px] font-semibold text-white hover:bg-[#f97316]">
                                         <Check className="mr-1 h-3 w-3" /> Your vote
@@ -2275,9 +2462,6 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
                                 style={{ width: `${pct}%` }}
                               />
                             </div>
-                            <p className={`ml-11 text-xs tabular-nums ${isChosen ? "text-white/80" : "text-muted-foreground"}`}>
-                              {count} vote{count === 1 ? "" : "s"}
-                            </p>
                           </div>
                         );
                       })}
@@ -2479,35 +2663,14 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
           <div className="mx-auto max-w-5xl space-y-4">
             <SimulationTopHeader
               decisionCount={decisions.length}
-              activeStage="results"
+              activeStage="completion"
               roleLabel={selectedRoleLabel}
             />
-            <nav
-              aria-label="Simulation progress"
-              className="flex flex-wrap items-center gap-x-2 gap-y-1 px-1 text-xs text-[#687280] dark:text-[#9ca3af]"
-            >
-              {[
-                "Background",
-                ...decisions.map((decision) => `Decision ${decision.order_num}`),
-                "Reflection",
-                "Complete",
-              ].map((stage, index, stages) => (
-                <span key={stage} className="flex items-center gap-2">
-                  <span
-                    className={stage === "Complete" ? "font-medium text-[#ea580c] dark:text-[#fb923c]" : undefined}
-                    aria-current={stage === "Complete" ? "step" : undefined}
-                  >
-                    {stage}
-                  </span>
-                  {index < stages.length - 1 ? <ChevronRight className="h-3 w-3 shrink-0" aria-hidden /> : null}
-                </span>
-              ))}
-            </nav>
             <div className="flex justify-start">
               <Button
                 type="button"
                 variant="outline"
-                className="min-h-11 w-full border-[#fed7aa] bg-white text-sm font-medium text-[#9a3412] hover:bg-[#fff7ed] hover:text-[#9a3412] dark:border-[#7c2d12] dark:bg-transparent dark:text-[#fdba74] dark:hover:bg-[#7c2d12]/30 sm:h-10 sm:w-auto"
+                className="min-h-11 w-full border-[#fed7aa] bg-white text-sm font-semibold text-[#9a3412] hover:bg-[#fff7ed] hover:text-[#9a3412] dark:border-[#7c2d12] dark:bg-transparent dark:text-[#fdba74] dark:hover:bg-[#7c2d12]/30 sm:h-10 sm:w-auto"
                 onClick={() => {
                   if (!session) return;
                   window.dispatchEvent(
@@ -2517,41 +2680,41 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
                 disabled={!canViewPodium}
               >
                 <Trophy className="h-4 w-4 text-[#ea580c] dark:text-[#fb923c]" aria-hidden />
-                View your rank
+                View Your Rank
               </Button>
             </div>
 
-            <section className="overflow-hidden rounded-2xl border border-[#f1f5f9] bg-white p-5 shadow-sm dark:border-[#1f2937] dark:bg-[#111827] sm:p-6">
-              <div className="flex flex-col gap-6 sm:flex-row sm:items-center sm:justify-between">
-                <div className="flex min-w-0 items-center gap-4 sm:gap-5">
-                  <div className="relative grid h-16 w-16 shrink-0 place-items-center rounded-2xl bg-[#fff7ed] dark:bg-[#7c2d12]/30 sm:h-20 sm:w-20">
-                    <span aria-hidden className="absolute -left-1 -top-2 text-sm text-[#f97316]">✦</span>
-                    <span aria-hidden className="absolute -right-1 top-0 text-xs text-[#fb923c]">•</span>
-                    <span aria-hidden className="absolute -bottom-1 right-0 text-xs text-[#ef5b6a]">✦</span>
-                    <Trophy className="h-9 w-9 text-[#ea580c] dark:text-[#fb923c] sm:h-11 sm:w-11" aria-hidden />
+            <section className="overflow-hidden rounded-2xl border border-[#f1f5f9] bg-white p-4 shadow-sm dark:border-[#1f2937] dark:bg-[#111827] sm:p-5">
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                <div className="flex min-w-0 items-center gap-3.5 sm:gap-4">
+                  <div className="relative grid h-20 w-20 shrink-0 place-items-center rounded-2xl bg-[#fff7ed] dark:bg-[#7c2d12]/30 sm:h-24 sm:w-24">
+                    <span aria-hidden className="absolute -left-1 -top-2 text-base text-[#f97316]">✦</span>
+                    <span aria-hidden className="absolute -right-1 top-0 text-sm text-[#fb923c]">•</span>
+                    <span aria-hidden className="absolute -bottom-1 right-0 text-sm text-[#ef5b6a]">✦</span>
+                    <Trophy className="h-12 w-12 text-[#ea580c] dark:text-[#fb923c] sm:h-14 sm:w-14" aria-hidden />
                   </div>
                   <div className="min-w-0">
-                    <h1 className="text-xl font-semibold tracking-[-0.02em] text-[#111827] dark:text-[#f9fafb]">
+                    <h1 className="text-2xl font-semibold tracking-[-0.025em] text-[#111827] dark:text-[#f9fafb] sm:text-3xl">
                       Simulation Complete! <span aria-hidden>🎉</span>
                     </h1>
-                    <p className="mt-1 text-sm text-[#6b7280] dark:text-[#9ca3af]">
+                    <p className="mt-0.5 text-sm text-[#6b7280] dark:text-[#9ca3af]">
                       Thank you for participating, {participantName || "student"}.
                     </p>
                   </div>
                 </div>
-                <div className="border-t border-[#f1f5f9] pt-5 sm:min-w-35 sm:border-l sm:border-t-0 sm:pl-6 sm:pt-0 dark:border-[#1f2937]">
+                <div className="border-t border-[#f1f5f9] pt-4 sm:min-w-40 sm:border-l sm:border-t-0 sm:pl-5 sm:pt-0 dark:border-[#1f2937]">
                   <div className="flex items-center gap-1.5 text-sm font-medium text-[#6b7280] dark:text-[#9ca3af]">
                     <BarChart3 className="h-4 w-4" aria-hidden />
                     Final rank
                   </div>
-                  <p className="mt-1 text-[28px] font-bold leading-8 text-[#ea580c] dark:text-[#fb923c]" aria-live="polite">
+                  <p className="mt-0.5 text-4xl font-bold leading-none text-[#ea580c] dark:text-[#fb923c] sm:text-[42px]" aria-live="polite">
                     {completionRankLoading && completionRank === null ? "—" : completionRank === null ? "—" : `#${completionRank}`}
                   </p>
                   <p className="mt-1 flex items-center gap-1.5 text-xs text-[#16a34a] dark:text-[#34d399]">
                     <span className="h-1.5 w-1.5 rounded-full bg-current" aria-hidden />
                     Updating in real time
                   </p>
-                  <div className="mt-4 border-t border-[#f1f5f9] pt-3 dark:border-[#1f2937]">
+                  <div className="mt-3 border-t border-[#f1f5f9] pt-2.5 dark:border-[#1f2937]">
                     <p className="text-xs font-medium text-[#6b7280] dark:text-[#9ca3af]">Final score</p>
                     <p className="mt-0.5 text-sm font-semibold text-[#111827] dark:text-[#f9fafb]">
                       {completionScore}
@@ -2561,7 +2724,7 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
                 </div>
               </div>
 
-              <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:justify-center">
+              <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:justify-center">
                 {canViewPodium && session ? (
                   <Button
                     type="button"
@@ -2593,46 +2756,47 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
               {decisions.map((decision, index) => {
                 const response = myResponses.find((item) => item.decision_id === decision.id);
                 const selectedOpt = decision.options.find((option) => option.id === response?.option_id);
-                const quality = decisionQualityFromScore(response?.score);
-                const explanation =
+                const snapshot = decisionOutcomeSnapshots[decision.id];
+                const tier = snapshot?.tier ?? optionScoreToTier(response?.score);
+                const tierStyle = OUTCOME_TIER_STYLES[tier];
+                const consequence =
+                  snapshot?.consequence ||
                   selectedOpt?.consequence?.trim() ||
-                  (quality === "strong"
-                    ? "Strong choice that aligns well with the scenario objectives."
-                    : quality === "partial"
-                      ? "This captures part of the answer but misses important tradeoffs."
-                      : "This choice overlooks key constraints in the scenario.");
+                  "The consequence for this decision is not available yet.";
+                const reasoning = snapshot?.outcomeReasoning || "";
+                const impacts = snapshot?.dataImpact ?? [];
                 const expanded = expandedDecisionIds.includes(decision.id);
                 const Icon = index === 0 ? BookOpen : index === 1 ? TrendingUp : Star;
-                const isGood = quality === "strong";
                 return (
                   <article key={decision.id} className="overflow-hidden rounded-xl border border-[#e5e7eb] bg-white dark:border-[#374151] dark:bg-[#111827]">
-                    <div className="flex items-center gap-3 p-3.5 sm:p-4">
+                    <div className="flex items-start gap-3 p-3.5 sm:p-4">
                       <span className="grid h-7 w-7 shrink-0 place-items-center rounded-full border border-[#fed7aa] text-sm font-semibold text-[#ea580c] dark:border-[#7c2d12] dark:text-[#fb923c]">
                         {index + 1}
                       </span>
-                      <span className={`grid h-9 w-9 shrink-0 place-items-center rounded-lg ${
-                        isGood ? "bg-[#dcfce7] text-[#16a34a] dark:bg-[#065f46]/35 dark:text-[#34d399]" : "bg-[#fee2e2] text-[#dc2626] dark:bg-[#7f1d1d]/35 dark:text-[#f87171]"
-                      }`}>
+                      <span className={`grid h-9 w-9 shrink-0 place-items-center rounded-lg ${COMPLETION_OUTCOME_ICON_STYLES[tier]}`}>
                         <Icon className="h-4 w-4" aria-hidden />
                       </span>
                       <div className="min-w-0 flex-1">
                         <p className="text-sm font-medium text-[#111827] dark:text-[#f9fafb]">Decision {index + 1}</p>
-                        <p className="break-words text-xs text-[#6b7280] dark:text-[#9ca3af]">
-                          {selectedOpt ? `${selectedOpt.label}. ${selectedOpt.title}` : "No response"}
+                        <p className="mt-0.5 break-words text-xs text-[#6b7280] dark:text-[#9ca3af]">
+                          {decision.prompt}
+                        </p>
+                        <p className="mt-1 break-words text-xs font-medium text-[#374151] dark:text-[#d1d5db]">
+                          {selectedOpt
+                            ? `You chose: ${selectedOpt.label}. ${selectedOpt.title}`
+                            : "No response"}
                         </p>
                       </div>
-                      <div className="flex items-center gap-2">
+                      <div className="flex shrink-0 items-center gap-2">
                         <div className="flex flex-col items-end gap-0.5">
                           <span className="text-[10px] font-medium uppercase tracking-wide text-[#6b7280] dark:text-[#9ca3af]">Outcome</span>
-                          <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${
-                            isGood ? "bg-[#dcfce7] text-[#166534] dark:bg-[#065f46]/35 dark:text-[#86efac]" : "bg-[#fee2e2] text-[#b91c1c] dark:bg-[#7f1d1d]/35 dark:text-[#fca5a5]"
-                          }`}>
-                            {decisionQualityLabel(quality)}
+                          <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${tierStyle.badge}`}>
+                            {tier} Outcome
                           </span>
                         </div>
                         <button
                           type="button"
-                          aria-label={`Show details for decision ${index + 1}`}
+                          aria-label={`${expanded ? "Hide" : "Show"} consequence details for decision ${index + 1}`}
                           aria-expanded={expanded}
                           onClick={() => setExpandedDecisionIds((current) =>
                             current.includes(decision.id)
@@ -2646,9 +2810,38 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
                       </div>
                     </div>
                     {expanded ? (
-                      <p className="border-t border-[#f1f5f9] px-4 py-3 text-sm leading-6 text-[#6b7280] dark:border-[#1f2937] dark:text-[#9ca3af]">
-                        {explanation}
-                      </p>
+                      <div className="space-y-3 border-t border-[#f1f5f9] px-4 py-3 text-sm leading-6 text-[#6b7280] dark:border-[#1f2937] dark:text-[#9ca3af]">
+                        <div>
+                          <p className="text-xs font-semibold uppercase tracking-wide text-[#374151] dark:text-[#d1d5db]">
+                            What happened next
+                          </p>
+                          <p className="mt-1 whitespace-pre-line">{consequence}</p>
+                        </div>
+                        {reasoning ? (
+                          <p className="rounded-lg bg-[#fff7ed] px-3 py-2 text-sm text-[#7c2d12] dark:bg-[#7c2d12]/25 dark:text-[#fdba74]">
+                            <span className="font-semibold">Why this outcome: </span>
+                            {reasoning}
+                          </p>
+                        ) : null}
+                        {impacts.length > 0 ? (
+                          <div className="grid gap-2 sm:grid-cols-2">
+                            {impacts.map((impact, impactIndex) => (
+                              <div
+                                key={`${impact.label}-${impactIndex}`}
+                                className="rounded-lg bg-[#f8fafc] px-3 py-2 text-xs leading-5 dark:bg-[#0f172a]"
+                              >
+                                <p className="font-semibold text-[#374151] dark:text-[#e5e7eb]">
+                                  {impact.label}
+                                </p>
+                                <p>{impact.description}</p>
+                                <p className="mt-0.5 text-[#6b7280] dark:text-[#9ca3af]">
+                                  {impact.reason}
+                                </p>
+                              </div>
+                            ))}
+                          </div>
+                        ) : null}
+                      </div>
                     ) : null}
                   </article>
                 );
@@ -2666,6 +2859,42 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
                 onDismiss={() => setFeedbackDismissed(true)}
               />
             ) : null}
+
+            <nav
+              aria-label="Completed simulation navigation"
+              className="flex flex-col-reverse gap-3 pb-[max(1rem,env(safe-area-inset-bottom))] sm:flex-row sm:items-center sm:justify-between"
+            >
+              <Button
+                type="button"
+                variant="outline"
+                aria-label="Return to Dashboard"
+                className="min-h-11 w-full border-[#fed7aa] bg-white font-medium text-[#9a3412] hover:bg-[#fff7ed] hover:text-[#9a3412] dark:border-[#7c2d12] dark:bg-transparent dark:text-[#fdba74] dark:hover:bg-[#7c2d12]/30 sm:w-auto"
+                disabled={completionNavigation !== null}
+                onClick={() => navigateAfterCompletion("dashboard")}
+              >
+                {completionNavigation === "dashboard" ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden />
+                ) : (
+                  <ArrowLeft className="mr-2 h-4 w-4" aria-hidden />
+                )}
+                Return to Dashboard
+              </Button>
+              <Button
+                type="button"
+                aria-label="Finish & Return Home"
+                className="min-h-11 w-full bg-[#ea580c] text-white hover:bg-[#c2410c] hover:text-white dark:bg-[#fb923c] dark:text-[#431407] dark:hover:bg-[#f97316] sm:w-auto"
+                disabled={completionNavigation !== null}
+                onClick={() => navigateAfterCompletion("home")}
+              >
+                {completionNavigation === "home" ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden />
+                ) : null}
+                Finish &amp; Return Home
+                {completionNavigation === "home" ? null : (
+                  <ArrowRight className="ml-2 h-4 w-4" aria-hidden />
+                )}
+              </Button>
+            </nav>
           </div>
         </div>
       </div>
