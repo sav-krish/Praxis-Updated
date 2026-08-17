@@ -448,9 +448,7 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
   const [completionRankOpen, setCompletionRankOpen] = useState(false);
   const [expandedDecisionIds, setExpandedDecisionIds] = useState<string[]>([]);
   const [feedbackDismissed, setFeedbackDismissed] = useState(false);
-  const [completionNavigation, setCompletionNavigation] = useState<
-    "dashboard" | "home" | null
-  >(null);
+  const [completionNavigation, setCompletionNavigation] = useState(false);
   const [aiJustificationFeedback, setAiJustificationFeedback] = useState<string | null>(null);
   const [selectedRoleLabel, setSelectedRoleLabel] = useState("Decision maker");
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -478,11 +476,11 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
     }
   };
 
-  const navigateAfterCompletion = (destination: "dashboard" | "home") => {
+  const navigateAfterCompletion = () => {
     if (completionNavigationRef.current) return;
     completionNavigationRef.current = true;
-    setCompletionNavigation(destination);
-    router.push(destination === "dashboard" ? "/dashboard" : "/");
+    setCompletionNavigation(true);
+    router.replace("/dashboard");
   };
 
   useEffect(() => {
@@ -2674,11 +2672,11 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
               activeStage="completion"
               roleLabel={selectedRoleLabel}
             />
-            <div className="flex justify-start">
+            <div className="flex w-full justify-start">
               <Button
                 type="button"
                 variant="outline"
-                className="min-h-11 w-full border-[#fed7aa] bg-white text-sm font-semibold text-[#9a3412] hover:bg-[#fff7ed] hover:text-[#9a3412] dark:border-[#7c2d12] dark:bg-transparent dark:text-[#fdba74] dark:hover:bg-[#7c2d12]/30 sm:h-10 sm:w-auto"
+                className="min-h-11 w-auto shrink-0 border-[#fed7aa] bg-white px-4 text-sm font-semibold text-[#9a3412] hover:bg-[#fff7ed] hover:text-[#9a3412] dark:border-[#7c2d12] dark:bg-transparent dark:text-[#fdba74] dark:hover:bg-[#7c2d12]/30 sm:h-10"
                 onClick={() => setCompletionRankOpen(true)}
                 disabled={!canViewPodium}
               >
@@ -2900,37 +2898,21 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
 
             <nav
               aria-label="Completed simulation navigation"
-              className="flex flex-col-reverse gap-3 pb-[max(1rem,env(safe-area-inset-bottom))] sm:flex-row sm:items-center sm:justify-between"
+              className="flex justify-start pb-[max(1rem,env(safe-area-inset-bottom))]"
             >
               <Button
                 type="button"
-                variant="outline"
-                aria-label="Return to Dashboard"
-                className="min-h-11 w-full border-[#fed7aa] bg-white font-medium text-[#9a3412] hover:bg-[#fff7ed] hover:text-[#9a3412] dark:border-[#7c2d12] dark:bg-transparent dark:text-[#fdba74] dark:hover:bg-[#7c2d12]/30 sm:w-auto"
-                disabled={completionNavigation !== null}
-                onClick={() => navigateAfterCompletion("dashboard")}
+                aria-label="Finish and Return Home"
+                className="min-h-11 w-full bg-[#ea580c] font-medium text-white hover:bg-[#c2410c] hover:text-white dark:bg-[#fb923c] dark:text-[#431407] dark:hover:bg-[#f97316] sm:w-auto"
+                disabled={completionNavigation}
+                onClick={navigateAfterCompletion}
               >
-                {completionNavigation === "dashboard" ? (
+                {completionNavigation ? (
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden />
                 ) : (
                   <ArrowLeft className="mr-2 h-4 w-4" aria-hidden />
                 )}
-                Return to Dashboard
-              </Button>
-              <Button
-                type="button"
-                aria-label="Finish & Return Home"
-                className="min-h-11 w-full bg-[#ea580c] text-white hover:bg-[#c2410c] hover:text-white dark:bg-[#fb923c] dark:text-[#431407] dark:hover:bg-[#f97316] sm:w-auto"
-                disabled={completionNavigation !== null}
-                onClick={() => navigateAfterCompletion("home")}
-              >
-                {completionNavigation === "home" ? (
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden />
-                ) : null}
-                Finish &amp; Return Home
-                {completionNavigation === "home" ? null : (
-                  <ArrowRight className="ml-2 h-4 w-4" aria-hidden />
-                )}
+                Finish and Return Home
               </Button>
             </nav>
           </div>
