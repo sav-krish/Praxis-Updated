@@ -447,6 +447,16 @@ export function LeaderboardOverlays({
           requestNumber === requestNumberRef.current
         ) {
           setPayload(nextPayload);
+          setRevealSnapshot((current) => {
+            if (!current) return current;
+            return nextPayload.settings.leaderboardEnabled
+              ? copyPayload(nextPayload)
+              : null;
+          });
+          if (!nextPayload.settings.leaderboardEnabled) {
+            setChipExpanded(false);
+            setRankUpdate(null);
+          }
         }
         return nextPayload;
       } catch {
@@ -572,25 +582,6 @@ export function LeaderboardOverlays({
       window.removeEventListener("praxis:view-podium", handleViewPodium);
     };
   }, [sessionId, showFinalPodium]);
-
-  useEffect(() => {
-    if (!payload) return;
-
-    setRevealSnapshot((current) => {
-      if (!current) return current;
-      if (!payload.settings.leaderboardEnabled) {
-        return null;
-      }
-      return copyPayload(payload);
-    });
-  }, [payload]);
-
-  useEffect(() => {
-    if (payload?.settings.leaderboardEnabled !== false) return;
-    setChipExpanded(false);
-    setRankUpdate(null);
-    setRevealSnapshot(null);
-  }, [payload?.settings.leaderboardEnabled]);
 
   useEffect(() => {
     if (!chipExpanded) return;
@@ -779,7 +770,7 @@ export function LeaderboardOverlays({
             {rankUpdate.snapshot.tieInfo?.tiedCount &&
             rankUpdate.snapshot.tieInfo.tiedCount > 0 ? (
               <span className="mt-2 block text-sm text-muted-foreground">
-                You're tied with{" "}
+                You&apos;re tied with{" "}
                 {rankUpdate.snapshot.tieInfo.tiedNames.length === 1
                   ? `${rankUpdate.snapshot.tieInfo.tiedNames[0]}`
                   : `${rankUpdate.snapshot.tieInfo.tiedNames.slice(0, -1).join(", ")} and ${rankUpdate.snapshot.tieInfo.tiedNames[rankUpdate.snapshot.tieInfo.tiedNames.length - 1]}`}

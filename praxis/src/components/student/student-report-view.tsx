@@ -3,9 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Separator } from "@/components/ui/separator";
 import { ArrowLeft, Trophy, Users, MessageSquare } from "lucide-react";
 import { FadeIn } from "@/components/landing/fade-in";
 import { APP_TILE_BACKGROUNDS } from "@/lib/app-tile-backgrounds";
@@ -22,12 +20,6 @@ type StudentReportViewProps = {
   attemptId: string;
   sessionId: string;
 };
-
-function qualityBadgeClass(quality: DecisionExplanation["quality"]): string {
-  if (quality === "strong") return "bg-primary text-primary-foreground";
-  if (quality === "partial") return "bg-secondary text-secondary-foreground";
-  return "bg-muted text-foreground";
-}
 
 export function StudentReportView({
   simulationTitle,

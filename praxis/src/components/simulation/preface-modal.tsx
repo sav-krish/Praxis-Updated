@@ -18,13 +18,10 @@ import {
   Medal,
   Meh,
   MessageCircleQuestion,
-  PartyPopper,
   Scale,
   Smile,
-  Sparkles,
   Star,
   Target,
-  TrendingUp,
   Trophy,
   UserRound,
   UsersRound,
@@ -234,7 +231,7 @@ export function SimulationEntryModal({
                   onChange={(event) => setSuppressFuture(event.target.checked)}
                   className="mt-0.5 h-5 w-5 shrink-0 rounded border-border accent-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
                 />
-                <span className="min-w-0">Don't ask me again for future simulations</span>
+                <span className="min-w-0">Don&apos;t ask me again for future simulations</span>
               </label>
 
               <p className="mt-4 text-sm text-muted-foreground sm:mt-5 sm:text-base">
@@ -308,7 +305,7 @@ function HowItWorksScreen({
         <h2 className="text-2xl font-bold text-foreground sm:text-3xl">How it works</h2>
       </div>
       <p className="mt-3 text-sm text-muted-foreground sm:text-base">
-        In this simulation, you'll go through 5 key stages.
+        In this simulation, you&apos;ll go through 5 key stages.
       </p>
 
       <ol className="mt-6 space-y-3">
@@ -453,7 +450,7 @@ function ConsequencesScreen({ showStepNumber = false }: { showStepNumber?: boole
           <Scale className="h-5 w-5" aria-hidden />
         </span>
         <span>
-          There's no single &ldquo;correct&rdquo; answer. Each option has
+          There&apos;s no single &ldquo;correct&rdquo; answer. Each option has
           trade-offs—some results may be stronger, while others are weaker.
         </span>
       </div>
@@ -466,7 +463,7 @@ function ConsequencesScreen({ showStepNumber = false }: { showStepNumber?: boole
           </span>
           <div>
             <h3 className="font-bold text-foreground">
-              What you'll see after each decision
+              What you&apos;ll see after each decision
             </h3>
             <p className="mt-1 text-sm text-muted-foreground">
               Several sub-results, labelled A–D, show different effects of your choice. These examples are illustrative only. Actual categories and ratings depend on the simulation and the option selected.
@@ -529,7 +526,7 @@ function VotesScreen({
         <h2 className="text-2xl font-bold text-foreground sm:text-3xl">{title}</h2>
       </div>
       <p className="mt-3 text-sm text-muted-foreground sm:text-base">
-        After each decision, you'll see anonymous votes from other participants.
+        After each decision, you&apos;ll see anonymous votes from other participants.
       </p>
 
       <section
@@ -777,7 +774,7 @@ function ReadyScreen({ onStart }: { onStart: () => void }) {
         </h2>
       </div>
       <p className="mt-3 max-w-2xl text-sm leading-relaxed text-muted-foreground sm:text-base">
-        You've learned the basics—now it's time to put your knowledge into action.
+        You&apos;ve learned the basics—now it&apos;s time to put your knowledge into action.
       </p>
 
       <div className="mt-7 grid items-stretch gap-5 md:grid-cols-2">

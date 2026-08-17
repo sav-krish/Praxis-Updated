@@ -339,7 +339,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
     if (s.status === "lobby") {
       const schedule = getSimulationSessionSchedule(simulation.preferences);
       const scheduledStart = schedule.start_at ? new Date(schedule.start_at).getTime() : null;
-      if (!scheduledStart || scheduledStart <= Date.now()) {
+      if (!scheduledStart || scheduledStart <= new Date().getTime()) {
         return acc;
       }
     }
