@@ -11,7 +11,6 @@ import {
   Clock,
   Loader2,
   Play,
-  Sparkles,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
@@ -34,7 +33,6 @@ import {
 } from "@/lib/simulation-card-layout";
 import {
   type StudentTrack,
-  STUDENT_TRACKS,
   studentDifficultyLabel,
 } from "@/lib/student/tracks";
 
@@ -234,13 +232,6 @@ export function StudentDashboardView({
   const selectedSubjectLabel =
     subjectAreas.find((subject) => subject.value === subjectFilter)?.label ?? null;
 
-  const groupedExplore = useMemo(() => {
-    return STUDENT_TRACKS.map((track) => ({
-      track,
-      simulations: filteredExplore.filter((item) => item.track.id === track.id),
-    })).filter((group) => group.simulations.length > 0);
-  }, [filteredExplore]);
-
   const startSimulation = async (
     simulationId: string,
     source: "classroom" | "explore",
@@ -418,57 +409,43 @@ export function StudentDashboardView({
             </div>
           </div>
 
-          {groupedExplore.length > 0 ? (
-            groupedExplore.map(({ track, simulations }) => (
-              <section key={track.id} className="space-y-4">
-                <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
-                  <div>
-                    <h2 className="flex items-center gap-2 text-lg font-semibold text-ink">
-                      <Sparkles className="h-4 w-4 text-primary" />
-                      {track.label}
-                    </h2>
-                    <p className="text-sm text-muted-text">{track.description}</p>
-                  </div>
-                  <Badge variant="outline" className="w-fit border-ink/15 bg-white/70 text-ink">
-                    {simulations.length} simulation{simulations.length === 1 ? "" : "s"}
-                  </Badge>
-                </div>
-                <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-                  {simulations.map((item) => {
-                    const completedAttemptId = item.completedAttemptId;
-                    const inProgressAttemptId = item.inProgressAttemptId;
-                    return (
-                      <StudentSimCard
-                        key={item.simulation.id}
-                        simulation={item.simulation}
-                        eyebrow={track.label}
-                        meta={
-                          completedAttemptId
-                            ? "Completed practice"
-                            : inProgressAttemptId
-                              ? "Practice in progress"
-                              : "Not started"
-                        }
-                        status={
-                          completedAttemptId
-                            ? "Completed"
-                            : inProgressAttemptId
-                              ? "In progress"
-                              : undefined
-                        }
-                        primaryLabel={inProgressAttemptId ? "Continue" : "Start"}
-                        reportHref={
-                          completedAttemptId ? `/student/reports/${completedAttemptId}` : undefined
-                        }
-                        reportDisabled={!completedAttemptId}
-                        onStart={() => startSimulation(item.simulation.id, "explore")}
-                        starting={startingKey === `${item.simulation.id}:explore`}
-                      />
-                    );
-                  })}
-                </div>
-              </section>
-            ))
+          {filteredExplore.length > 0 ? (
+            <section aria-label={`${selectedSubjectLabel ?? "Explore"} simulations`}>
+              <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+                {filteredExplore.map((item) => {
+                  const completedAttemptId = item.completedAttemptId;
+                  const inProgressAttemptId = item.inProgressAttemptId;
+                  return (
+                    <StudentSimCard
+                      key={item.simulation.id}
+                      simulation={item.simulation}
+                      eyebrow={topic(item.simulation)}
+                      meta={
+                        completedAttemptId
+                          ? "Completed practice"
+                          : inProgressAttemptId
+                            ? "Practice in progress"
+                            : "Not started"
+                      }
+                      status={
+                        completedAttemptId
+                          ? "Completed"
+                          : inProgressAttemptId
+                            ? "In progress"
+                            : undefined
+                      }
+                      primaryLabel={inProgressAttemptId ? "Continue" : "Start"}
+                      reportHref={
+                        completedAttemptId ? `/student/reports/${completedAttemptId}` : undefined
+                      }
+                      reportDisabled={!completedAttemptId}
+                      onStart={() => startSimulation(item.simulation.id, "explore")}
+                      starting={startingKey === `${item.simulation.id}:explore`}
+                    />
+                  );
+                })}
+              </div>
+            </section>
           ) : (
             <div className="rounded-2xl border border-dashed border-border bg-white/65 p-8 text-center">
               <CheckCircle2 className="mx-auto mb-3 h-8 w-8 text-muted-text" />
@@ -479,7 +456,7 @@ export function StudentDashboardView({
               </p>
               <p className="mt-1 text-sm text-muted-text">
                 {subjectFilter === "all"
-                  ? "Published library simulations will appear here by track."
+                  ? "Published library simulations will appear here."
                   : "Try another subject area to see more practice simulations."}
               </p>
             </div>

@@ -1531,13 +1531,13 @@ export function SimulationEditor({
                                   rows={2}
                                   disabled={!isOwner}
                                 />
-                                <p className="text-xs text-muted-foreground">
-                                  Saved edits are used in future sessions. Active sessions change
-                                  only after “Push Updates to Live Session.”
-                                </p>
                               </div>
                             </div>
                           ))}
+                          <p className="text-xs text-muted-foreground">
+                            Saved edits are used in future sessions. Active sessions change only
+                            after “Push Updates to Live Session.”
+                          </p>
                         </div>
                       </CardContent>
                     </CollapsibleContent>

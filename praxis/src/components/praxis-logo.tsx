@@ -19,22 +19,33 @@ export function PraxisLogo({
 }) {
   return (
     <span
+      role="img"
+      aria-label="Praxis"
       className={`relative inline-flex shrink-0 ${LOGO_SIZE_CLASSES[size]} ${className ?? ""}`}
     >
       <Image
         src="/new_praxis_logo.png"
-        alt="Praxis"
+        alt=""
         fill
         sizes="(min-width: 640px) 7rem, 6rem"
         className="object-contain dark:hidden"
         priority={priority}
       />
       <Image
-        src="/praxis-dark-logo.png"
+        src="/new_praxis_logo.png"
         alt=""
         fill
         sizes="(min-width: 640px) 7rem, 6rem"
-        className="hidden object-cover object-center mix-blend-screen dark:block"
+        className="hidden object-contain brightness-0 invert dark:block"
+        priority={priority}
+      />
+      <Image
+        src="/new_praxis_logo.png"
+        alt=""
+        fill
+        sizes="(min-width: 640px) 7rem, 6rem"
+        className="hidden object-contain dark:block"
+        style={{ clipPath: "inset(0 69% 0 0)" }}
         priority={priority}
       />
     </span>

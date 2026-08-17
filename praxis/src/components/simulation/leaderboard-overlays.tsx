@@ -315,7 +315,7 @@ function EndLeaderboardReveal({
           <div className="flex flex-wrap items-center justify-center gap-2 sm:justify-start">
             <DialogTitle className="flex items-center gap-2 text-2xl font-black sm:text-3xl">
               <Trophy className="h-6 w-6 text-primary sm:h-7 sm:w-7" aria-hidden />
-              Final leaderboard <span aria-hidden>🎉</span>
+              Final Leaderboard <span aria-hidden>🎉</span>
             </DialogTitle>
             <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-300 bg-emerald-50 px-2.5 py-1 text-xs font-bold tracking-wide text-emerald-700 dark:border-emerald-600 dark:bg-emerald-950/70 dark:text-emerald-300">
               <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" aria-hidden />

@@ -13,6 +13,13 @@ import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { 
   BookOpen, 
   Loader2, 
@@ -338,7 +345,7 @@ function SimulationTopHeader({
     : isReflection
       ? "Reflection"
       : activeStage === "background"
-        ? "Background"
+        ? `Decision 0 of ${normalizedDecisionCount}`
         : `Decision ${currentDecision} of ${normalizedDecisionCount}`;
 
   return (
@@ -438,6 +445,7 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
   const [completedReportId, setCompletedReportId] = useState<string | null>(null);
   const [completionRank, setCompletionRank] = useState<number | null>(null);
   const [completionRankLoading, setCompletionRankLoading] = useState(false);
+  const [completionRankOpen, setCompletionRankOpen] = useState(false);
   const [expandedDecisionIds, setExpandedDecisionIds] = useState<string[]>([]);
   const [feedbackDismissed, setFeedbackDismissed] = useState(false);
   const [completionNavigation, setCompletionNavigation] = useState<
@@ -2671,18 +2679,48 @@ export default function PlayPage({ params }: { params: Promise<{ code: string }>
                 type="button"
                 variant="outline"
                 className="min-h-11 w-full border-[#fed7aa] bg-white text-sm font-semibold text-[#9a3412] hover:bg-[#fff7ed] hover:text-[#9a3412] dark:border-[#7c2d12] dark:bg-transparent dark:text-[#fdba74] dark:hover:bg-[#7c2d12]/30 sm:h-10 sm:w-auto"
-                onClick={() => {
-                  if (!session) return;
-                  window.dispatchEvent(
-                    new CustomEvent("praxis:view-podium", { detail: { sessionId: session.id } }),
-                  );
-                }}
+                onClick={() => setCompletionRankOpen(true)}
                 disabled={!canViewPodium}
               >
                 <Trophy className="h-4 w-4 text-[#ea580c] dark:text-[#fb923c]" aria-hidden />
                 View Your Rank
               </Button>
             </div>
+
+            <Dialog open={completionRankOpen} onOpenChange={setCompletionRankOpen}>
+              <DialogContent className="w-[calc(100%-2rem)] max-w-sm rounded-2xl border-[#fed7aa] bg-white p-5 dark:border-[#374151] dark:bg-[#111827] sm:p-6">
+                <DialogHeader className="items-center text-center">
+                  <span className="grid h-14 w-14 place-items-center rounded-2xl bg-[#fff1e8] text-[#ea580c] dark:bg-[#7c2d12]/35 dark:text-[#fb923c]">
+                    <Trophy className="h-8 w-8" aria-hidden />
+                  </span>
+                  <DialogTitle className="pt-2 text-2xl text-[#111827] dark:text-[#f9fafb]">
+                    Your Final Rank
+                  </DialogTitle>
+                  <DialogDescription className="text-center text-[#6b7280] dark:text-[#9ca3af]">
+                    Your individual standing for this simulation.
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="rounded-xl bg-[#fff7ed] px-4 py-5 text-center dark:bg-[#7c2d12]/25">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-[#9a3412] dark:text-[#fdba74]">
+                    Final rank
+                  </p>
+                  <p className="mt-1 text-5xl font-bold tracking-tight text-[#ea580c] dark:text-[#fb923c]" aria-live="polite">
+                    {completionRankLoading && completionRank === null
+                      ? "…"
+                      : completionRank === null
+                        ? "—"
+                        : `#${completionRank}`}
+                  </p>
+                  <p className="mt-3 text-sm font-medium text-[#374151] dark:text-[#e5e7eb]">
+                    {completionScore}
+                    {completionScoreMax > 0 ? ` / ${completionScoreMax}` : ""} points
+                  </p>
+                </div>
+                <p className="text-center text-xs leading-5 text-[#6b7280] dark:text-[#9ca3af]">
+                  View Podium shows the class standings; this view only shows yours.
+                </p>
+              </DialogContent>
+            </Dialog>
 
             <section className="overflow-hidden rounded-2xl border border-[#f1f5f9] bg-white p-4 shadow-sm dark:border-[#1f2937] dark:bg-[#111827] sm:p-5">
               <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
