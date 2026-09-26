@@ -1,6 +1,14 @@
 /** Typical Supabase confirmation email delay users report (minutes). */
 export const EMAIL_VERIFICATION_WAIT_MINUTES = 5;
 
+/** Only allow a path on this app, never a protocol-relative or malformed URL. */
+export function safeAuthNextPath(path: string | null | undefined): string {
+  if (!path?.startsWith("/") || path.startsWith("//") || /[\\\u0000-\u0020]/.test(path)) {
+    return "/dashboard";
+  }
+  return path;
+}
+
 export function isLikelyUnverifiedLoginError(message: string): boolean {
   const lower = message.toLowerCase();
   return (

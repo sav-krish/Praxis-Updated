@@ -11,6 +11,8 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { PraxisLogo } from "@/components/praxis-logo";
+import { GoogleSignInButton } from "@/components/google-sign-in-button";
+import { safeAuthNextPath } from "@/lib/auth-utils";
 
 const CAREER_INTERESTS = [
   "Consulting",
@@ -28,7 +30,7 @@ function SignupForm() {
   const isStudent = roleParam === "student";
   const next = searchParams.get("next");
   const joinCode = searchParams.get("code");
-  const nextPath = next?.startsWith("/") ? next : "/dashboard";
+  const nextPath = safeAuthNextPath(next);
 
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
@@ -148,6 +150,9 @@ function SignupForm() {
         </CardHeader>
         <form onSubmit={handleSignup}>
           <CardContent className="space-y-4">
+            {isStudent && (
+              <GoogleSignInButton next={joinCode ? `/join?code=${encodeURIComponent(joinCode)}` : nextPath} disabled={loading} />
+            )}
             {isStudent ? (
               <>
                 <div className="grid grid-cols-2 gap-3">

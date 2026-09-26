@@ -11,6 +11,8 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { PraxisLogo } from "@/components/praxis-logo";
+import { GoogleSignInButton } from "@/components/google-sign-in-button";
+import { safeAuthNextPath } from "@/lib/auth-utils";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -19,7 +21,7 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const next = searchParams.get("next");
-  const nextPath = next?.startsWith("/") ? next : "/dashboard";
+  const nextPath = safeAuthNextPath(next);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -66,6 +68,15 @@ export default function LoginPage() {
         </CardHeader>
         <form onSubmit={handleLogin}>
           <CardContent className="space-y-4 pb-3">
+            {searchParams.get("error") === "google_sign_in_failed" && (
+              <p role="alert" className="text-sm text-destructive">
+                Google sign-in wasn&apos;t completed. Please try again or sign in with email.
+              </p>
+            )}
+            <GoogleSignInButton next={nextPath} disabled={loading} />
+            <p className="text-xs text-muted-foreground text-center">
+              New to Praxis? Google creates a student account to save your progress.
+            </p>
             <div className="space-y-2">
               <Label htmlFor="email">Email</Label>
               <Input

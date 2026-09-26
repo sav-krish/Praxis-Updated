@@ -784,7 +784,10 @@ $$ LANGUAGE plpgsql;
 CREATE OR REPLACE FUNCTION handle_new_user()
 RETURNS TRIGGER AS $$
 DECLARE
-  requested_role TEXT := COALESCE(NEW.raw_user_meta_data->>'role', 'professor');
+  requested_role TEXT := CASE
+    WHEN NEW.raw_app_meta_data->>'provider' = 'google' THEN 'student'
+    ELSE COALESCE(NEW.raw_user_meta_data->>'role', 'professor')
+  END;
   display_name TEXT := COALESCE(
     NEW.raw_user_meta_data->>'name',
     trim(concat_ws(' ', NEW.raw_user_meta_data->>'first_name', NEW.raw_user_meta_data->>'last_name'))
