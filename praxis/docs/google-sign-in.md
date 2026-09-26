@@ -62,10 +62,20 @@ Reference: https://supabase.com/docs/guides/auth/social-login/auth-google
   confirmed the Google-only default is installed. This is a shared database;
   existing accounts and email/password signup behavior were preserved.
 - Created Google Cloud project **Praxis Google Sign In**, project ID
-  `dotted-memory-509806-u5`. Registration is prepared for app name `Praxis`,
+  `dotted-memory-509806-u5`. Registration is complete for app name `Praxis`,
   external users, and contact/support `sav.krish01@gmail.com`.
-- Registration is paused at the Google API Services User Data Policy agreement,
-  awaiting explicit user confirmation. No OAuth client has been created yet.
+- Google consent registration is complete (confirmed in Google Cloud).
+  The Web application client form is prepared as `Praxis Secondary Web Sign In`
+  with redirect URI `https://jpypuxrndzpktaazbutp.supabase.co/auth/v1/callback`.
+  It has not been submitted. The user must create the client and enter/save its
+  credentials in Supabase under the browser credential-handoff rule.
+- Refreshed Supabase access and confirmed the Client IDs input is read-only
+  (`readOnly: true`). User authorization is granted, but the current Supabase
+  account still lacks the required owner/admin access.
+- After credentials are saved, add
+  `https://praxis-alpha-eight-beige.vercel.app/auth/callback` to the Supabase
+  redirect allowlist, check Google audience/publishing status, and test OAuth.
+  Keep nonce validation enabled and require provider email addresses.
 - The Supabase login `krishcodes11` can run SQL but cannot edit Authentication
   settings. An owner/admin must enable Google and add the secondary callback
   URL. The existing Site URL is `https://teach-together-bel4.vercel.app/`; keep it
