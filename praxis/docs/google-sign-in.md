@@ -75,3 +75,18 @@ Reference: https://supabase.com/docs/guides/auth/social-login/auth-google
 - Local lint, TypeScript, redirect tests, and the initial production build passed.
   Callback cancellation, invalid codes, and unsafe destinations were checked
   against the built server. Successful Google OAuth still needs live testing.
+
+## Deployment checkpoint
+
+- Secondary production deployment completed successfully:
+  `dpl_G4BoYox3tv2aZnCAZgFbR2rRtTui`.
+- Live sign-in: https://praxis-alpha-eight-beige.vercel.app/auth/login
+- Verified both Google and email/password controls on the live page. Clicking
+  Google displays the setup-pending message while the provider is disabled.
+- The deployed callback correctly rejects external return destinations.
+- Main production deployment remains `dpl_FK96RwDqJYo91P2GTjmoJsHGUtf9`.
+- Code saved in commit `5a5da73` on the feature branch above. This checkpoint
+  only changes documentation and does not require redeployment.
+- Vercel's dependency install reported 3 audit findings (2 high, 1 critical).
+  Dependencies were not changed by this feature; those findings need separate
+  investigation. Build, TypeScript, lint, and targeted redirect checks passed.
